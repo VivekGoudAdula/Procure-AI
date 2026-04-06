@@ -1,5 +1,5 @@
-# ProcureAI - Autonomous On-Chain Procurement Engine
-### **Elevating Global Trade through Agentic Intelligence & Algorand Finality**
+# ProcureAI - AI Agent Procurement Platform
+### **Find, Negotiate, and Pay Suppliers with AI on Algorand**
 
 [![Algorand TestNet](https://img.shields.io/badge/Blockchain-Algorand_TestNet-blue.svg)](https://testnet.explorer.perawallet.app/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
@@ -11,15 +11,15 @@
 ---
 
 ## 📖 Overview
-**ProcureAI** is a futuristic fintech platform that solves the friction of traditional procurement using **Autonomous AI Agents** and **On-Chain Smart Contracts**. 
+**ProcureAI** is an AI-powered platform that simplifies buying for businesses. 
 
-Small and Medium Enterprises (SMEs) often struggle with manual supplier sourcing, inefficient multi-round negotiations, and a lack of secure payment infrastructures. ProcureAI solves this by deploying specialized LLM-powered agents that source and negotiate deals in real-time, settling the final contract through an automated, trustless escrow system on the **Algorand Blockchain**.
+Our AI agents search for suppliers, negotiate prices automatically, and handle payments using secure escrow on the **Algorand Blockchain**. This reduces manual work and ensures you always get the best deal with zero risk.
 
 ---
 
 ## 🏗️ System Architecture
 
-ProcureAI uses a modular architecture that separates intelligence from settlement, ensuring high efficiency and zero-trust security.
+ProcureAI uses a simple but powerful setup:
 
 ```mermaid
 graph TD

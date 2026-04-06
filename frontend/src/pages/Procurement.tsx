@@ -33,6 +33,7 @@ import { toast } from 'sonner';
 // DEMO CONSTANTS
 const DEMO_VAULT_ADDRESS = "2RIRIX5XK6GWK7LOXDAYIDTN4IYDVNRDJFXR4TJCLYIM72A3EF2UQPROQY";
 const DEMO_TRANSACTION_AMOUNT = 0.1; // 0.1 ALGO for demo stability
+const API_BASE_URL = import.meta.env.VITE_API_URL || "http://localhost:8000";
 const algodClient = new algosdk.Algodv2('', 'https://testnet-api.algonode.network', '');
 
 
@@ -123,7 +124,7 @@ const Procurement = () => {
     setError(null);
 
     try {
-      const response = await axios.post('/api/select-supplier', {
+      const response = await axios.post(`${API_BASE_URL}/api/select-supplier`, {
         productName,
         quantity,
         budget
@@ -184,7 +185,7 @@ const Procurement = () => {
     try {
       // Ensure minimum 2s for first phase before API
       const [response] = await Promise.all([
-        axios.post('/api/create-escrow', {
+        axios.post(`${API_BASE_URL}/api/create-escrow`, {
           sender: walletAddress,
           receiver: DEMO_VAULT_ADDRESS,
           amount: DEMO_TRANSACTION_AMOUNT
@@ -256,7 +257,7 @@ const Procurement = () => {
 
       // 5. Update Backend Escrow status
       console.log('[ProcureAI] Confirming delivery on backend...');
-      await axios.post('/api/confirm-delivery', { transaction_id: txId });
+      await axios.post(`${API_BASE_URL}/api/confirm-delivery`, { transaction_id: txId });
 
       addTransaction({
         id: Date.now().toString(),
@@ -292,14 +293,14 @@ const Procurement = () => {
             className="flex items-center gap-2 mb-2"
           >
             <div className="w-2 h-2 rounded-full bg-primary animate-pulse" />
-            <span className="text-[10px] uppercase font-bold tracking-[0.2em] text-primary/70">Autonomous Protocol v2.4</span>
+            <span className="text-[10px] uppercase font-bold tracking-[0.2em] text-primary/70">AI Search & Negotiate</span>
           </motion.div>
           <h1 className="text-4xl font-display font-medium tracking-tight text-slate-900 leading-tight">Procurement</h1>
-          <p className="text-slate-500 max-w-lg font-medium text-sm leading-relaxed">Deploy specialized AI agents to autonomously source and settle deals on-chain.</p>
+          <p className="text-slate-500 max-w-lg font-medium text-sm leading-relaxed">Let AI agents find the best suppliers and handle your on-chain payments.</p>
         </div>
         <div className="flex items-center gap-2">
           <Badge variant="outline" className="bg-primary/5 text-primary border-primary/10 px-4 py-2 gap-2 uppercase tracking-widest text-[9px] font-black rounded-xl shadow-sm">
-            <div className="w-1.5 h-1.5 rounded-full bg-primary animate-ping" /> AI Agent Network
+            <div className="w-1.5 h-1.5 rounded-full bg-primary animate-ping" /> AI Network
           </Badge>
           <Badge variant="outline" className="bg-emerald-50 text-emerald-600 border-emerald-100 px-4 py-2 gap-2 uppercase tracking-widest text-[9px] font-black rounded-xl shadow-sm">
             <ShieldCheck className="w-3.5 h-3.5" /> On-chain Verified
@@ -326,8 +327,8 @@ const Procurement = () => {
                   <div className="absolute inset-0 bg-primary/5 animate-pulse rounded-2xl" />
                   <Layers className="text-primary w-7 h-7 relative z-10" />
                 </div>
-                <CardTitle className="text-2xl font-display font-bold text-slate-900 relative z-10 tracking-tight">Agent Configuration</CardTitle>
-                <CardDescription className="text-slate-500 text-xs font-medium max-w-[280px] mx-auto mt-1 relative z-10">Configure objective parameters and intelligence strategy for autonomous deployment.</CardDescription>
+                <CardTitle className="text-2xl font-display font-bold text-slate-900 relative z-10 tracking-tight">Order Details</CardTitle>
+                <CardDescription className="text-slate-500 text-xs font-medium max-w-[280px] mx-auto mt-1 relative z-10">Enter your requirements and our AI will find and negotiate the best deal for you.</CardDescription>
               </CardHeader>
 
               <CardContent className="p-8 relative">
@@ -336,8 +337,8 @@ const Procurement = () => {
                   <div className="space-y-8">
                     <div className="space-y-3">
                       <div className="flex justify-between items-center px-1">
-                        <label className="text-[10px] font-black text-slate-400 uppercase tracking-[0.15em]">Objective Requirement</label>
-                        <Badge variant="outline" className="text-[8px] font-black uppercase text-primary/60 border-primary/20 bg-primary/5">CRITICAL TASK</Badge>
+                        <label className="text-[10px] font-black text-slate-400 uppercase tracking-[0.15em]">What do you need?</label>
+                        <Badge variant="outline" className="text-[8px] font-black uppercase text-primary/60 border-primary/20 bg-primary/5">REQUIRED</Badge>
                       </div>
                       <div className="relative group">
                         <div className="absolute inset-y-0 left-4 flex items-center pointer-events-none">
@@ -347,7 +348,7 @@ const Procurement = () => {
                           type="text"
                           required
                           className="h-16 pl-12 bg-white/50 backdrop-blur-sm border-slate-200 rounded-2xl focus:border-primary/50 focus:ring-4 focus:ring-primary/5 transition-all text-lg font-medium shadow-sm group-hover:bg-white"
-                          placeholder="Search global markets (e.g. 50x A100 GPU Clusters)"
+                          placeholder="e.g. 50x Industrial Motors"
                           value={productName}
                           onChange={(e) => setProductName(e.target.value)}
                         />
@@ -372,7 +373,7 @@ const Procurement = () => {
                         </div>
                       </div>
                       <div className="space-y-3">
-                        <label className="text-[10px] font-black text-slate-400 uppercase tracking-[0.15em] pl-1">Target Budget ($)</label>
+                        <label className="text-[10px] font-black text-slate-400 uppercase tracking-[0.15em] pl-1">Max Budget ($)</label>
                         <div className="relative group">
                           <div className="absolute inset-y-0 left-4 flex items-center pointer-events-none">
                             <DollarSign className="w-5 h-5 text-slate-400 group-focus-within:text-primary transition-colors" />
@@ -413,7 +414,7 @@ const Procurement = () => {
                       {isSearching ? (
                         <>
                           <Loader2 className="w-6 h-6 animate-spin mr-3" />
-                          Deploying Intelligence Node...
+                          Deploying AI Agent...
                         </>
                       ) : (
                         <>
@@ -480,14 +481,14 @@ const Procurement = () => {
                 </motion.div>
               </div>
 
-              <h2 className="text-2xl font-display font-semibold mb-2 text-white tracking-tight relative z-10">AI Agent Processing</h2>
+              <h2 className="text-2xl font-display font-semibold mb-2 text-white tracking-tight relative z-10">AI Negotiation in Progress</h2>
               <p className="text-slate-400 max-w-md font-medium text-xs leading-relaxed relative z-10">
                 Deploying autonomous agent to contact global suppliers, run multi-variable analysis, and negotiate the best contract terms.
               </p>
 
               {/* Animated step pills */}
               <div className="flex items-center gap-3 mt-8 relative z-10 flex-wrap justify-center">
-                {['Scanning Database', 'Contacting Suppliers', 'Negotiating Terms', 'Selecting Winner'].map((label, i) => (
+                {['Searching Suppliers', 'Comparing Prices', 'Negotiating', 'Finishing'].map((label, i) => (
                   <motion.div
                     key={label}
                     initial={{ opacity: 0, y: 8 }}
@@ -662,8 +663,8 @@ const Procurement = () => {
                         <MessageSquare className="text-primary w-4 h-4" />
                       </div>
                       <div>
-                        <p className="font-bold text-slate-900 text-sm">Negotiation Logs</p>
-                        <p className="text-[10px] uppercase tracking-widest text-slate-400 font-bold">Real-time AI-to-Supplier Dialogue</p>
+                        <p className="font-bold text-slate-900 text-sm">Negotiation History</p>
+                        <p className="text-[10px] uppercase tracking-widest text-slate-400 font-bold">Live conversation with suppliers</p>
                       </div>
                     </div>
                     <div className="flex items-center gap-1.5 px-3 py-1 rounded-full bg-emerald-50 border border-emerald-100">

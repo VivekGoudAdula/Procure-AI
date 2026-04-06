@@ -13,9 +13,17 @@ from blockchain import create_transaction, simulate_escrow
 app = FastAPI(title="ProcureAI Backend - Autonomous Agentic Commerce Platform")
 
 # CORS setup for frontend connection
+origins = [
+    "http://localhost:5173",
+    "http://localhost:3000",
+    "http://127.0.0.1:5173",
+    "http://127.0.0.1:3000",
+    "https://procureai-algobharat.vercel.app",
+]
+
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"], # In production, restrict this to your frontend URL
+    allow_origins=origins,
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
