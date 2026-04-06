@@ -1,0 +1,35 @@
+node_modules/
+build/
+dist/
+coverage/
+.DS_Store
+*.log
+.env*
+!.env.example
+
+# Frontend
+.vercel
+.next
+package-lock.json
+yarn.lock
+pnpm-lock.yaml
+
+# Backend
+__pycache__/
+*.py[cod]
+*$py.class
+venv/
+.venv/
+env/
+.env/
+db.sqlite3
+database.json.bak
+*.teal
+!escrow_approval.teal
+!escrow_clear.teal
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo

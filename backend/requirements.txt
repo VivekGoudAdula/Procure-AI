@@ -1,0 +1,7 @@
+fastapi
+uvicorn
+py-algorand-sdk
+pydantic
+groq
+python-dotenv
+pyteal
