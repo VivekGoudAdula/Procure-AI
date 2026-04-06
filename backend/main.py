@@ -57,7 +57,20 @@ class EscrowRequest(BaseModel):
 class ConfirmDeliveryRequest(BaseModel):
     transaction_id: str
 
-escrow_db = {}
+ESCROW_DB_PATH = os.path.join(os.path.dirname(__file__), "escrow_records.json")
+
+def load_escrow_db():
+    if not os.path.exists(ESCROW_DB_PATH):
+        return {}
+    try:
+        with open(ESCROW_DB_PATH, "r") as f:
+            return json.load(f)
+    except:
+        return {}
+
+def save_escrow_db(data):
+    with open(ESCROW_DB_PATH, "w") as f:
+        json.dump(data, f, indent=4)
 
 # --- Endpoints ---
 
@@ -95,7 +108,7 @@ async def select_supplier_api(req: SupplierRequest):
             "name": result["selected_supplier"]["name"],
             "finalPrice": result["final_price"],
             "reasoning": result["reasoning"],
-            "wallet_address": result["selected_supplier"].get("wallet_address", "GD6477M6GCOY6SJYV6G57H7W6RQF2XG6NIU7D4O4ZX7L3V47V4K6A2PZ")
+            "wallet_address": result["selected_supplier"].get("address", "2RIRIX5XK6GWK7LOXDAYIDTN4IYDVNRDJFXR4TJCLYIM72A3EF2UQPROQY")
         }
     }
 
@@ -127,20 +140,27 @@ async def create_escrow(req: EscrowRequest):
         "status": "locked",
         "timestamp": time.time()
     }
-    escrow_db[tx_id] = escrow_record
+    
+    db = load_escrow_db()
+    db[tx_id] = escrow_record
+    save_escrow_db(db)
+    
     return escrow_record
 
 @app.post("/api/confirm-delivery")
 async def confirm_delivery(req: ConfirmDeliveryRequest):
-    tx = escrow_db.get(req.transaction_id)
+    db = load_escrow_db()
+    tx = db.get(req.transaction_id)
     if not tx:
-        raise HTTPException(status_code=404, detail="Transaction not found")
+        raise HTTPException(status_code=404, detail="Transaction not found in record storage")
     tx["status"] = "released"
+    save_escrow_db(db)
     return tx
 
 @app.get("/api/get-transaction/{tx_id}")
 async def get_transaction(tx_id: str):
-    tx = escrow_db.get(tx_id)
+    db = load_escrow_db()
+    tx = db.get(tx_id)
     if not tx:
         raise HTTPException(status_code=404, detail="Transaction not found")
     return tx

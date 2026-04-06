@@ -2,12 +2,12 @@ import React, { useState, useEffect, useRef } from 'react';
 import axios from 'axios';
 import { peraWallet } from '../lib/pera';
 import * as algosdk from 'algosdk';
-import { 
-  Search, 
-  Cpu, 
-  MessageSquare, 
-  CheckCircle2, 
-  Wallet, 
+import {
+  Search,
+  Cpu,
+  MessageSquare,
+  CheckCircle2,
+  Wallet,
   Loader2,
   AlertCircle,
   ArrowRight,
@@ -31,9 +31,9 @@ import { Input } from '../components/ui/input';
 import { toast } from 'sonner';
 
 // DEMO CONSTANTS
-const DEMO_VAULT_ADDRESS = "GD6477M6GCOY6SJYV6G57H7W6RQF2XG6NIU7D4O4ZX7L3V47V4K6A2PZ";
+const DEMO_VAULT_ADDRESS = "2RIRIX5XK6GWK7LOXDAYIDTN4IYDVNRDJFXR4TJCLYIM72A3EF2UQPROQY";
 const DEMO_TRANSACTION_AMOUNT = 0.1; // 0.1 ALGO for demo stability
-const algodClient = new algosdk.Algodv2('', 'https://testnet-api.algonode.cloud', '');
+const algodClient = new algosdk.Algodv2('', 'https://testnet-api.algonode.network', '');
 
 
 interface Supplier {
@@ -62,21 +62,43 @@ interface ProcurementResult {
 
 const Procurement = () => {
   const { addTransaction, walletAddress, setWalletAddress } = useApp();
-  
+
   // Form State
   const [productName, setProductName] = useState('');
   const [quantity, setQuantity] = useState(1);
   const [budget, setBudget] = useState(1000);
-  
+
+  // State Persistence Logic ( survives page reloads )
+  const [step, setStep] = useState<'form' | 'negotiating' | 'result' | 'escrow_locked' | 'payment'>(() => {
+    return (sessionStorage.getItem('procureai_step') as any) || 'form';
+  });
+  const [result, setResult] = useState<ProcurementResult | null>(() => {
+    const saved = sessionStorage.getItem('procureai_result');
+    return saved ? JSON.parse(saved) : null;
+  });
+  const [txId, setTxId] = useState<string | null>(() => {
+    return sessionStorage.getItem('procureai_txid');
+  });
+
   // UI State
   const [isSearching, setIsSearching] = useState(false);
-  const [result, setResult] = useState<ProcurementResult | null>(null);
-  const [step, setStep] = useState<'form' | 'negotiating' | 'result' | 'escrow_locked' | 'payment'>('form');
   const [isExecuting, setIsExecuting] = useState(false);
   const [isConfirming, setIsConfirming] = useState(false);
-  const [txId, setTxId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [paymentPhase, setPaymentPhase] = useState(0);
+
+  // Sync state to session storage
+  useEffect(() => {
+    sessionStorage.setItem('procureai_step', step);
+    if (result) sessionStorage.setItem('procureai_result', JSON.stringify(result));
+    if (txId) sessionStorage.setItem('procureai_txid', txId);
+    
+    // Clear session if we go back to form
+    if (step === 'form') {
+      sessionStorage.removeItem('procureai_result');
+      sessionStorage.removeItem('procureai_txid');
+    }
+  }, [step, result, txId]);
 
   const logsEndRef = useRef<HTMLDivElement>(null);
 
@@ -106,10 +128,10 @@ const Procurement = () => {
         quantity,
         budget
       });
-      
+
       // Wait for at least 5 seconds for the animation to play out
       await new Promise(res => setTimeout(res, 5000));
-      
+
       // Use the backend response directly as mapped in main.py
       const data = response.data;
       const normalizedResult = {
@@ -117,7 +139,7 @@ const Procurement = () => {
         selectedSupplier: data.selectedSupplier,
         negotiationLogs: data.negotiationLogs
       };
-      
+
       setResult(normalizedResult);
       setStep('result');
       toast.success('Agent found the best supplier and negotiated a deal!');
@@ -144,7 +166,7 @@ const Procurement = () => {
 
   const handleExecuteDeal = async () => {
     if (!walletAddress || !result) return;
-    
+
     setIsExecuting(true);
     setPaymentPhase(0);
     setError(null);
@@ -169,10 +191,10 @@ const Procurement = () => {
         }),
         new Promise(res => setTimeout(res, 2000))
       ]);
-      
+
       // Let remaining phases play out (up to 6 more seconds)
       await new Promise(res => setTimeout(res, 6000));
-      
+
       clearInterval(phaseInterval);
       setTxId((response as any).data.transaction_id);
       setStep('escrow_locked');
@@ -245,14 +267,15 @@ const Procurement = () => {
         date: new Date().toISOString().split('T')[0]
       });
 
+      setTxId(realTxId); // Update local state to the actual blockchain hash for the final screen
       setStep('payment');
       toast.success('Funds successfully released to supplier!');
     } catch (err: any) {
       console.error('[ProcureAI] Confirm Delivery Error:', err);
       if (err.message && err.message.includes('user rejected')) {
-         toast.error('Signature rejected by user.');
+        toast.error('Signature rejected by user.');
       } else {
-         toast.error('Failed to confirm delivery and authorize funds. Check console for details.');
+        toast.error('Failed to confirm delivery and authorize funds. Check console for details.');
       }
     } finally {
       setIsConfirming(false);
@@ -263,7 +286,7 @@ const Procurement = () => {
     <div className="space-y-8 pt-8 pb-12">
       <div className="flex flex-col md:flex-row md:items-end justify-between gap-6 px-1">
         <div className="space-y-1">
-          <motion.div 
+          <motion.div
             initial={{ opacity: 0, x: -20 }}
             animate={{ opacity: 1, x: 0 }}
             className="flex items-center gap-2 mb-2"
@@ -286,7 +309,7 @@ const Procurement = () => {
 
       <AnimatePresence mode="wait">
         {step === 'form' && (
-          <motion.div 
+          <motion.div
             key="form"
             initial={{ opacity: 0, scale: 0.95 }}
             animate={{ opacity: 1, scale: 1 }}
@@ -296,7 +319,7 @@ const Procurement = () => {
             <Card className="glass-card border-slate-200 overflow-hidden shadow-2xl relative shadow-slate-200/50">
               {/* Decorative scan element */}
               <div className="absolute top-0 left-0 w-full h-[1px] bg-gradient-to-r from-transparent via-primary/50 to-transparent z-10" />
-              
+
               <CardHeader className="text-center pb-6 pt-8 bg-slate-50/30 border-b border-slate-100/50 relative overflow-hidden">
                 <div className="absolute inset-0 bg-[url('https://www.transparenttextures.com/patterns/blueprint.png')] opacity-[0.03]" />
                 <div className="w-14 h-14 bg-white border border-slate-200 rounded-2xl flex items-center justify-center mx-auto mb-4' shadow-xl relative z-10 group-hover:scale-105 transition-transform">
@@ -306,7 +329,7 @@ const Procurement = () => {
                 <CardTitle className="text-2xl font-display font-bold text-slate-900 relative z-10 tracking-tight">Agent Configuration</CardTitle>
                 <CardDescription className="text-slate-500 text-xs font-medium max-w-[280px] mx-auto mt-1 relative z-10">Configure objective parameters and intelligence strategy for autonomous deployment.</CardDescription>
               </CardHeader>
-              
+
               <CardContent className="p-8 relative">
                 <div className="absolute inset-0 bg-gradient-to-b from-transparent to-slate-50/50 -z-10" />
                 <form onSubmit={handleFindSupplier} className="space-y-8">
@@ -330,7 +353,7 @@ const Procurement = () => {
                         />
                       </div>
                     </div>
-                    
+
                     <div className="grid grid-cols-2 gap-8">
                       <div className="space-y-3">
                         <label className="text-[10px] font-black text-slate-400 uppercase tracking-[0.15em] pl-1">Batch Quantity</label>
@@ -366,9 +389,9 @@ const Procurement = () => {
                       </div>
                     </div>
                   </div>
-                  
+
                   {error && (
-                    <motion.div 
+                    <motion.div
                       initial={{ opacity: 0, height: 0 }}
                       animate={{ opacity: 1, height: 'auto' }}
                       className="p-4 bg-rose-50 border border-rose-100 rounded-2xl flex items-center gap-3 text-rose-600 text-sm font-bold shadow-sm"
@@ -386,7 +409,7 @@ const Procurement = () => {
                     >
                       {/* Decorative gradient for button */}
                       <div className="absolute inset-0 bg-gradient-to-r from-primary/20 via-transparent to-primary/20 opacity-0 group-hover:opacity-100 transition-opacity" />
-                      
+
                       {isSearching ? (
                         <>
                           <Loader2 className="w-6 h-6 animate-spin mr-3" />
@@ -587,7 +610,7 @@ const Procurement = () => {
               {/* Center: pricing */}
               <div className="flex flex-col items-center justify-center relative z-10 px-4">
                 <p className="text-[10px] font-bold text-white/40 uppercase tracking-widest mb-1">Negotiated Price</p>
-                <p className="text-5xl font-display font-bold text-white tracking-tight">${result.selectedSupplier.finalPrice.toLocaleString(undefined, {minimumFractionDigits: 2})}</p>
+                <p className="text-5xl font-display font-bold text-white tracking-tight">${result.selectedSupplier.finalPrice.toLocaleString(undefined, { minimumFractionDigits: 2 })}</p>
                 <Badge className="bg-emerald-500/20 text-emerald-400 border-emerald-500/30 mt-2 font-bold text-[10px] tracking-widest uppercase">Best Deal Found</Badge>
               </div>
 
@@ -612,9 +635,9 @@ const Procurement = () => {
                 </div>
                 <div className="flex items-center gap-3 transition-opacity hover:opacity-80">
                   <div className="w-8 h-8 rounded-lg bg-white/5 flex items-center justify-center"><ArrowRight className="w-4 h-4 text-primary rotate-[-45deg]" /></div>
-                  <a 
-                    href="https://testnet.explorer.perawallet.app/" 
-                    target="_blank" 
+                  <a
+                    href="https://testnet.explorer.perawallet.app/"
+                    target="_blank"
                     rel="noopener noreferrer"
                     className="cursor-pointer"
                   >
@@ -699,7 +722,7 @@ const Procurement = () => {
                       >
                         <div className="bg-white border border-slate-100 rounded-2xl p-4 hover:border-slate-200 hover:shadow-md transition-all group cursor-pointer">
                           <p className="font-bold text-slate-800 text-sm group-hover:text-primary transition-colors leading-tight mb-2 truncate">{s.name}</p>
-                          <p className="text-2xl font-display font-bold text-slate-900 mb-3">${s.price.toLocaleString(undefined, {minimumFractionDigits: 0})}</p>
+                          <p className="text-2xl font-display font-bold text-slate-900 mb-3">${s.price.toLocaleString(undefined, { minimumFractionDigits: 0 })}</p>
                           <div className="flex flex-col gap-1">
                             <div className="flex items-center justify-between text-[10px] text-slate-400 font-bold">
                               <span>Rating</span><span className="text-slate-600">{s.rating.toFixed(1)}/5</span>
@@ -736,7 +759,7 @@ const Procurement = () => {
                       <div className="flex items-center justify-between">
                         <div>
                           <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1">Final Negotiated Price</p>
-                          <p className="text-4xl font-display font-bold text-slate-900 tracking-tight">${result.selectedSupplier.finalPrice.toLocaleString(undefined, {minimumFractionDigits: 2})}</p>
+                          <p className="text-4xl font-display font-bold text-slate-900 tracking-tight">${result.selectedSupplier.finalPrice.toLocaleString(undefined, { minimumFractionDigits: 2 })}</p>
                         </div>
                         <div className="w-14 h-14 bg-emerald-50 rounded-2xl flex items-center justify-center">
                           <CheckCircle2 className="text-emerald-500 w-7 h-7" />
@@ -780,7 +803,7 @@ const Procurement = () => {
                             <AlertCircle className="w-3.5 h-3.5 text-amber-600 shrink-0 mt-0.5" />
                             <p className="text-[10px] text-amber-700 font-medium leading-relaxed">
                               <span className="font-bold">TestNet Mode — </span>
-                              Real Algorand transaction using {DEMO_TRANSACTION_AMOUNT} ALGO on TestNet.
+                              Algorand transaction using {DEMO_TRANSACTION_AMOUNT} ALGOS on TestNet.
                             </p>
                           </div>
 
@@ -821,7 +844,7 @@ const Procurement = () => {
         )}
 
         {step === 'escrow_locked' && (
-          <motion.div 
+          <motion.div
             key="escrow_locked"
             initial={{ opacity: 0, scale: 0.95 }}
             animate={{ opacity: 1, scale: 1 }}
@@ -830,7 +853,7 @@ const Procurement = () => {
             <Card className="bg-white border-slate-100 overflow-hidden shadow-[0_8px_30px_rgb(0,0,0,0.08)] rounded-[2rem] p-0">
               <div className="bg-[#0A2540] pt-10 pb-8 px-8 text-center text-white relative">
                 <div className="absolute inset-0 bg-[url('https://www.transparenttextures.com/patterns/cubes.png')] opacity-30 mix-blend-overlay" />
-                <motion.div 
+                <motion.div
                   initial={{ scale: 0 }}
                   animate={{ scale: 1 }}
                   transition={{ type: "spring", damping: 12 }}
@@ -845,7 +868,7 @@ const Procurement = () => {
                 <Badge className="bg-amber-500/20 text-amber-400 border-amber-500/30 mb-4 font-bold tracking-widest px-4 py-1 uppercase text-[10px]">Escrow Active</Badge>
                 <p className="text-slate-300 max-w-sm mx-auto font-medium text-xs leading-relaxed">Funds secured via smart contract. Awaiting delivery confirmation to release payment to <span className="text-white font-bold">{result?.selectedSupplier.name}</span>.</p>
               </div>
-              
+
               <CardContent className="p-8 space-y-8">
                 <div className="bg-slate-50/50 rounded-2xl border border-slate-100 p-6 space-y-4">
                   <div className="flex justify-between items-center text-sm">
@@ -854,13 +877,13 @@ const Procurement = () => {
                   </div>
                   <div className="flex justify-between items-center text-sm">
                     <span className="text-slate-500 font-bold tracking-wide">Amount Secured</span>
-                    <span className="text-amber-600 font-bold text-base">${result?.selectedSupplier.finalPrice.toLocaleString(undefined, {minimumFractionDigits: 2})}</span>
+                    <span className="text-amber-600 font-bold text-base">${result?.selectedSupplier.finalPrice.toLocaleString(undefined, { minimumFractionDigits: 2 })}</span>
                   </div>
                   <div className="flex justify-between items-center text-sm pt-4 border-t border-dashed border-slate-200">
                     <span className="text-slate-500 font-bold tracking-wide">Escrow Record ID</span>
-                    <a 
-                      href={`https://testnet.explorer.perawallet.app/tx/${txId}`} 
-                      target="_blank" 
+                    <a
+                      href={`https://testnet.explorer.perawallet.app/tx/${txId}`}
+                      target="_blank"
                       rel="noopener noreferrer"
                       className="flex items-center gap-1.5 cursor-pointer group hover:opacity-80 transition-opacity"
                     >
@@ -869,7 +892,7 @@ const Procurement = () => {
                     </a>
                   </div>
                 </div>
-                
+
                 <Button
                   onClick={handleConfirmDelivery}
                   disabled={isConfirming}
@@ -884,7 +907,7 @@ const Procurement = () => {
         )}
 
         {step === 'payment' && (
-          <motion.div 
+          <motion.div
             key="payment"
             initial={{ opacity: 0, scale: 0.95 }}
             animate={{ opacity: 1, scale: 1 }}
@@ -893,7 +916,7 @@ const Procurement = () => {
             <Card className="glass-card border-emerald-100 overflow-hidden shadow-xl shadow-emerald-100/50 p-0">
               <div className="bg-gradient-to-br from-emerald-500 to-teal-600 p-10 text-center text-white relative">
                 <div className="absolute inset-0 bg-[url('https://www.transparenttextures.com/patterns/carbon-fibre.png')] opacity-10" />
-                <motion.div 
+                <motion.div
                   initial={{ scale: 0 }}
                   animate={{ scale: 1 }}
                   transition={{ type: "spring", damping: 12 }}
@@ -905,7 +928,7 @@ const Procurement = () => {
                 <Badge className="bg-white/20 text-white border-white/30 mb-3 hover:bg-white/20">Completed</Badge>
                 <p className="text-emerald-50/80 max-w-sm mx-auto font-medium text-xs">Funds successfully released to supplier. The autonomous procurement cycle is entirely complete and settled on-chain.</p>
               </div>
-              
+
               <CardContent className="p-8 space-y-6">
                 <div className="grid grid-cols-2 gap-6">
                   <div className="space-y-1">
@@ -917,10 +940,10 @@ const Procurement = () => {
                     <span className="text-lg font-bold text-emerald-600">${result?.selectedSupplier.finalPrice.toLocaleString()}</span>
                   </div>
                   <div className="col-span-2 space-y-2">
-                    <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest block">Blockchain Transaction ID</span>
-                    <a 
-                      href={`https://testnet.explorer.perawallet.app/tx/${txId}`} 
-                      target="_blank" 
+                    <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest block">Blockchain Transaction Hash</span>
+                    <a
+                      href={`https://testnet.explorer.perawallet.app/tx/${txId}`}
+                      target="_blank"
                       rel="noopener noreferrer"
                       className="flex items-center gap-2 p-3 bg-slate-50 rounded-xl border border-slate-100 group hover:border-primary/30 transition-all"
                     >
@@ -931,7 +954,7 @@ const Procurement = () => {
                     </a>
                   </div>
                 </div>
-                
+
                 <div className="flex flex-col sm:flex-row gap-4 pt-4">
                   <Button
                     onClick={() => setStep('form')}
@@ -998,9 +1021,8 @@ const Procurement = () => {
                     <motion.div
                       animate={{ scale: [0.95, 1.05, 0.95] }}
                       transition={{ repeat: Infinity, duration: 1.5, ease: "easeInOut" }}
-                      className={`w-14 h-14 rounded-full flex items-center justify-center shadow-md ${
-                        isConfirming ? 'bg-emerald-50' : 'bg-amber-50'
-                      }`}
+                      className={`w-14 h-14 rounded-full flex items-center justify-center shadow-md ${isConfirming ? 'bg-emerald-50' : 'bg-amber-50'
+                        }`}
                     >
                       {isConfirming
                         ? <CheckCircle2 className="w-7 h-7 text-emerald-500" />

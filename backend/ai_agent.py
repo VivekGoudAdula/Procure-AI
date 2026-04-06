@@ -20,13 +20,18 @@ def load_data():
         return json.load(f)
 
 def select_best_supplier(product_name, quantity, budget):
+    print(f"\n[ProcureAI Agent] 🔍 Sourcing '{product_name}' for quantity {quantity} with budget ${budget}...")
+    
     data = load_data()
     # Filter suppliers by product (case-insensitive)
     suppliers = [s for s in data.get("suppliers", []) if product_name.lower() in s["product"].lower()]
+    print(f"[ProcureAI Agent] 🔎 Found {len(suppliers)} potential suppliers in database.")
     
     if not suppliers:
+        print(f"[ProcureAI Agent] ❌ No matching suppliers for '{product_name}'.")
         return {"error": "No suppliers found! Try searching for 'Industrial Components'."}
 
+    print("[ProcureAI Agent] 🤝 Initializing Multi-Agent Negotiation Protocol...")
     negotiation_results = []
     for s in suppliers:
         original_price = s["price"]
@@ -34,6 +39,8 @@ def select_best_supplier(product_name, quantity, budget):
         discount_percent = random.uniform(0.05, 0.15)
         negotiated_price = round(original_price * (1 - discount_percent), 2)
         score = (s["reliability"] * 1000) / negotiated_price
+        
+        print(f"  - Negotiating with '{s['name']}': Original ${original_price} -> Final ${negotiated_price}")
         
         negotiation_results.append({
             "supplier": s,
@@ -48,9 +55,12 @@ def select_best_supplier(product_name, quantity, budget):
     selected_supplier = best_match["supplier"]
     total_cost = round(best_match["negotiated_price"] * quantity, 2)
     
+    print(f"[ProcureAI Agent] ✅ WINNER: '{selected_supplier['name']}' selected at unit price ${best_match['negotiated_price']}.")
+    
     # Generate Negotiation Logs using Groq
     negotiation_logs = []
     if client:
+        print(f"[ProcureAI Agent] 🧠 Engaging Groq LLM (llama-3.3) for fiduciary negotiation transcript...")
         try:
             prompt = f"""
             Generate a realistic procurement negotiation transcript.
@@ -65,10 +75,12 @@ def select_best_supplier(product_name, quantity, budget):
             )
             llm_data = json.loads(response.choices[0].message.content)
             negotiation_logs = llm_data.get("logs", [])
+            print(f"[ProcureAI Agent] 📜 LLM Negotiation transcript generated with {len(negotiation_logs)} turns.")
         except Exception as e:
-            print(f"LLM Error: {e}")
+            print(f"[ProcureAI Agent] ⚠️ LLM Error: {e}")
             negotiation_logs = None
     else:
+        print(f"[ProcureAI Agent] 🔌 Groq Client not initialized. Using deterministic negotiation fallback.")
         negotiation_logs = None
 
     if not negotiation_logs:
@@ -84,9 +96,15 @@ def select_best_supplier(product_name, quantity, budget):
 
     reasoning = f"Selected {selected_supplier['name']} based on high reliability ({selected_supplier['reliability']*100}%) and a final per-unit price of ${best_match['negotiated_price']}."
 
+    print(f"[ProcureAI Agent] 🚀 Procurement Cycle Complete. Total Deal Value: ${total_cost}\n")
+
     return {
         "supplier_list": [nr["supplier"] for nr in negotiation_results],
-        "selected_supplier": selected_supplier,
+        "selected_supplier": {
+            **selected_supplier,
+            "final_price": total_cost,
+            "reasoning": reasoning
+        },
         "final_price": total_cost,
         "reasoning": reasoning,
         "negotiation_logs": negotiation_logs
