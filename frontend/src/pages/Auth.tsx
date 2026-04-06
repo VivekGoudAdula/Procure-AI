@@ -21,6 +21,8 @@ const GoogleLogo = () => (
   </svg>
 );
 
+import { API_BASE_URL } from '../config';
+
 const Auth = ({ initialMode = 'login' }: AuthProps) => {
   const [isLogin, setIsLogin] = useState(initialMode === 'login');
   const [email, setEmail] = useState('');
@@ -33,7 +35,7 @@ const Auth = ({ initialMode = 'login' }: AuthProps) => {
     if (!email || !password) return;
 
     try {
-      const endpoint = isLogin ? '/api/login' : '/api/signup';
+      const endpoint = isLogin ? `${API_BASE_URL}/api/login` : `${API_BASE_URL}/api/signup`;
       const response = await axios.post(endpoint, { email, password });
       
       if (isLogin) {

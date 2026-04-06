@@ -30,10 +30,9 @@ import { Badge } from '../components/ui/badge';
 import { Input } from '../components/ui/input';
 import { toast } from 'sonner';
 
-// DEMO CONSTANTS
+import { API_BASE_URL } from '../config';
 const DEMO_VAULT_ADDRESS = "2RIRIX5XK6GWK7LOXDAYIDTN4IYDVNRDJFXR4TJCLYIM72A3EF2UQPROQY";
 const DEMO_TRANSACTION_AMOUNT = 0.1; // 0.1 ALGO for demo stability
-const API_BASE_URL = import.meta.env.VITE_API_URL || "http://localhost:8000";
 const algodClient = new algosdk.Algodv2('', 'https://testnet-api.algonode.network', '');
 
 
