@@ -1,6 +1,5 @@
-# ProcureAI
-### **Autonomous On-Chain Procurement Engine**
-*Elevating Global Trade through Agentic Intelligence & Algorand Finality*
+# ProcureAI - Autonomous On-Chain Procurement Engine
+### **Elevating Global Trade through Agentic Intelligence & Algorand Finality**
 
 [![Algorand TestNet](https://img.shields.io/badge/Blockchain-Algorand_TestNet-blue.svg)](https://testnet.explorer.perawallet.app/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
