@@ -92,7 +92,7 @@ const Procurement = () => {
     sessionStorage.setItem('procureai_step', step);
     if (result) sessionStorage.setItem('procureai_result', JSON.stringify(result));
     if (txId) sessionStorage.setItem('procureai_txid', txId);
-    
+
     // Clear session if we go back to form
     if (step === 'form') {
       sessionStorage.removeItem('procureai_result');
