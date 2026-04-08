@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, Link } from 'react-router-dom';
 import axios from 'axios';
 import { motion, AnimatePresence } from 'motion/react';
 import { Cpu, Mail, Lock, ArrowRight, UserPlus, LogIn, Github, Twitter } from 'lucide-react';
@@ -64,6 +64,14 @@ const Auth = ({ initialMode = 'login' }: AuthProps) => {
         <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-full h-full bg-[radial-gradient(circle_at_center,rgba(139,92,246,0.03)_0%,transparent_70%)]" />
       </div>
 
+      {/* Top Left Logo to go back to Landing Page */}
+      <div className="absolute top-8 left-8 z-50">
+        <Link to="/" className="flex items-center gap-3 group cursor-pointer bg-white/50 backdrop-blur-md px-4 py-2 rounded-2xl border border-white/50 shadow-sm hover:shadow-md transition-all">
+          <img src="/logo.png" alt="ProcureAI Logo" className="h-8 w-auto group-hover:scale-110 transition-all duration-500" />
+          <span className="text-xl font-bold tracking-tight text-slate-900 group-hover:text-primary transition-colors">ProcureAI</span>
+        </Link>
+      </div>
+
       <motion.div 
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
@@ -96,9 +104,9 @@ const Auth = ({ initialMode = 'login' }: AuthProps) => {
           <div className="relative z-10 space-y-8">
             <motion.div 
               whileHover={{ rotate: 10, scale: 1.1 }}
-              className="w-20 h-20 bg-white/20 backdrop-blur-xl rounded-[2rem] flex items-center justify-center mx-auto mb-10 shadow-2xl border border-white/30"
+              className="w-20 h-20 rounded-[2rem] flex items-center justify-center mx-auto mb-10 shadow-2xl overflow-hidden"
             >
-              <Cpu className="w-10 h-10 text-white" />
+              <img src="/logo.png" alt="Logo" className="w-full h-full object-cover" />
             </motion.div>
             
             <AnimatePresence mode="wait">
