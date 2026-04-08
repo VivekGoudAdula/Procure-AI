@@ -218,7 +218,7 @@ const Transactions = () => {
                     ${selectedTx.amount.toLocaleString(undefined, { minimumFractionDigits: 2 })}
                   </h2>
                   <p className="text-slate-500 font-medium flex items-center gap-2">
-                    Payment to <span className="text-slate-900 font-bold">{selectedTx.supplier}</span>
+                    Transaction to <span className="text-slate-900 font-bold">{selectedTx.supplier}</span>
                   </p>
                   <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-slate-100 text-xs font-bold text-slate-600 mt-2">
                     <span className="w-2 h-2 rounded-full bg-primary" /> Algorand TestNet
@@ -240,9 +240,9 @@ const Transactions = () => {
                   <div className="flex justify-between items-center text-sm">
                     <span className="text-slate-500 font-bold tracking-wide">Status</span>
                     {selectedTx.status === 'Completed' ? (
-                      <span className="text-emerald-700 font-bold bg-emerald-50 px-2.5 py-1 rounded-md">Released ✅</span>
+                      <span className="text-emerald-700 font-bold bg-emerald-50 px-2.5 py-1 rounded-md">Released</span>
                     ) : (
-                      <span className="text-amber-700 font-bold bg-amber-50 px-2.5 py-1 rounded-md">Locked 🔒</span>
+                      <span className="text-amber-700 font-bold bg-amber-50 px-2.5 py-1 rounded-md">Locked</span>
                     )}
                   </div>
                   <div className="flex justify-between items-center text-sm">

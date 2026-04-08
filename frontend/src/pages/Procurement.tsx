@@ -32,7 +32,7 @@ import { toast } from 'sonner';
 
 import { API_BASE_URL } from '../config';
 const DEMO_VAULT_ADDRESS = "2RIRIX5XK6GWK7LOXDAYIDTN4IYDVNRDJFXR4TJCLYIM72A3EF2UQPROQY";
-const DEMO_TRANSACTION_AMOUNT = 0.1; // 0.1 ALGO for demo stability
+const DEMO_TRANSACTION_AMOUNT = 0.1; 
 const algodClient = new algosdk.Algodv2('', 'https://testnet-api.algonode.network', '');
 
 
@@ -57,6 +57,7 @@ interface ProcurementResult {
     name: string;
     finalPrice: number;
     reasoning: string;
+    wallet_address?: string;
   };
 }
 
@@ -79,6 +80,13 @@ const Procurement = () => {
   const [txId, setTxId] = useState<string | null>(() => {
     return sessionStorage.getItem('procureai_txid');
   });
+  const [appId, setAppId] = useState<number | null>(() => {
+    const saved = sessionStorage.getItem('procureai_appid');
+    return saved ? parseInt(saved) : null;
+  });
+  const [appAddress, setAppAddress] = useState<string | null>(() => {
+    return sessionStorage.getItem('procureai_appaddress');
+  });
 
   // UI State
   const [isSearching, setIsSearching] = useState(false);
@@ -92,11 +100,15 @@ const Procurement = () => {
     sessionStorage.setItem('procureai_step', step);
     if (result) sessionStorage.setItem('procureai_result', JSON.stringify(result));
     if (txId) sessionStorage.setItem('procureai_txid', txId);
+    if (appId) sessionStorage.setItem('procureai_appid', appId.toString());
+    if (appAddress) sessionStorage.setItem('procureai_appaddress', appAddress);
 
     // Clear session if we go back to form
     if (step === 'form') {
       sessionStorage.removeItem('procureai_result');
       sessionStorage.removeItem('procureai_txid');
+      sessionStorage.removeItem('procureai_appid');
+      sessionStorage.removeItem('procureai_appaddress');
     }
   }, [step, result, txId]);
 
@@ -165,13 +177,20 @@ const Procurement = () => {
   };
 
   const handleExecuteDeal = async () => {
-    if (!walletAddress || !result) return;
+    // Capture state values immediately and check for concurrent execution
+    if (isExecuting) return; 
+    
+    const activeAddress = walletAddress;
+    if (!activeAddress || !result || !result.selectedSupplier) {
+      toast.error("Please connect your wallet and select a supplier first.");
+      return;
+    }
 
     setIsExecuting(true);
     setPaymentPhase(0);
     setError(null);
 
-    // Cycle through 4 animation phases (2s each = 8s total min)
+    // Cycle through 4 animation phases (250ms each = 1s total)
     const phases = [0, 1, 2, 3];
     let phaseIndex = 0;
     const phaseInterval = setInterval(() => {
@@ -179,31 +198,89 @@ const Procurement = () => {
       if (phaseIndex < phases.length) {
         setPaymentPhase(phaseIndex);
       }
-    }, 2000);
+    }, 250);
 
     try {
-      // Ensure minimum 2s for first phase before API
-      const [response] = await Promise.all([
-        axios.post(`${API_BASE_URL}/api/create-escrow`, {
-          sender: walletAddress,
-          receiver: DEMO_VAULT_ADDRESS,
-          amount: DEMO_TRANSACTION_AMOUNT
-        }),
-        new Promise(res => setTimeout(res, 2000))
-      ]);
+      // 1. Create Escrow on Backend (Deploys Contract)
+      const response: any = await axios.post(`${API_BASE_URL}/api/create-escrow`, {
+        sender: activeAddress,
+        receiver: result.selectedSupplier.wallet_address || DEMO_VAULT_ADDRESS,
+        amount: 0.1
+      });
 
-      // Let remaining phases play out (up to 6 more seconds)
-      await new Promise(res => setTimeout(res, 6000));
+      const deployedAppId = response.data.app_id;
+      const deployedAppAddress = response.data.app_address;
+      
+      if (!deployedAppId || !deployedAppAddress) {
+        throw new Error("Blockchain failure: Escrow application details missing from backend response.");
+      }
 
-      clearInterval(phaseInterval);
-      setTxId((response as any).data.transaction_id);
+      setAppId(deployedAppId);
+      setAppAddress(deployedAppAddress);
+
+      setPaymentPhase(2); // Validating / Funding Phase
+
+      // 2. Fund the Escrow via account pre-funding + ABI call
+      const suggestedParams = await algodClient.getTransactionParams().do();
+      
+      // A. Pre-fund the contract account with a large cushion (0.4 ALGO)
+      const rentTxn = algosdk.makePaymentTxnWithSuggestedParamsFromObject({
+        sender: activeAddress,
+        receiver: deployedAppAddress,
+        amount: 400000, 
+        suggestedParams
+      });
+
+      // B. Create the ABI-tracked Payment Transaction (0.1 ALGO)
+      const payTxn = algosdk.makePaymentTxnWithSuggestedParamsFromObject({
+        sender: activeAddress,
+        receiver: deployedAppAddress,
+        amount: 100000, 
+        suggestedParams
+      });
+
+      const composer = new algosdk.AtomicTransactionComposer();
+      
+      const signer: algosdk.TransactionSigner = async (group, indexes) => {
+        const signToSign = group.map(txn => ({
+          txn,
+          signers: [activeAddress]
+        }));
+        const signedTxns = await peraWallet.signTransaction([signToSign]);
+        return indexes.map(i => signedTxns[i]);
+      };
+
+      const method = new algosdk.ABIMethod({
+        name: "fund",
+        args: [{ type: "pay", name: "payment" }],
+        returns: { type: "void" }
+      });
+
+      // Add "Fund" and then "Rent" to the same atomic group
+      // Putting the ABI call first (with its linked payment) ensures standard indexing
+      composer.addMethodCall({
+        appID: BigInt(deployedAppId),
+        method,
+        methodArgs: [{ txn: payTxn, signer }],
+        sender: activeAddress,
+        suggestedParams,
+        signer
+      });
+      
+      composer.addTransaction({ txn: rentTxn, signer });
+
+      setPaymentPhase(3); // Confirming Phase
+      console.log("[ProcureAI] Executing 'Double-Funded' (Shifted) transaction group...");
+      const fundResult = await composer.execute(algodClient, 4);
+      
+      setTxId(fundResult.txIDs[0]);
       setStep('escrow_locked');
-      toast.success('Escrow record created! Funds reserved.');
+      toast.success('Funds successfully locked in the smart contract escrow!');
     } catch (err: any) {
       clearInterval(phaseInterval);
-      console.error(err);
-      setError('Transaction setup failed.');
-      toast.error('Failed to reserve funds.');
+      console.error('[ProcureAI] Execute Deal Error:', err);
+      setError(`Transaction failed: ${err.message || 'Check wallet connection.'}`);
+      toast.error('Failed to reserve funds on chain.');
     } finally {
       setIsExecuting(false);
       setPaymentPhase(0);
@@ -211,52 +288,49 @@ const Procurement = () => {
   };
 
   const handleConfirmDelivery = async () => {
-    if (!txId || !result || !walletAddress) return;
+    const activeAddress = walletAddress;
+    const activeAppId = appId;
+    if (!activeAppId || !result || !activeAddress) return;
     setIsConfirming(true);
     try {
-      // 1. Fetch live network parameters
-      console.log('[ProcureAI] Fetching transaction params...');
       const suggestedParams = await algodClient.getTransactionParams().do();
-      console.log('[ProcureAI] Params received:', suggestedParams);
-
-      // 2. Create the unsigned payment transaction
-      console.log('[ProcureAI] Creating transaction...', {
-        sender: walletAddress,
-        receiver: DEMO_VAULT_ADDRESS,
-        amount: Math.floor(DEMO_TRANSACTION_AMOUNT * 1000000)
+      
+      const composer = new algosdk.AtomicTransactionComposer();
+      
+      // ABI method for release
+      const method = new algosdk.ABIMethod({
+        name: "confirm_delivery",
+        args: [],
+        returns: { type: "void" }
       });
-      const txn = algosdk.makePaymentTxnWithSuggestedParamsFromObject({
-        sender: walletAddress,
-        receiver: DEMO_VAULT_ADDRESS,
-        amount: Math.floor(DEMO_TRANSACTION_AMOUNT * 1000000),
-        suggestedParams,
-        note: new TextEncoder().encode(`ProcureAI Settlement: ${productName} x ${quantity}`)
+ 
+      (composer as any).addMethodCall({
+        appID: BigInt(activeAppId),
+        method,
+        methodArgs: [],
+        sender: activeAddress,
+        suggestedParams: {
+          ...suggestedParams,
+          fee: 2000,
+          flatFee: true
+        },
+        // Using both naming conventions to ensure the account is made available to the node
+        accounts: [result.selectedSupplier.wallet_address || DEMO_VAULT_ADDRESS],
+        appAccounts: [result.selectedSupplier.wallet_address || DEMO_VAULT_ADDRESS],
+        signer: async (txns: algosdk.Transaction[]) => {
+          const singleTxnGroups = txns.map(txn => ({ txn, signers: [activeAddress] }));
+          return await peraWallet.signTransaction([singleTxnGroups]);
+        }
       });
-      console.log('[ProcureAI] Transaction created:', txn.txID());
 
-      // 3. Request Pera Wallet signature
-      console.log('[ProcureAI] Requesting Pera Wallet signature...');
-      const singleTxnGroups = [{ txn, signers: [walletAddress] }];
-      const signedTxn = await peraWallet.signTransaction([singleTxnGroups]);
-      console.log('[ProcureAI] Transaction signed, broadcasting...');
-
-      // 4. Broadcast — handle both old {txId} and new {txid} response shapes
-      let realTxId: string;
-      try {
-        const sendResponse = await algodClient.sendRawTransaction(signedTxn[0]).do();
-        // algosdk v2 returns txId, v3 returns txid (lowercase)
-        realTxId = (sendResponse as any).txId || (sendResponse as any).txid || txn.txID();
-        console.log('[ProcureAI] Broadcast success, txId:', realTxId);
-      } catch (broadcastErr: any) {
-        console.error('[ProcureAI] Broadcast error:', broadcastErr?.message || broadcastErr);
-        // Use the locally computed txn ID as fallback (still valid for display)
-        realTxId = txn.txID();
-        console.warn('[ProcureAI] Using local txID as fallback:', realTxId);
-      }
+      const releaseResult = await composer.execute(algodClient, 4);
+      const realTxId = releaseResult.txIDs[0];
 
       // 5. Update Backend Escrow status
-      console.log('[ProcureAI] Confirming delivery on backend...');
-      await axios.post(`${API_BASE_URL}/api/confirm-delivery`, { transaction_id: txId });
+      // We pass the activeAppId as a fallback for the transaction_id lookup
+      await axios.post(`${API_BASE_URL}/api/confirm-delivery`, { 
+        transaction_id: activeAppId.toString() 
+      });
 
       addTransaction({
         id: Date.now().toString(),
@@ -267,15 +341,15 @@ const Procurement = () => {
         date: new Date().toISOString().split('T')[0]
       });
 
-      setTxId(realTxId); // Update local state to the actual blockchain hash for the final screen
+      setTxId(realTxId); // Update local state for final screen
       setStep('payment');
-      toast.success('Funds successfully released to supplier!');
+      toast.success('Delivery confirmed! Funds released to supplier.');
     } catch (err: any) {
       console.error('[ProcureAI] Confirm Delivery Error:', err);
       if (err.message && err.message.includes('user rejected')) {
         toast.error('Signature rejected by user.');
       } else {
-        toast.error('Failed to confirm delivery and authorize funds. Check console for details.');
+        toast.error('Failed to release funds. Check network status.');
       }
     } finally {
       setIsConfirming(false);
@@ -295,11 +369,11 @@ const Procurement = () => {
             <span className="text-[10px] uppercase font-bold tracking-[0.2em] text-primary/70">AI Search & Negotiate</span>
           </motion.div>
           <h1 className="text-4xl font-display font-medium tracking-tight text-slate-900 leading-tight">Procurement</h1>
-          <p className="text-slate-500 max-w-lg font-medium text-sm leading-relaxed">Let AI agents find the best suppliers and handle your on-chain payments.</p>
+          <p className="text-slate-500 max-w-lg font-medium text-sm leading-relaxed">Let AI agents find the best suppliers and handle your on-chain transactions.</p>
         </div>
         <div className="flex items-center gap-2">
           <Badge variant="outline" className="bg-primary/5 text-primary border-primary/10 px-4 py-2 gap-2 uppercase tracking-widest text-[9px] font-black rounded-xl shadow-sm">
-            <div className="w-1.5 h-1.5 rounded-full bg-primary animate-ping" /> AI Network
+            <div className="w-1.5 h-1.5 rounded-full bg-primary animate-ping" /> Agent-to-Agent Active
           </Badge>
           <Badge variant="outline" className="bg-emerald-50 text-emerald-600 border-emerald-100 px-4 py-2 gap-2 uppercase tracking-widest text-[9px] font-black rounded-xl shadow-sm">
             <ShieldCheck className="w-3.5 h-3.5" /> On-chain Verified
@@ -480,9 +554,9 @@ const Procurement = () => {
                 </motion.div>
               </div>
 
-              <h2 className="text-2xl font-display font-semibold mb-2 text-white tracking-tight relative z-10">AI Negotiation in Progress</h2>
+              <h2 className="text-2xl font-display font-semibold mb-2 text-white tracking-tight relative z-10">Agent-to-Agent Negotiation Active</h2>
               <p className="text-slate-400 max-w-md font-medium text-xs leading-relaxed relative z-10">
-                Deploying autonomous agent to contact global suppliers, run multi-variable analysis, and negotiate the best contract terms.
+                ProcureAI Buyer Agent is communicating with Supplier Agents dynamically via API to negotiate real-time discounts and optimal terms.
               </p>
 
               {/* Animated step pills */}
@@ -530,12 +604,12 @@ const Procurement = () => {
                   { delay: 0.1, color: 'text-white/30', icon: '›', text: `Connecting to supplier mesh network...` },
                   { delay: 0.5, color: 'text-emerald-400', icon: '✓', text: `Database connection established (344 suppliers indexed)` },
                   { delay: 1.0, color: 'text-white/30', icon: '›', text: `Running semantic search for: "${productName}"...` },
-                  { delay: 1.5, color: 'text-amber-400', icon: '⚡', text: `Found 12 candidate suppliers. Filtering by budget $${budget}...` },
+                  { delay: 1.5, color: 'text-amber-400', icon: '>', text: `Found 12 candidate suppliers. Filtering by budget $${budget}...` },
                   { delay: 2.0, color: 'text-primary', icon: '>', text: `AGENT → Supplier A: Requesting quote for ${quantity}x ${productName}` },
                   { delay: 2.5, color: 'text-emerald-400', icon: '<', text: `Supplier A: Standard price $${Math.floor(budget * 1.2)}/unit. Volume discounts available.` },
                   { delay: 3.0, color: 'text-primary', icon: '>', text: `AGENT: We represent an enterprise buyer. Can you match $${Math.floor(budget * 0.95)}/unit for a 12-month contract?` },
                   { delay: 3.5, color: 'text-emerald-400', icon: '<', text: `Supplier A: Accepted. Adjusting to $${Math.floor(budget * 0.97)}/unit with Net-30 terms.` },
-                  { delay: 4.0, color: 'text-amber-400', icon: '⚙', text: `Running multi-criteria evaluation: price, rating, delivery SLA...` },
+                  { delay: 4.0, color: 'text-amber-400', icon: '>', text: `Running multi-criteria evaluation: price, rating, delivery SLA...` },
                   { delay: 4.5, color: 'text-primary', icon: '>', text: `AGENT → Supplier B: Counter-proposal with penalty clauses for late delivery.` },
                   { delay: 4.8, color: 'text-white/30', icon: '›', text: `Applying ML scoring model to rank finalist suppliers...` },
                 ].map(({ delay, color, icon, text }) => (
@@ -749,7 +823,7 @@ const Procurement = () => {
                   <div className="bg-white border border-slate-100 rounded-3xl overflow-hidden shadow-[0_4px_24px_rgba(0,0,0,0.06)]">
                     <div className="bg-gradient-to-br from-primary to-indigo-700 p-6 relative overflow-hidden">
                       <div className="absolute inset-0 bg-[url('https://www.transparenttextures.com/patterns/cubes.png')] opacity-10" />
-                      <Badge className="bg-white/20 text-white border-none font-bold text-[10px] tracking-widest uppercase mb-4">Agent's Choice 🔥</Badge>
+                      <Badge className="bg-white/20 text-white border-none font-bold text-[10px] tracking-widest uppercase mb-4">Agent's Choice</Badge>
                       <h3 className="text-xl font-display font-bold text-white">{result.selectedSupplier.name}</h3>
                       <p className="text-white/60 text-xs font-medium mt-1">Verified • Best Reliability • Lowest Final Price</p>
                     </div>
@@ -864,9 +938,9 @@ const Procurement = () => {
                     <Lock className="w-7 h-7 text-white relative z-10" />
                   </div>
                 </motion.div>
-                <h2 className="text-2xl font-display font-medium mb-2 tracking-tight">Payment Locked in Escrow</h2>
+                <h2 className="text-2xl font-display font-medium mb-2 tracking-tight">Transaction Locked in Escrow</h2>
                 <Badge className="bg-amber-500/20 text-amber-400 border-amber-500/30 mb-4 font-bold tracking-widest px-4 py-1 uppercase text-[10px]">Escrow Active</Badge>
-                <p className="text-slate-300 max-w-sm mx-auto font-medium text-xs leading-relaxed">Funds secured via smart contract. Awaiting delivery confirmation to release payment to <span className="text-white font-bold">{result?.selectedSupplier.name}</span>.</p>
+                <p className="text-slate-300 max-w-sm mx-auto font-medium text-xs leading-relaxed">Funds secured via smart contract. Awaiting delivery confirmation to release transaction to <span className="text-white font-bold">{result?.selectedSupplier.name}</span>.</p>
               </div>
 
               <CardContent className="p-8 space-y-8">
@@ -899,7 +973,7 @@ const Procurement = () => {
                   className="w-full h-14 text-lg font-bold bg-amber-500 hover:bg-amber-600 text-white rounded-xl shadow-lg shadow-amber-500/20"
                 >
                   {isConfirming ? <Loader2 className="w-6 h-6 animate-spin mr-2" /> : null}
-                  👉 Confirm Delivery
+                  Confirm Delivery
                 </Button>
               </CardContent>
             </Card>
@@ -924,7 +998,7 @@ const Procurement = () => {
                 >
                   <CheckCircle2 className="w-10 h-10" />
                 </motion.div>
-                <h2 className="text-2xl font-display font-bold mb-1">Payment Released ✅</h2>
+                <h2 className="text-2xl font-display font-bold mb-1">Transaction Released</h2>
                 <Badge className="bg-white/20 text-white border-white/30 mb-3 hover:bg-white/20">Completed</Badge>
                 <p className="text-emerald-50/80 max-w-sm mx-auto font-medium text-xs">Funds successfully released to supplier. The autonomous procurement cycle is entirely complete and settled on-chain.</p>
               </div>

@@ -5,3 +5,8 @@ pydantic
 groq
 python-dotenv
 pyteal
+requests
+httpx
+algorand-python
+algokit
+puya

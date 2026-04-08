@@ -1,150 +1,144 @@
-# ProcureAI - AI Agent Procurement Platform
-### **Find, Negotiate, and Pay Suppliers with AI on Algorand**
+# ProcureAI: Autonomous Agentic Procurement Platform
+### **Intelligent Sourcing, Strategic Negotiation, and Atomic Settlement on Algorand**
 
 [![Algorand TestNet](https://img.shields.io/badge/Blockchain-Algorand_TestNet-blue.svg)](https://testnet.explorer.perawallet.app/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 [![Python 3.9+](https://img.shields.io/badge/Python-3.9+-3776AB.svg?logo=python&logoColor=white)](https://www.python.org/)
 [![React 18](https://img.shields.io/badge/Frontend-React_18-61DAFB.svg?logo=react&logoColor=black)](https://reactjs.org/)
 
-</div>
+---
+
+## Executive Summary
+**ProcureAI** is an enterprise-grade AI-powered **Supply Chain** platform designed to orchestrate the end-to-end procurement lifecycle. 
+
+By leveraging autonomous AI agents for supplier discovery and multi-variable negotiation, integrated with **Trustless** escrow settlement on the **Algorand Blockchain**, ProcureAI eliminates manual inefficiencies and mitigates counterparty risk. The platform ensures optimal pricing and guaranteed delivery through **ARC4-compliant** on-chain contract execution.
 
 ---
 
-## 📖 Overview
-**ProcureAI** is an AI-powered platform that simplifies buying for businesses. 
-
-Our AI agents search for suppliers, negotiate prices automatically, and handle payments using secure escrow on the **Algorand Blockchain**. This reduces manual work and ensures you always get the best deal with zero risk.
-
----
-
-## 🏗️ System Architecture
+## System Architecture
 
 ProcureAI uses a simple but powerful setup:
 
 ```mermaid
 graph TD
-    subgraph "Frontend Layer (User Experience)"
-        UI[React + Tailwind UI]
-        ANIM[Framer Motion Animations]
+    subgraph "Frontend Layer"
+        UI[React Enterprise UI]
+        ANIM[Framer Motion Core]
     end
 
-    subgraph "Intelligence Layer (Agentic Nodes)"
-        BE[FastAPI Backend]
+    subgraph "Intelligence Layer"
+        BE[FastAPI Orchestrator]
         AI[Llama 3 Agent Hub]
-        DB[(Supplier Database)]
+        DB[(Supplier Knowledge Base)]
     end
 
-    subgraph "Settlement Layer (Algorand Blockchain)"
+    subgraph "Settlement Layer (Algorand)"
         ALGO[Algorand TestNet]
-        SC[PyTeal Escrow Contract]
-        PW[Pera Wallet Integration]
+        SC[Algorand Python Escrow]
+        PW[Wallet Integration]
     end
 
-    UI -->|1. Request Sourcing| BE
-    BE -->|2. Context Injection| AI
-    AI <-->|3. Negotiation Loop| DB
-    BE -->|4. Deploy App| ALGO
-    ALGO -->|5. Application Address| UI
-    UI -->|6. Lock Funds| ALGO
-    UI -->|7. Confirm Delivery| ALGO
-    ALGO -->|8. Inner Transaction| S((Supplier Address))
+    UI -->|1. Procurement Request| BE
+    BE -->|2. Agent Reasoning| AI
+    AI <-->|3. Negotiation Cycle| DB
+    BE -->|4. Deploy Escrow| ALGO
+    ALGO -->|5. Contract URI| UI
+    UI -->|6. Fund Transaction| ALGO
+    UI -->|7. Delivery Confirmation| ALGO
+    ALGO -->|8. Settlement Payout| S((Supplier Address))
 ```
 
 ---
 
-## 🔐 The Procurement Lifecycle
+## The Procurement Lifecycle
 
 Our platform automates every step of the commerce journey, providing a truly "Agentic" experience.
 
 ```mermaid
 sequenceDiagram
     autonumber
-    participant U as Enterprise User
-    participant A as AI Procurement Agent
-    participant S as Supplier Hub
+    participant U as Procurement Officer
+    participant A as Autonomous AI Agent
+    participant S as Supplier Network
     participant BC as Algorand Ledger
 
-    U->>A: Enter Product & Budget Requirements
-    Note over A: Identifying best-fit candidates
-    A->>S: Multi-variable Negotiation (Price/SLA/Reliability)
-    S-->>A: Accepted Optimized Quote
-    A->>U: Present Final Deal & Selection Stats
-    U->>BC: Initialize Escrow & Lock Funds
-    Note over BC: Funds held in Smart Contract Address
-    U->>BC: Confirm Goods Delivery (NoOp Release)
-    BC->>S: Release Payment (Inner Txn to Supplier)
-    Note over BC: Transaction Finalized & Audit Logged
+    U->>A: Specify Requirements & Budget
+    Note over A: Multi-Source Analysis
+    A->>S: Strategic Negotiation (SLA/Price)
+    S-->>A: Certified Quote Submission
+    A->>U: Executive Summary & Recommendation
+    U->>BC: Initialize Governance Escrow
+    Note over BC: Asset Segregation in Smart Contract
+    U->>BC: Confirm Fulfillment (Atomic Release)
+    BC->>S: Disburse Settlement (Inner Transaction)
+    Note over BC: Transaction Governance Finalized
 ```
 
 ---
 
-## 🚀 Key Innovations
+## Key Innovations
 
 ### **1. Agent-to-Agent Commerce**
-AI agents act as fiduciary proxies, handling complex negotiations and supplier scoring without human intervention, reducing procurement cycles from days to seconds.
+AI agents act as fiduciary proxies, orchestrating complex negotiations and quantitative supplier scoring, compressing procurement lead times from days to microseconds.
 
-### **2. Autonomous Negotiation Hub**
-Utilizes **Llama 3** via the Groq API to perform strategic counter-offers based on user-defined budgets and market data.
+### **2. Strategic Negotiation Engine**
+Leverages advanced LLMs (Llama 3) to execute counter-offers and evaluate trade-offs based on proprietary business logic and market volatility.
 
-### **3. Algorand Smart Escrow (PyTeal)**
-A state-of-the-art **Stateful Smart Contract** that acts as a secure, decentralized vault.
-*   **Funds Protection**: ALGO is locked in an Application-unique address.
-*   **Inner Transactions**: The contract securely executes the payout only when condition-checks (Buyer Confirmation) are met.
-*   **Zero-Trust**: Neither party can access the funds unilaterally once locked.
+### **3. Algorand Governance Escrow**
+A modular smart contract developed using **Algorand Python (Puya)** for secure, decentralized value retention.
+*   **Asset Segregation**: Capital is isolated within a unique Application Address.
+*   **Atomic Payouts**: Settlement is executed via Inner Transactions, triggered exclusively by verified fulfillment conditions.
+*   **Verified Auditability**: Every state transition is recorded as a permanent Transaction on the ledger.
 
 ---
 
-## 🛠️ Technology Stack
+## Technology Stack
 
-| Layer | Technology |
+| Layer | Technology Specification |
 | :--- | :--- |
-| **Frontend** | React 18, Vite, Tailwind CSS, Framer Motion, Lucide Icons |
-| **Backend** | FastAPI (Python), Uvicorn |
-| **Blockchain** | Algorand TestNet, PyTeal, Algorand Python SDK |
-| **AI Engine** | Groq Cloud, Llama 3 (8B/70B models) |
-| **Wallet** | Pera Wallet (TestNet) |
+| **User Interface** | React 18, Vite, Framer Motion, Lucide Architecture |
+| **API Backbone** | FastAPI (Python), Asynchronous Orchestration |
+| **On-Chain Logic** | Algorand Python (Puya), Algokit, Python SDK |
+| **AI Intelligence** | Groq Core, Llama 3 (8B/70B models) |
+| **Payment Gateway** | Pera Wallet Integration (TestNet) |
 
 ---
 
-## 📈 Scalability & Impact
-*   **Industry Agnostic**: Can be deployed for Hardware, Agriculture, Logistics, and Software Licensing.
-*   **Enterprise Ready**: Can integrate directly into existing ERP systems (SAP, Oracle) as a negotiation plugin.
-*   **Audit-Ready**: 100% of the procurement lifecycle—from agent selection to final settlement—is verifiable on the Algorand ledger.
+## Roadmap & Scalability
+*   **Sector Agnostic**: Architecture supports Hardware, Logistics, and SaaS licensing.
+*   **ERP Integration**: Designed for seamless connectivity with SAP and Oracle via API hooks.
+*   **Transactional Visibility**: 100% of the procurement lifecycle—from initial negotiation to final Transaction settlement—is verifiable on the Algorand blockchain.
 
 ---
 
-## 🛠️ Setup & Local Deployment
+## Setup & Local Deployment
 
-### **1. Prerequisites**
-*   Node.js & npm (v18+)
-*   Python 3.9+ 
-*   An Algorand TestNet Mnemonic with some test ALGO.
+### **1. Backend & AI Orchestrator**
+```bash
+cd backend
+python -m venv venv
+venv\Scripts\activate  # Windows
+pip install -r requirements.txt
+uvicorn main:app --reload
+```
 
-### **2. Frontend Installation**
+### **2. Frontend Dashboard**
 ```bash
 cd frontend
 npm install
 npm run dev
 ```
 
-### **3. Backend Installation**
+### **3. Smart Contract Governance**
 ```bash
-cd backend
-python -m venv venv
-source venv/bin/activate  # venv\Scripts\activate on Windows
-pip install -r requirements.txt
-uvicorn main:app --reload
-```
-
-### **4. Smart Contract Compilation**
-```bash
-cd backend
-python smart_contract.py  # Generates .teal approval and clear programs
+cd smartcontract
+poetry install
+algokit compile python smart_contracts.escrow.contract
 ```
 
 ---
 
-## 📄 License
+## License
 This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
 
 ---
