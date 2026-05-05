@@ -115,10 +115,11 @@ A modular smart contract developed using **Algorand Python (Puya)** for secure, 
 
 ### **1. Backend & AI Orchestrator**
 ```bash
-cd backend
 python -m venv venv
-venv\Scripts\activate  # Windows
 pip install -r requirements.txt
+
+cd backend
+venv\Scripts\activate
 uvicorn main:app --reload
 ```
 

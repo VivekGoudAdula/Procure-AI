@@ -10,3 +10,4 @@ httpx
 algorand-python
 algokit
 puya
+python-multipart

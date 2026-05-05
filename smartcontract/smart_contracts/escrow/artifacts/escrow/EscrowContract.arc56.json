@@ -1,0 +1,364 @@
+{
+    "name": "EscrowContract",
+    "structs": {},
+    "methods": [
+        {
+            "name": "create",
+            "args": [
+                {
+                    "type": "address",
+                    "name": "_buyer"
+                },
+                {
+                    "type": "address",
+                    "name": "_supplier"
+                },
+                {
+                    "type": "uint64",
+                    "name": "_amount"
+                }
+            ],
+            "returns": {
+                "type": "void"
+            },
+            "actions": {
+                "create": [
+                    "NoOp"
+                ],
+                "call": []
+            },
+            "readonly": false,
+            "desc": "Initialize the escrow with buyer, supplier, and agreed amount.",
+            "events": [],
+            "recommendations": {}
+        },
+        {
+            "name": "fund",
+            "args": [
+                {
+                    "type": "pay",
+                    "name": "payment"
+                }
+            ],
+            "returns": {
+                "type": "void"
+            },
+            "actions": {
+                "create": [],
+                "call": [
+                    "NoOp"
+                ]
+            },
+            "readonly": false,
+            "desc": "Buyer funds the escrow with the agreed amount.",
+            "events": [],
+            "recommendations": {}
+        },
+        {
+            "name": "mark_verified",
+            "args": [],
+            "returns": {
+                "type": "void"
+            },
+            "actions": {
+                "create": [],
+                "call": [
+                    "NoOp"
+                ]
+            },
+            "readonly": false,
+            "desc": "Mark the delivery as verified. Only buyer can call this.",
+            "events": [],
+            "recommendations": {}
+        },
+        {
+            "name": "confirm_delivery",
+            "args": [],
+            "returns": {
+                "type": "void"
+            },
+            "actions": {
+                "create": [],
+                "call": [
+                    "NoOp"
+                ]
+            },
+            "readonly": false,
+            "desc": "Buyer confirms delivery - releases funds to supplier.",
+            "events": [],
+            "recommendations": {}
+        },
+        {
+            "name": "get_funded",
+            "args": [],
+            "returns": {
+                "type": "bool"
+            },
+            "actions": {
+                "create": [],
+                "call": [
+                    "NoOp"
+                ]
+            },
+            "readonly": true,
+            "desc": "Returns whether escrow is funded.",
+            "events": [],
+            "recommendations": {}
+        },
+        {
+            "name": "get_released",
+            "args": [],
+            "returns": {
+                "type": "bool"
+            },
+            "actions": {
+                "create": [],
+                "call": [
+                    "NoOp"
+                ]
+            },
+            "readonly": true,
+            "desc": "Returns whether funds have been released.",
+            "events": [],
+            "recommendations": {}
+        },
+        {
+            "name": "get_verified",
+            "args": [],
+            "returns": {
+                "type": "bool"
+            },
+            "actions": {
+                "create": [],
+                "call": [
+                    "NoOp"
+                ]
+            },
+            "readonly": true,
+            "desc": "Returns whether delivery is verified.",
+            "events": [],
+            "recommendations": {}
+        }
+    ],
+    "arcs": [
+        22,
+        28
+    ],
+    "desc": "\n    ProcureAI Escrow Smart Contract\n    Holds funds from buyer and releases to supplier upon delivery confirmation.\n    ",
+    "networks": {},
+    "state": {
+        "schema": {
+            "global": {
+                "ints": 4,
+                "bytes": 2
+            },
+            "local": {
+                "ints": 0,
+                "bytes": 0
+            }
+        },
+        "keys": {
+            "global": {
+                "buyer": {
+                    "keyType": "AVMString",
+                    "valueType": "address",
+                    "key": "YnV5ZXI="
+                },
+                "supplier": {
+                    "keyType": "AVMString",
+                    "valueType": "address",
+                    "key": "c3VwcGxpZXI="
+                },
+                "amount": {
+                    "keyType": "AVMString",
+                    "valueType": "AVMUint64",
+                    "key": "YW1vdW50"
+                },
+                "is_funded": {
+                    "keyType": "AVMString",
+                    "valueType": "AVMUint64",
+                    "key": "aXNfZnVuZGVk"
+                },
+                "is_released": {
+                    "keyType": "AVMString",
+                    "valueType": "AVMUint64",
+                    "key": "aXNfcmVsZWFzZWQ="
+                },
+                "is_verified": {
+                    "keyType": "AVMString",
+                    "valueType": "AVMUint64",
+                    "key": "aXNfdmVyaWZpZWQ="
+                }
+            },
+            "local": {},
+            "box": {}
+        },
+        "maps": {
+            "global": {},
+            "local": {},
+            "box": {}
+        }
+    },
+    "bareActions": {
+        "create": [],
+        "call": []
+    },
+    "sourceInfo": {
+        "approval": {
+            "sourceInfo": [
+                {
+                    "pc": [
+                        281
+                    ],
+                    "errorMessage": "Delivery not verified"
+                },
+                {
+                    "pc": [
+                        240
+                    ],
+                    "errorMessage": "Escrow already funded"
+                },
+                {
+                    "pc": [
+                        258
+                    ],
+                    "errorMessage": "Escrow must be funded"
+                },
+                {
+                    "pc": [
+                        276
+                    ],
+                    "errorMessage": "Escrow not funded yet"
+                },
+                {
+                    "pc": [
+                        287
+                    ],
+                    "errorMessage": "Funds already released"
+                },
+                {
+                    "pc": [
+                        271
+                    ],
+                    "errorMessage": "Only buyer can confirm delivery"
+                },
+                {
+                    "pc": [
+                        211
+                    ],
+                    "errorMessage": "Only buyer can fund"
+                },
+                {
+                    "pc": [
+                        253
+                    ],
+                    "errorMessage": "Only buyer can verify"
+                },
+                {
+                    "pc": [
+                        234
+                    ],
+                    "errorMessage": "Payment amount must match agreed amount"
+                },
+                {
+                    "pc": [
+                        218
+                    ],
+                    "errorMessage": "Payment must come from buyer"
+                },
+                {
+                    "pc": [
+                        225
+                    ],
+                    "errorMessage": "Payment must go to contract"
+                },
+                {
+                    "pc": [
+                        232,
+                        301
+                    ],
+                    "errorMessage": "check self.amount exists"
+                },
+                {
+                    "pc": [
+                        209,
+                        251,
+                        269
+                    ],
+                    "errorMessage": "check self.buyer exists"
+                },
+                {
+                    "pc": [
+                        238,
+                        257,
+                        275,
+                        318
+                    ],
+                    "errorMessage": "check self.is_funded exists"
+                },
+                {
+                    "pc": [
+                        285,
+                        335
+                    ],
+                    "errorMessage": "check self.is_released exists"
+                },
+                {
+                    "pc": [
+                        280,
+                        352
+                    ],
+                    "errorMessage": "check self.is_verified exists"
+                },
+                {
+                    "pc": [
+                        296
+                    ],
+                    "errorMessage": "check self.supplier exists"
+                },
+                {
+                    "pc": [
+                        151,
+                        159
+                    ],
+                    "errorMessage": "invalid number of bytes for arc4.static_array<arc4.uint8, 32>"
+                },
+                {
+                    "pc": [
+                        168
+                    ],
+                    "errorMessage": "invalid number of bytes for arc4.uint64"
+                },
+                {
+                    "pc": [
+                        203
+                    ],
+                    "errorMessage": "transaction type is pay"
+                }
+            ],
+            "pcOffsetMethod": "none"
+        },
+        "clear": {
+            "sourceInfo": [],
+            "pcOffsetMethod": "none"
+        }
+    },
+    "source": {
+        "approval": "I3ByYWdtYSB2ZXJzaW9uIDExCiNwcmFnbWEgdHlwZXRyYWNrIGZhbHNlCgovLyBhbGdvcHkuYXJjNC5BUkM0Q29udHJhY3QuYXBwcm92YWxfcHJvZ3JhbSgpIC0+IHVpbnQ2NDoKbWFpbjoKICAgIGludGNibG9jayAwIDEgMzIKICAgIGJ5dGVjYmxvY2sgImlzX2Z1bmRlZCIgImJ1eWVyIiAiaXNfcmVsZWFzZWQiICJpc192ZXJpZmllZCIgImFtb3VudCIgMHgwMCAweDE1MWY3Yzc1ICJzdXBwbGllciIKICAgIC8vIGNvbnRyYWN0LnB5OjQKICAgIC8vIGNsYXNzIEVzY3Jvd0NvbnRyYWN0KEFSQzRDb250cmFjdCk6CiAgICB0eG4gT25Db21wbGV0aW9uCiAgICAhCiAgICBhc3NlcnQKICAgIHR4biBBcHBsaWNhdGlvbklECiAgICBieiBtYWluX2NyZWF0ZV9Ob09wQDEyCiAgICBwdXNoYnl0ZXNzIDB4NTE1MzFiNzUgMHhhYjhkZWIxYSAweGZmNDk2NmE2IDB4YzYwMmFkMzQgMHgwYjg3NWY3MCAweDFlYjJiMzRhIC8vIG1ldGhvZCAiZnVuZChwYXkpdm9pZCIsIG1ldGhvZCAibWFya192ZXJpZmllZCgpdm9pZCIsIG1ldGhvZCAiY29uZmlybV9kZWxpdmVyeSgpdm9pZCIsIG1ldGhvZCAiZ2V0X2Z1bmRlZCgpYm9vbCIsIG1ldGhvZCAiZ2V0X3JlbGVhc2VkKClib29sIiwgbWV0aG9kICJnZXRfdmVyaWZpZWQoKWJvb2wiCiAgICB0eG5hIEFwcGxpY2F0aW9uQXJncyAwCiAgICBtYXRjaCBmdW5kIG1hcmtfdmVyaWZpZWQgY29uZmlybV9kZWxpdmVyeSBnZXRfZnVuZGVkIGdldF9yZWxlYXNlZCBnZXRfdmVyaWZpZWQKICAgIGVycgoKbWFpbl9jcmVhdGVfTm9PcEAxMjoKICAgIC8vIGNvbnRyYWN0LnB5OjQKICAgIC8vIGNsYXNzIEVzY3Jvd0NvbnRyYWN0KEFSQzRDb250cmFjdCk6CiAgICBwdXNoYnl0ZXMgMHhjZTYxMDI1MSAvLyBtZXRob2QgImNyZWF0ZShhZGRyZXNzLGFkZHJlc3MsdWludDY0KXZvaWQiCiAgICB0eG5hIEFwcGxpY2F0aW9uQXJncyAwCiAgICBtYXRjaCBjcmVhdGUKICAgIGVycgoKCi8vIHNtYXJ0X2NvbnRyYWN0cy5lc2Nyb3cuY29udHJhY3QuRXNjcm93Q29udHJhY3QuY3JlYXRlW3JvdXRpbmddKCkgLT4gdm9pZDoKY3JlYXRlOgogICAgLy8gY29udHJhY3QucHk6MTgKICAgIC8vIEBhcmM0LmFiaW1ldGhvZChhbGxvd19hY3Rpb25zPVsiTm9PcCJdLCBjcmVhdGU9InJlcXVpcmUiKQogICAgdHhuYSBBcHBsaWNhdGlvbkFyZ3MgMQogICAgZHVwCiAgICBsZW4KICAgIGludGNfMiAvLyAzMgogICAgPT0KICAgIGFzc2VydCAvLyBpbnZhbGlkIG51bWJlciBvZiBieXRlcyBmb3IgYXJjNC5zdGF0aWNfYXJyYXk8YXJjNC51aW50OCwgMzI+CiAgICB0eG5hIEFwcGxpY2F0aW9uQXJncyAyCiAgICBkdXAKICAgIGxlbgogICAgaW50Y18yIC8vIDMyCiAgICA9PQogICAgYXNzZXJ0IC8vIGludmFsaWQgbnVtYmVyIG9mIGJ5dGVzIGZvciBhcmM0LnN0YXRpY19hcnJheTxhcmM0LnVpbnQ4LCAzMj4KICAgIHR4bmEgQXBwbGljYXRpb25BcmdzIDMKICAgIGR1cAogICAgbGVuCiAgICBwdXNoaW50IDgKICAgID09CiAgICBhc3NlcnQgLy8gaW52YWxpZCBudW1iZXIgb2YgYnl0ZXMgZm9yIGFyYzQudWludDY0CiAgICBidG9pCiAgICAvLyBjb250cmFjdC5weToyMQogICAgLy8gc2VsZi5idXllci52YWx1ZSA9IF9idXllcgogICAgYnl0ZWNfMSAvLyAiYnV5ZXIiCiAgICB1bmNvdmVyIDMKICAgIGFwcF9nbG9iYWxfcHV0CiAgICAvLyBjb250cmFjdC5weToyMgogICAgLy8gc2VsZi5zdXBwbGllci52YWx1ZSA9IF9zdXBwbGllcgogICAgYnl0ZWMgNyAvLyAic3VwcGxpZXIiCiAgICB1bmNvdmVyIDIKICAgIGFwcF9nbG9iYWxfcHV0CiAgICAvLyBjb250cmFjdC5weToyMwogICAgLy8gc2VsZi5hbW91bnQudmFsdWUgPSBfYW1vdW50CiAgICBieXRlYyA0IC8vICJhbW91bnQiCiAgICBzd2FwCiAgICBhcHBfZ2xvYmFsX3B1dAogICAgLy8gY29udHJhY3QucHk6MjQKICAgIC8vIHNlbGYuaXNfZnVuZGVkLnZhbHVlID0gRmFsc2UKICAgIGJ5dGVjXzAgLy8gImlzX2Z1bmRlZCIKICAgIGludGNfMCAvLyAwCiAgICBhcHBfZ2xvYmFsX3B1dAogICAgLy8gY29udHJhY3QucHk6MjUKICAgIC8vIHNlbGYuaXNfcmVsZWFzZWQudmFsdWUgPSBGYWxzZQogICAgYnl0ZWNfMiAvLyAiaXNfcmVsZWFzZWQiCiAgICBpbnRjXzAgLy8gMAogICAgYXBwX2dsb2JhbF9wdXQKICAgIC8vIGNvbnRyYWN0LnB5OjI2CiAgICAvLyBzZWxmLmlzX3ZlcmlmaWVkLnZhbHVlID0gRmFsc2UKICAgIGJ5dGVjXzMgLy8gImlzX3ZlcmlmaWVkIgogICAgaW50Y18wIC8vIDAKICAgIGFwcF9nbG9iYWxfcHV0CiAgICAvLyBjb250cmFjdC5weToxOAogICAgLy8gQGFyYzQuYWJpbWV0aG9kKGFsbG93X2FjdGlvbnM9WyJOb09wIl0sIGNyZWF0ZT0icmVxdWlyZSIpCiAgICBpbnRjXzEgLy8gMQogICAgcmV0dXJuCgoKLy8gc21hcnRfY29udHJhY3RzLmVzY3Jvdy5jb250cmFjdC5Fc2Nyb3dDb250cmFjdC5mdW5kW3JvdXRpbmddKCkgLT4gdm9pZDoKZnVuZDoKICAgIC8vIGNvbnRyYWN0LnB5OjI4CiAgICAvLyBAYXJjNC5hYmltZXRob2QKICAgIHR4biBHcm91cEluZGV4CiAgICBpbnRjXzEgLy8gMQogICAgLQogICAgZHVwCiAgICBndHhucyBUeXBlRW51bQogICAgaW50Y18xIC8vIHBheQogICAgPT0KICAgIGFzc2VydCAvLyB0cmFuc2FjdGlvbiB0eXBlIGlzIHBheQogICAgLy8gY29udHJhY3QucHk6MzEKICAgIC8vIGFzc2VydCBUeG4uc2VuZGVyID09IHNlbGYuYnV5ZXIudmFsdWUsICJPbmx5IGJ1eWVyIGNhbiBmdW5kIgogICAgdHhuIFNlbmRlcgogICAgaW50Y18wIC8vIDAKICAgIGJ5dGVjXzEgLy8gImJ1eWVyIgogICAgYXBwX2dsb2JhbF9nZXRfZXgKICAgIGFzc2VydCAvLyBjaGVjayBzZWxmLmJ1eWVyIGV4aXN0cwogICAgPT0KICAgIGFzc2VydCAvLyBPbmx5IGJ1eWVyIGNhbiBmdW5kCiAgICAvLyBjb250cmFjdC5weTozMgogICAgLy8gYXNzZXJ0IHBheW1lbnQuc2VuZGVyID09IFR4bi5zZW5kZXIsICJQYXltZW50IG11c3QgY29tZSBmcm9tIGJ1eWVyIgogICAgZHVwCiAgICBndHhucyBTZW5kZXIKICAgIHR4biBTZW5kZXIKICAgID09CiAgICBhc3NlcnQgLy8gUGF5bWVudCBtdXN0IGNvbWUgZnJvbSBidXllcgogICAgLy8gY29udHJhY3QucHk6MzMKICAgIC8vIGFzc2VydCBwYXltZW50LnJlY2VpdmVyID09IEdsb2JhbC5jdXJyZW50X2FwcGxpY2F0aW9uX2FkZHJlc3MsICJQYXltZW50IG11c3QgZ28gdG8gY29udHJhY3QiCiAgICBkdXAKICAgIGd0eG5zIFJlY2VpdmVyCiAgICBnbG9iYWwgQ3VycmVudEFwcGxpY2F0aW9uQWRkcmVzcwogICAgPT0KICAgIGFzc2VydCAvLyBQYXltZW50IG11c3QgZ28gdG8gY29udHJhY3QKICAgIC8vIGNvbnRyYWN0LnB5OjM0CiAgICAvLyBhc3NlcnQgcGF5bWVudC5hbW91bnQgPT0gc2VsZi5hbW91bnQudmFsdWUsICJQYXltZW50IGFtb3VudCBtdXN0IG1hdGNoIGFncmVlZCBhbW91bnQiCiAgICBndHhucyBBbW91bnQKICAgIGludGNfMCAvLyAwCiAgICBieXRlYyA0IC8vICJhbW91bnQiCiAgICBhcHBfZ2xvYmFsX2dldF9leAogICAgYXNzZXJ0IC8vIGNoZWNrIHNlbGYuYW1vdW50IGV4aXN0cwogICAgPT0KICAgIGFzc2VydCAvLyBQYXltZW50IGFtb3VudCBtdXN0IG1hdGNoIGFncmVlZCBhbW91bnQKICAgIC8vIGNvbnRyYWN0LnB5OjM1CiAgICAvLyBhc3NlcnQgbm90IHNlbGYuaXNfZnVuZGVkLnZhbHVlLCAiRXNjcm93IGFscmVhZHkgZnVuZGVkIgogICAgaW50Y18wIC8vIDAKICAgIGJ5dGVjXzAgLy8gImlzX2Z1bmRlZCIKICAgIGFwcF9nbG9iYWxfZ2V0X2V4CiAgICBhc3NlcnQgLy8gY2hlY2sgc2VsZi5pc19mdW5kZWQgZXhpc3RzCiAgICAhCiAgICBhc3NlcnQgLy8gRXNjcm93IGFscmVhZHkgZnVuZGVkCiAgICAvLyBjb250cmFjdC5weTozNgogICAgLy8gc2VsZi5pc19mdW5kZWQudmFsdWUgPSBUcnVlCiAgICBieXRlY18wIC8vICJpc19mdW5kZWQiCiAgICBpbnRjXzEgLy8gMQogICAgYXBwX2dsb2JhbF9wdXQKICAgIC8vIGNvbnRyYWN0LnB5OjI4CiAgICAvLyBAYXJjNC5hYmltZXRob2QKICAgIGludGNfMSAvLyAxCiAgICByZXR1cm4KCgovLyBzbWFydF9jb250cmFjdHMuZXNjcm93LmNvbnRyYWN0LkVzY3Jvd0NvbnRyYWN0Lm1hcmtfdmVyaWZpZWRbcm91dGluZ10oKSAtPiB2b2lkOgptYXJrX3ZlcmlmaWVkOgogICAgLy8gY29udHJhY3QucHk6NDEKICAgIC8vIGFzc2VydCBUeG4uc2VuZGVyID09IHNlbGYuYnV5ZXIudmFsdWUsICJPbmx5IGJ1eWVyIGNhbiB2ZXJpZnkiCiAgICB0eG4gU2VuZGVyCiAgICBpbnRjXzAgLy8gMAogICAgYnl0ZWNfMSAvLyAiYnV5ZXIiCiAgICBhcHBfZ2xvYmFsX2dldF9leAogICAgYXNzZXJ0IC8vIGNoZWNrIHNlbGYuYnV5ZXIgZXhpc3RzCiAgICA9PQogICAgYXNzZXJ0IC8vIE9ubHkgYnV5ZXIgY2FuIHZlcmlmeQogICAgLy8gY29udHJhY3QucHk6NDIKICAgIC8vIGFzc2VydCBzZWxmLmlzX2Z1bmRlZC52YWx1ZSwgIkVzY3JvdyBtdXN0IGJlIGZ1bmRlZCIKICAgIGludGNfMCAvLyAwCiAgICBieXRlY18wIC8vICJpc19mdW5kZWQiCiAgICBhcHBfZ2xvYmFsX2dldF9leAogICAgYXNzZXJ0IC8vIGNoZWNrIHNlbGYuaXNfZnVuZGVkIGV4aXN0cwogICAgYXNzZXJ0IC8vIEVzY3JvdyBtdXN0IGJlIGZ1bmRlZAogICAgLy8gY29udHJhY3QucHk6NDMKICAgIC8vIHNlbGYuaXNfdmVyaWZpZWQudmFsdWUgPSBUcnVlCiAgICBieXRlY18zIC8vICJpc192ZXJpZmllZCIKICAgIGludGNfMSAvLyAxCiAgICBhcHBfZ2xvYmFsX3B1dAogICAgLy8gY29udHJhY3QucHk6MzgKICAgIC8vIEBhcmM0LmFiaW1ldGhvZAogICAgaW50Y18xIC8vIDEKICAgIHJldHVybgoKCi8vIHNtYXJ0X2NvbnRyYWN0cy5lc2Nyb3cuY29udHJhY3QuRXNjcm93Q29udHJhY3QuY29uZmlybV9kZWxpdmVyeVtyb3V0aW5nXSgpIC0+IHZvaWQ6CmNvbmZpcm1fZGVsaXZlcnk6CiAgICAvLyBjb250cmFjdC5weTo0OAogICAgLy8gYXNzZXJ0IFR4bi5zZW5kZXIgPT0gc2VsZi5idXllci52YWx1ZSwgIk9ubHkgYnV5ZXIgY2FuIGNvbmZpcm0gZGVsaXZlcnkiCiAgICB0eG4gU2VuZGVyCiAgICBpbnRjXzAgLy8gMAogICAgYnl0ZWNfMSAvLyAiYnV5ZXIiCiAgICBhcHBfZ2xvYmFsX2dldF9leAogICAgYXNzZXJ0IC8vIGNoZWNrIHNlbGYuYnV5ZXIgZXhpc3RzCiAgICA9PQogICAgYXNzZXJ0IC8vIE9ubHkgYnV5ZXIgY2FuIGNvbmZpcm0gZGVsaXZlcnkKICAgIC8vIGNvbnRyYWN0LnB5OjQ5CiAgICAvLyBhc3NlcnQgc2VsZi5pc19mdW5kZWQudmFsdWUsICJFc2Nyb3cgbm90IGZ1bmRlZCB5ZXQiCiAgICBpbnRjXzAgLy8gMAogICAgYnl0ZWNfMCAvLyAiaXNfZnVuZGVkIgogICAgYXBwX2dsb2JhbF9nZXRfZXgKICAgIGFzc2VydCAvLyBjaGVjayBzZWxmLmlzX2Z1bmRlZCBleGlzdHMKICAgIGFzc2VydCAvLyBFc2Nyb3cgbm90IGZ1bmRlZCB5ZXQKICAgIC8vIGNvbnRyYWN0LnB5OjUwCiAgICAvLyBhc3NlcnQgc2VsZi5pc192ZXJpZmllZC52YWx1ZSwgIkRlbGl2ZXJ5IG5vdCB2ZXJpZmllZCIKICAgIGludGNfMCAvLyAwCiAgICBieXRlY18zIC8vICJpc192ZXJpZmllZCIKICAgIGFwcF9nbG9iYWxfZ2V0X2V4CiAgICBhc3NlcnQgLy8gY2hlY2sgc2VsZi5pc192ZXJpZmllZCBleGlzdHMKICAgIGFzc2VydCAvLyBEZWxpdmVyeSBub3QgdmVyaWZpZWQKICAgIC8vIGNvbnRyYWN0LnB5OjUxCiAgICAvLyBhc3NlcnQgbm90IHNlbGYuaXNfcmVsZWFzZWQudmFsdWUsICJGdW5kcyBhbHJlYWR5IHJlbGVhc2VkIgogICAgaW50Y18wIC8vIDAKICAgIGJ5dGVjXzIgLy8gImlzX3JlbGVhc2VkIgogICAgYXBwX2dsb2JhbF9nZXRfZXgKICAgIGFzc2VydCAvLyBjaGVjayBzZWxmLmlzX3JlbGVhc2VkIGV4aXN0cwogICAgIQogICAgYXNzZXJ0IC8vIEZ1bmRzIGFscmVhZHkgcmVsZWFzZWQKICAgIC8vIGNvbnRyYWN0LnB5OjUyCiAgICAvLyBzZWxmLmlzX3JlbGVhc2VkLnZhbHVlID0gVHJ1ZQogICAgYnl0ZWNfMiAvLyAiaXNfcmVsZWFzZWQiCiAgICBpbnRjXzEgLy8gMQogICAgYXBwX2dsb2JhbF9wdXQKICAgIC8vIGNvbnRyYWN0LnB5OjUzLTU3CiAgICAvLyBpdHhuLlBheW1lbnQoCiAgICAvLyAgICAgcmVjZWl2ZXI9c2VsZi5zdXBwbGllci52YWx1ZSwKICAgIC8vICAgICBhbW91bnQ9c2VsZi5hbW91bnQudmFsdWUsCiAgICAvLyAgICAgZmVlPTAsCiAgICAvLyApLnN1Ym1pdCgpCiAgICBpdHhuX2JlZ2luCiAgICAvLyBjb250cmFjdC5weTo1NAogICAgLy8gcmVjZWl2ZXI9c2VsZi5zdXBwbGllci52YWx1ZSwKICAgIGludGNfMCAvLyAwCiAgICBieXRlYyA3IC8vICJzdXBwbGllciIKICAgIGFwcF9nbG9iYWxfZ2V0X2V4CiAgICBhc3NlcnQgLy8gY2hlY2sgc2VsZi5zdXBwbGllciBleGlzdHMKICAgIC8vIGNvbnRyYWN0LnB5OjU1CiAgICAvLyBhbW91bnQ9c2VsZi5hbW91bnQudmFsdWUsCiAgICBpbnRjXzAgLy8gMAogICAgYnl0ZWMgNCAvLyAiYW1vdW50IgogICAgYXBwX2dsb2JhbF9nZXRfZXgKICAgIGFzc2VydCAvLyBjaGVjayBzZWxmLmFtb3VudCBleGlzdHMKICAgIGl0eG5fZmllbGQgQW1vdW50CiAgICBpdHhuX2ZpZWxkIFJlY2VpdmVyCiAgICAvLyBjb250cmFjdC5weTo1MwogICAgLy8gaXR4bi5QYXltZW50KAogICAgaW50Y18xIC8vIHBheQogICAgaXR4bl9maWVsZCBUeXBlRW51bQogICAgLy8gY29udHJhY3QucHk6NTYKICAgIC8vIGZlZT0wLAogICAgaW50Y18wIC8vIDAKICAgIGl0eG5fZmllbGQgRmVlCiAgICAvLyBjb250cmFjdC5weTo1My01NwogICAgLy8gaXR4bi5QYXltZW50KAogICAgLy8gICAgIHJlY2VpdmVyPXNlbGYuc3VwcGxpZXIudmFsdWUsCiAgICAvLyAgICAgYW1vdW50PXNlbGYuYW1vdW50LnZhbHVlLAogICAgLy8gICAgIGZlZT0wLAogICAgLy8gKS5zdWJtaXQoKQogICAgaXR4bl9zdWJtaXQKICAgIC8vIGNvbnRyYWN0LnB5OjQ1CiAgICAvLyBAYXJjNC5hYmltZXRob2QKICAgIGludGNfMSAvLyAxCiAgICByZXR1cm4KCgovLyBzbWFydF9jb250cmFjdHMuZXNjcm93LmNvbnRyYWN0LkVzY3Jvd0NvbnRyYWN0LmdldF9mdW5kZWRbcm91dGluZ10oKSAtPiB2b2lkOgpnZXRfZnVuZGVkOgogICAgLy8gY29udHJhY3QucHk6NjIKICAgIC8vIHJldHVybiBhcmM0LkJvb2woc2VsZi5pc19mdW5kZWQudmFsdWUpCiAgICBpbnRjXzAgLy8gMAogICAgYnl0ZWNfMCAvLyAiaXNfZnVuZGVkIgogICAgYXBwX2dsb2JhbF9nZXRfZXgKICAgIGFzc2VydCAvLyBjaGVjayBzZWxmLmlzX2Z1bmRlZCBleGlzdHMKICAgIGJ5dGVjIDUgLy8gMHgwMAogICAgaW50Y18wIC8vIDAKICAgIHVuY292ZXIgMgogICAgc2V0Yml0CiAgICAvLyBjb250cmFjdC5weTo1OQogICAgLy8gQGFyYzQuYWJpbWV0aG9kKHJlYWRvbmx5PVRydWUpCiAgICBieXRlYyA2IC8vIDB4MTUxZjdjNzUKICAgIHN3YXAKICAgIGNvbmNhdAogICAgbG9nCiAgICBpbnRjXzEgLy8gMQogICAgcmV0dXJuCgoKLy8gc21hcnRfY29udHJhY3RzLmVzY3Jvdy5jb250cmFjdC5Fc2Nyb3dDb250cmFjdC5nZXRfcmVsZWFzZWRbcm91dGluZ10oKSAtPiB2b2lkOgpnZXRfcmVsZWFzZWQ6CiAgICAvLyBjb250cmFjdC5weTo2NwogICAgLy8gcmV0dXJuIGFyYzQuQm9vbChzZWxmLmlzX3JlbGVhc2VkLnZhbHVlKQogICAgaW50Y18wIC8vIDAKICAgIGJ5dGVjXzIgLy8gImlzX3JlbGVhc2VkIgogICAgYXBwX2dsb2JhbF9nZXRfZXgKICAgIGFzc2VydCAvLyBjaGVjayBzZWxmLmlzX3JlbGVhc2VkIGV4aXN0cwogICAgYnl0ZWMgNSAvLyAweDAwCiAgICBpbnRjXzAgLy8gMAogICAgdW5jb3ZlciAyCiAgICBzZXRiaXQKICAgIC8vIGNvbnRyYWN0LnB5OjY0CiAgICAvLyBAYXJjNC5hYmltZXRob2QocmVhZG9ubHk9VHJ1ZSkKICAgIGJ5dGVjIDYgLy8gMHgxNTFmN2M3NQogICAgc3dhcAogICAgY29uY2F0CiAgICBsb2cKICAgIGludGNfMSAvLyAxCiAgICByZXR1cm4KCgovLyBzbWFydF9jb250cmFjdHMuZXNjcm93LmNvbnRyYWN0LkVzY3Jvd0NvbnRyYWN0LmdldF92ZXJpZmllZFtyb3V0aW5nXSgpIC0+IHZvaWQ6CmdldF92ZXJpZmllZDoKICAgIC8vIGNvbnRyYWN0LnB5OjcyCiAgICAvLyByZXR1cm4gYXJjNC5Cb29sKHNlbGYuaXNfdmVyaWZpZWQudmFsdWUpCiAgICBpbnRjXzAgLy8gMAogICAgYnl0ZWNfMyAvLyAiaXNfdmVyaWZpZWQiCiAgICBhcHBfZ2xvYmFsX2dldF9leAogICAgYXNzZXJ0IC8vIGNoZWNrIHNlbGYuaXNfdmVyaWZpZWQgZXhpc3RzCiAgICBieXRlYyA1IC8vIDB4MDAKICAgIGludGNfMCAvLyAwCiAgICB1bmNvdmVyIDIKICAgIHNldGJpdAogICAgLy8gY29udHJhY3QucHk6NjkKICAgIC8vIEBhcmM0LmFiaW1ldGhvZChyZWFkb25seT1UcnVlKQogICAgYnl0ZWMgNiAvLyAweDE1MWY3Yzc1CiAgICBzd2FwCiAgICBjb25jYXQKICAgIGxvZwogICAgaW50Y18xIC8vIDEKICAgIHJldHVybgo=",
+        "clear": "I3ByYWdtYSB2ZXJzaW9uIDExCiNwcmFnbWEgdHlwZXRyYWNrIGZhbHNlCgovLyBhbGdvcHkuYXJjNC5BUkM0Q29udHJhY3QuY2xlYXJfc3RhdGVfcHJvZ3JhbSgpIC0+IHVpbnQ2NDoKbWFpbjoKICAgIHB1c2hpbnQgMQogICAgcmV0dXJuCg=="
+    },
+    "byteCode": {
+        "approval": "CyADAAEgJggJaXNfZnVuZGVkBWJ1eWVyC2lzX3JlbGVhc2VkC2lzX3ZlcmlmaWVkBmFtb3VudAEABBUffHUIc3VwcGxpZXIxGRREMRhBADKCBgRRUxt1BKuN6xoE/0lmpgTGAq00BAuHX3AEHrKzSjYaAI4GAEEAdQCHALoAywDcAIAEzmECUTYaAI4BAAEANhoBSRUkEkQ2GgJJFSQSRDYaA0kVgQgSRBcpTwNnJwdPAmcnBExnKCJnKiJnKyJnI0MxFiMJSTgQIxJEMQAiKWVEEkRJOAAxABJESTgHMgoSRDgIIicEZUQSRCIoZUQURCgjZyNDMQAiKWVEEkQiKGVERCsjZyNDMQAiKWVEEkQiKGVERCIrZUREIiplRBREKiNnsSInB2VEIicEZUSyCLIHI7IQIrIBsyNDIihlRCcFIk8CVCcGTFCwI0MiKmVEJwUiTwJUJwZMULAjQyIrZUQnBSJPAlQnBkxQsCND",
+        "clear": "C4EBQw=="
+    },
+    "compilerInfo": {
+        "compiler": "puya",
+        "compilerVersion": {
+            "major": 5,
+            "minor": 7,
+            "patch": 1
+        }
+    },
+    "events": [],
+    "templateVariables": {}
+}

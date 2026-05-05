@@ -13,6 +13,7 @@ class EscrowContract(ARC4Contract):
         self.amount = GlobalState(UInt64)
         self.is_funded = GlobalState(bool)
         self.is_released = GlobalState(bool)
+        self.is_verified = GlobalState(bool)
 
     @arc4.abimethod(allow_actions=["NoOp"], create="require")
     def create(self, _buyer: Account, _supplier: Account, _amount: UInt64) -> None:
@@ -22,6 +23,7 @@ class EscrowContract(ARC4Contract):
         self.amount.value = _amount
         self.is_funded.value = False
         self.is_released.value = False
+        self.is_verified.value = False
 
     @arc4.abimethod
     def fund(self, payment: gtxn.PaymentTransaction) -> None:
@@ -34,10 +36,18 @@ class EscrowContract(ARC4Contract):
         self.is_funded.value = True
 
     @arc4.abimethod
+    def mark_verified(self) -> None:
+        """Mark the delivery as verified. Only buyer can call this."""
+        assert Txn.sender == self.buyer.value, "Only buyer can verify"
+        assert self.is_funded.value, "Escrow must be funded"
+        self.is_verified.value = True
+
+    @arc4.abimethod
     def confirm_delivery(self) -> None:
         """Buyer confirms delivery - releases funds to supplier."""
         assert Txn.sender == self.buyer.value, "Only buyer can confirm delivery"
         assert self.is_funded.value, "Escrow not funded yet"
+        assert self.is_verified.value, "Delivery not verified"
         assert not self.is_released.value, "Funds already released"
         self.is_released.value = True
         itxn.Payment(
@@ -55,3 +65,8 @@ class EscrowContract(ARC4Contract):
     def get_released(self) -> arc4.Bool:
         """Returns whether funds have been released."""
         return arc4.Bool(self.is_released.value)
+
+    @arc4.abimethod(readonly=True)
+    def get_verified(self) -> arc4.Bool:
+        """Returns whether delivery is verified."""
+        return arc4.Bool(self.is_verified.value)

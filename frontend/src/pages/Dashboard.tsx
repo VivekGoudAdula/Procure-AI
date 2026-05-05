@@ -228,9 +228,9 @@ const Dashboard = () => {
                 </div>
               </div>
 
-              <Link to="/agents" className="block mt-12">
+              <Link to="/procurement" className="block mt-12">
                 <Button className="w-full bg-white text-slate-950 hover:bg-slate-100 font-black text-xs uppercase tracking-widest h-12 rounded-2xl transition-all shadow-xl">
-                  Sync Agents <ChevronRight className="ml-2 w-4 h-4" />
+                  Deploy Agents <ChevronRight className="ml-2 w-4 h-4" />
                 </Button>
               </Link>
             </CardContent>

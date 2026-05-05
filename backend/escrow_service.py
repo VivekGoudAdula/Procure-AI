@@ -54,9 +54,9 @@ def deploy_escrow(buyer_address: str, supplier_address: str, amount_microalgos: 
 
         client, result = factory.send.create.create(
             args=CreateArgs(
-                buyer=buyer_address,
-                supplier=supplier_address,
-                amount=amount_microalgos
+                _buyer=buyer_address,
+                _supplier=supplier_address,
+                _amount=amount_microalgos
             )
         )
         

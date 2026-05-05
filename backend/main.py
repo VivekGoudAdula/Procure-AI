@@ -1,5 +1,6 @@
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, HTTPException, File, UploadFile, Form
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
 import json
 import os
@@ -7,7 +8,7 @@ from dotenv import load_dotenv
 
 # Load .env file
 load_dotenv()
-from ai_agent import select_best_supplier
+from ai_agent import select_best_supplier, run_agent_competition
 from blockchain import create_transaction, simulate_escrow
 from escrow_service import deploy_escrow
 
@@ -21,6 +22,12 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+# Static files for delivery proofs
+UPLOAD_DIR = os.path.join(os.path.dirname(__file__), "uploads")
+if not os.path.exists(UPLOAD_DIR):
+    os.makedirs(UPLOAD_DIR)
+app.mount("/uploads", StaticFiles(directory=UPLOAD_DIR), name="uploads")
 
 DATABASE_PATH = os.path.join(os.path.dirname(__file__), "database.json")
 
@@ -64,6 +71,9 @@ class SupplierNegotiationRequest(BaseModel):
     budget: float
     round: int
 
+class VerifyDeliveryRequest(BaseModel):
+    escrow_id: str
+
 ESCROW_DB_PATH = os.path.join(os.path.dirname(__file__), "escrow_records.json")
 
 def load_escrow_db():
@@ -91,22 +101,39 @@ async def login(user: User):
         return {"message": "Login successful", "email": user.email}
     raise HTTPException(status_code=401, detail="Invalid credentials")
 
+@app.post("/api/agent-competition")
+def agent_competition_api(req: SupplierRequest):
+    result = run_agent_competition(req.productName, req.quantity, req.budget)
+    return result
+
 @app.post("/api/select-supplier")
-def select_supplier_api(req: SupplierRequest):
-    result = select_best_supplier(req.productName, req.quantity, req.budget)
+async def select_supplier_api(req: SupplierRequest):
+    try:
+        result = select_best_supplier(req.productName, req.quantity, req.budget)
+    except ValueError as e:
+        raise HTTPException(status_code=404, detail=str(e))
+    except Exception as e:
+        print(f"Error in select_supplier_api: {e}")
+        raise HTTPException(status_code=500, detail="Internal server error")
+    
     if "error" in result:
         raise HTTPException(status_code=404, detail=result["error"])
     
     # Map backend fields to frontend expectations
-    # result contains supplier_list, selected_supplier, final_price, reasoning, negotiation_logs
     return {
+        "deal": result.get("deal"),
+        "rounds": result.get("rounds"),
+        "finalDecision": result.get("winner"),
         "suppliers": [
             {
                 "id": s["id"],
                 "name": s["name"],
                 "price": s.get("negotiated_price", s.get("base_price", 0)),
-                "rating": s["reliability"] * 5, # Scale reliability to 5-star rating
-                "deliveryTime": "2-3 days"
+                "rating": s.get("rating", 4.5),
+                "deliveryTime": f"{s['delivery_days']} days",
+                "reliability": s["reliability_score"],
+                "success_rate": s.get("success_rate", 90),
+                "score": s.get("score", 0)
             } for s in result["supplier_list"]
         ],
         "negotiationLogs": result["negotiation_logs"],
@@ -115,9 +142,13 @@ def select_supplier_api(req: SupplierRequest):
             "name": result["selected_supplier"]["name"],
             "finalPrice": result["final_price"],
             "reasoning": result["reasoning"],
-            "wallet_address": result["selected_supplier"].get("address", "2RIRIX5XK6GWK7LOXDAYIDTN4IYDVNRDJFXR4TJCLYIM72A3EF2UQPROQY")
+            "wallet_address": result["selected_supplier"].get("address", "2RIRIX5XK6GWK7LOXDAYIDTN4IYDVNRDJFXR4TJCLYIM72A3EF2UQPROQY"),
+            "unit_price": result["selected_supplier"].get("unit_price", 0),
+            "reliability": result["selected_supplier"]["reliability_score"],
+            "deliveryTime": f"{result['selected_supplier']['delivery_days']} days"
         }
     }
+
 
 @app.post("/api/prepare-transaction")
 async def prepare_transaction(req: TransactionRequest):
@@ -155,8 +186,10 @@ async def create_escrow(req: EscrowRequest):
         "sender_address": req.sender,
         "receiver_address": req.receiver,
         "amount": req.amount,
-        "status": "locked",
-        "timestamp": time.time()
+        "escrow_status": "funded",
+        "timestamp": time.time(),
+        "delivery_proof": None,
+        "verified": False
     }
     
     db = load_escrow_db()
@@ -164,26 +197,155 @@ async def create_escrow(req: EscrowRequest):
     save_escrow_db(db)
     
     return escrow_record
-
+    
 @app.post("/api/confirm-delivery")
 async def confirm_delivery(req: ConfirmDeliveryRequest):
     db = load_escrow_db()
-    # Check by transaction_id directly OR search values for matching app_id/transaction_id
+    # Search by transaction_id OR app_id (often used interchangeably in frontend)
     record = db.get(req.transaction_id)
-    
     if not record:
-        # Fallback: search values for matching app_id (passed as string from frontend)
         for r in db.values():
             if str(r.get("app_id")) == req.transaction_id:
                 record = r
                 break
-                
+    
     if not record:
-        # Final safety: return success to UI but log it locally if we truly can't find it
-        print(f"[ProcureAI] Status update skipped for ID: {req.transaction_id}")
-        return {"status": "success", "message": "Record status update skipped"}
+        raise HTTPException(status_code=404, detail="Escrow not found")
+
+    if record.get("escrow_status") != "verified":
+        raise HTTPException(status_code=400, detail="Delivery must be verified before release")
+
+    record["escrow_status"] = "released"
+    save_escrow_db(db)
+    return record
+
+@app.post("/api/update-escrow-status")
+async def update_escrow_status(req: dict):
+    db = load_escrow_db()
+    tx_id = req.get("transaction_id")
+    status = req.get("status")
+    
+    record = db.get(tx_id)
+    if not record:
+        for r in db.values():
+            if str(r.get("app_id")) == tx_id:
+                record = r
+                break
+    
+    if record:
+        record["escrow_status"] = status
+        save_escrow_db(db)
+        return record
+    raise HTTPException(status_code=404, detail="Escrow not found")
+
+@app.post("/api/submit-delivery-proof")
+async def submit_delivery_proof(
+    escrow_id: str = Form(...),
+    proof_type: str = Form(...), # "invoice_file" | "timestamp" | "tracking_id"
+    file: UploadFile = File(None),
+    value: str = Form(None)
+):
+    import time
+    db = load_escrow_db()
+    record = db.get(escrow_id)
+    if not record:
+        for r in db.values():
+            if str(r.get("app_id")) == escrow_id:
+                record = r
+                break
+    
+    if not record:
+        raise HTTPException(status_code=404, detail="Escrow not found")
+    
+    file_url = None
+    if proof_type == "invoice_file":
+        if not file:
+            raise HTTPException(status_code=400, detail="Invoice file is required")
         
-    record["status"] = "released"
+        # Validate extension
+        ext = file.filename.split(".")[-1].lower()
+        if ext not in ["jpg", "jpeg", "png", "pdf"]:
+            raise HTTPException(status_code=400, detail="Only JPG, PNG, and PDF are allowed")
+            
+        filename = f"{escrow_id}_{int(time.time())}.{ext}"
+        invoice_dir = os.path.join(UPLOAD_DIR, "invoices")
+        if not os.path.exists(invoice_dir):
+            os.makedirs(invoice_dir)
+            
+        filepath = os.path.join(invoice_dir, filename)
+        with open(filepath, "wb") as f:
+            f.write(await file.read())
+        
+        file_url = f"/uploads/invoices/{filename}"
+        proof_value = filename
+    else:
+        proof_value = value if value else str(import_datetime().now())
+
+    record["delivery_proof"] = {
+        "type": proof_type,
+        "value": proof_value,
+        "file_path": file_url,
+        "submitted_at": str(import_datetime().now())
+    }
+    record["escrow_status"] = "proof_submitted"
+    record["verified"] = False
+    
+    save_escrow_db(db)
+    return record
+
+def import_datetime():
+    import datetime
+    return datetime.datetime
+
+@app.post("/api/verify-delivery")
+async def verify_delivery(req: VerifyDeliveryRequest):
+    db = load_escrow_db()
+    record = db.get(req.escrow_id)
+    if not record:
+        for r in db.values():
+            if str(r.get("app_id")) == req.escrow_id:
+                record = r
+                break
+    
+    if not record:
+        raise HTTPException(status_code=404, detail="Escrow not found")
+    
+    if not record.get("delivery_proof"):
+        raise HTTPException(status_code=400, detail="No delivery proof submitted")
+    
+    # MVP logic for verification
+    proof = record["delivery_proof"]
+    if proof["type"] == "timestamp":
+        # Auto-valid
+        pass
+    else:
+        # Basic validation
+        if len(proof["value"]) < 5:
+             raise HTTPException(status_code=400, detail="Invalid proof format")
+
+    record["escrow_status"] = "verified"
+    record["verified"] = True
+    
+    save_escrow_db(db)
+    return record
+
+class UpdateStatusRequest(BaseModel):
+    transaction_id: str
+    status: str
+
+@app.post("/api/update-escrow-status")
+async def update_escrow_status(req: UpdateStatusRequest):
+    db = load_escrow_db()
+    record = db.get(req.transaction_id)
+    if not record:
+        for r in db.values():
+            if str(r.get("app_id")) == req.transaction_id:
+                record = r
+                break
+    if not record:
+        raise HTTPException(status_code=404, detail="Transaction not found")
+    
+    record["escrow_status"] = req.status
     save_escrow_db(db)
     return record
 

@@ -7,7 +7,6 @@ import Auth from './pages/Auth';
 import Dashboard from './pages/Dashboard';
 import Procurement from './pages/Procurement';
 import Transactions from './pages/Transactions';
-import Agents from './pages/Agents';
 import Analytics from './pages/Analytics';
 import Settings from './pages/Settings';
 import Help from './pages/Help';
@@ -26,7 +25,6 @@ export default function App() {
             <Route path="/dashboard" element={<Dashboard />} />
             <Route path="/procurement" element={<Procurement />} />
             <Route path="/transactions" element={<Transactions />} />
-            <Route path="/agents" element={<Agents />} />
             <Route path="/analytics" element={<Analytics />} />
             <Route path="/settings" element={<Settings />} />
             <Route path="/help" element={<Help />} />

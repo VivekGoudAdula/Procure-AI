@@ -10,6 +10,7 @@ class EscrowContract(ARC4Contract):
         self.amount = UInt64(0)
         self.is_funded = Bool(False)
         self.is_released = Bool(False)
+        self.is_verified = Bool(False)
 
     @arc4.abimethod(allow_actions=["NoOp"], create="require")
     def create(self, buyer: Account, supplier: Account, amount: UInt64) -> None:
@@ -18,6 +19,7 @@ class EscrowContract(ARC4Contract):
         self.amount = amount
         self.is_funded = Bool(False)
         self.is_released = Bool(False)
+        self.is_verified = Bool(False)
 
     @arc4.abimethod
     def fund(self, payment: gtxn.PaymentTransaction) -> None:
@@ -29,9 +31,16 @@ class EscrowContract(ARC4Contract):
         self.is_funded = Bool(True)
 
     @arc4.abimethod
+    def mark_verified(self) -> None:
+        assert Txn.sender == self.buyer, "Only buyer can verify"
+        assert self.is_funded, "Must be funded"
+        self.is_verified = Bool(True)
+
+    @arc4.abimethod
     def confirm_delivery(self) -> None:
         assert Txn.sender == self.buyer
         assert self.is_funded
+        assert self.is_verified, "Delivery not verified"
         assert not self.is_released
         self.is_released = Bool(True)
         itxn.Payment(

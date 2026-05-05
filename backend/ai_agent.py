@@ -25,104 +25,142 @@ def load_data():
     with open(DATABASE_PATH, "r") as f:
         return json.load(f)
 
-def select_best_supplier(product_name, quantity, budget):
-    print(f"\n[ProcureAI Agent] Sourcing '{product_name}' for quantity {quantity} with budget ${budget}...")
+def run_agent_competition(product_name, quantity, budget):
+    print(f"\n[ProcureAI] Starting Dynamic Agent Competition for '{product_name}'...")
     
     data = load_data()
-    # Filter suppliers by product (case-insensitive)
-    suppliers = [s for s in data.get("suppliers", []) if product_name.lower() in s["product"].lower()]
-    print(f"[ProcureAI Agent] Found {len(suppliers)} potential suppliers in database.")
+    all_suppliers = [s for s in data.get("suppliers", []) if product_name.lower() in s["product"].lower()]
     
-    if not suppliers:
-        print(f"[ProcureAI Agent] No matching suppliers for '{product_name}'.")
-        return {"error": "No suppliers found! Try searching for 'Industrial Components'."}
+    if not all_suppliers:
+        # Fallback to category if product not found
+        categories = ["industrial", "electronics", "agriculture", "food", "medical", "office", "construction", "automotive", "textiles", "energy"]
+        found_category = next((cat for cat in categories if cat in product_name.lower()), None)
+        if found_category:
+            all_suppliers = [s for s in data.get("suppliers", []) if s["category"] == found_category]
+        else:
+            all_suppliers = data.get("suppliers", [])[:10]
 
-    print("[ProcureAI Agent] Initializing Multi-Agent Negotiation Protocol (A2A)...")
-    negotiation_results = []
+    candidates = [s for s in all_suppliers if s["base_price"] <= budget * 1.5]
+    if not candidates: candidates = all_suppliers[:10]
     
-    # 5. IMPLEMENT NEGOTIATION LOOP
-    all_negotiation_logs = []
+    if not candidates:
+        raise ValueError("No suppliers found in database")
     
-    for s in suppliers:
-        print(f"  - Initiating Agent-to-Agent dialogue with '{s['name']}'...")
-        best_offer = None
-        supplier_logs = []
-        
-        # 3 Rounds of negotiation
-        for round_num in range(1, 4):
-            try:
-                # 4. MODIFY AI PROCUREMENT AGENT: Call each supplier agent dynamically
-                full_endpoint = f"{BASE_URL}{s['endpoint']}" if s['endpoint'].startswith("/") else s['endpoint']
-                
-                response = requests.post(
-                    full_endpoint,
-                    json={
-                        "product": product_name,
-                        "quantity": quantity,
-                        "budget": budget,
-                        "round": round_num
-                    },
-                    timeout=5
-                )
-                
-                if response.status_code == 200:
-                    offer = response.json()
-                    offer_price = offer["offer_price"]
-                    message = offer["message"]
-                    
-                    # 6. GENERATE NEGOTIATION TRANSCRIPT
-                    supplier_logs.append({"role": "agent", "message": f"Round {round_num}: Can you offer better pricing for {quantity} units of {product_name}?"})
-                    supplier_logs.append({"role": "supplier", "message": message})
-                    
-                    if best_offer is None or offer_price < best_offer["offer_price"]:
-                        best_offer = offer
-                else:
-                    print(f"    Error from supplier {s['id']}: {response.status_code}")
-            except Exception as e:
-                print(f"    Failed to reach supplier agent {s['id']}: {e}")
-                break
-        
-        if best_offer:
-            # 7. FINAL SUPPLIER SELECTION: score = (reliability * 1000) / final_price
-            score = (s["reliability"] * 1000) / best_offer["offer_price"]
+    top_suppliers = sorted(candidates, key=lambda x: x.get("reliability_score", 0), reverse=True)[:3]
+    
+    rounds = []
+    # Initial state
+    current_states = {
+        s["id"]: {
+            "id": s["id"],
+            "name": s["name"],
+            "price": s["base_price"],
+            "delivery": s["delivery_days"],
+            "reliability": s["reliability_score"]
+        } for s in top_suppliers
+    }
+
+    # Simulation: 3 Rounds
+    for r_num in range(1, 4):
+        round_suppliers = []
+        for s_id, state in current_states.items():
+            # Reduce price randomly 5-15%
+            reduction = random.uniform(0.05, 0.15)
+            state["price"] = round(state["price"] * (1 - reduction), 2)
             
-            negotiation_results.append({
-                "supplier": s,
-                "final_offer": best_offer,
-                "score": score,
-                "logs": supplier_logs
-            })
+            # Optionally adjust delivery +/- 1 day
+            if random.random() > 0.6:
+                adj = random.choice([-1, 0, 1])
+                state["delivery"] = max(1, state["delivery"] + adj)
+                
+            round_suppliers.append(state.copy())
+        
+        rounds.append({
+            "round": r_num,
+            "suppliers": round_suppliers
+        })
 
-    if not negotiation_results:
-        return {"error": "Negotiation failed with all suppliers."}
+    # Compute Winner
+    # score = (reliability * 0.5) + (1/price * 0.3) + (1/delivery * 0.2)
+    # We need to normalize price and delivery to make the weights meaningful
+    min_price = min(s["price"] for s in current_states.values())
+    min_delivery = min(s["delivery"] for s in current_states.values())
+    
+    scored_results = []
+    for s_id, state in current_states.items():
+        # Using ratios for normalization: (min / current) ensures lower is better and result is 0-1
+        price_factor = min_price / state["price"]
+        delivery_factor = min_delivery / state["delivery"]
+        
+        # Reliability is 0-100, so we normalize to 0-1
+        rel_factor = state["reliability"] / 100.0
+        
+        score = (rel_factor * 0.5) + (price_factor * 0.3) + (delivery_factor * 0.2)
+        scored_results.append({**state, "score": round(score * 100, 2)})
 
-    # Sort by score descending
-    negotiation_results.sort(key=lambda x: x["score"], reverse=True)
-    best_match = negotiation_results[0]
-    selected_supplier = best_match["supplier"]
-    final_unit_price = best_match["final_offer"]["offer_price"]
-    total_cost = round(final_unit_price * quantity, 2)
+    scored_results.sort(key=lambda x: x["score"], reverse=True)
+    winner = scored_results[0]
     
-    print(f"[ProcureAI Agent] WINNER: '{selected_supplier['name']}' selected at unit price ${final_unit_price}.")
-    
-    # Use logs from the winning supplier for the frontend display
-    negotiation_logs = best_match["logs"]
-    
-    reasoning = f"Selected {selected_supplier['name']} based on high reliability ({selected_supplier['reliability']*100}%) and a final negotiated price of ${final_unit_price} (Score: {round(best_match['score'], 2)})."
-
-    print(f"[ProcureAI Agent] Procurement Cycle Complete. Total Deal Value: ${total_cost}\n")
+    winner["reason"] = f"Winner selected with highest score of {winner['score']} based on optimal pricing (${winner['price']}) and {winner['reliability']}% reliability."
 
     return {
+        "deal": {
+            "product": product_name,
+            "quantity": quantity,
+            "budget": budget
+        },
+        "suppliers": [
+            {
+                "id": s["id"],
+                "name": s["name"],
+                "base_price": s["base_price"],
+                "reliability_score": s["reliability_score"],
+                "delivery_days": s["delivery_days"]
+            } for s in top_suppliers
+        ],
+        "rounds": rounds,
+        "winner": winner,
+        "scored_results": scored_results
+    }
+
+def select_best_supplier(product_name, quantity, budget):
+    # Keep this for compatibility but use the new logic
+    comp_result = run_agent_competition(product_name, quantity, budget)
+    winner = comp_result["winner"]
+    
+    return {
+        **comp_result,
         "supplier_list": [
-            {**nr["supplier"], "negotiated_price": nr["final_offer"]["offer_price"]} 
-            for nr in negotiation_results
+            {
+                "id": s["id"],
+                "name": s["name"],
+                "negotiated_price": s["price"],
+                "delivery_days": s["delivery"],
+                "reliability_score": s["reliability"],
+                "score": s["score"],
+                "rating": 4.5,
+                "success_rate": 90
+            } for s in comp_result["scored_results"]
         ],
         "selected_supplier": {
-            **selected_supplier,
-            "final_price": total_cost,
-            "reasoning": reasoning
+            "id": winner["id"],
+            "name": winner["name"],
+            "final_price": winner["price"] * quantity,
+            "unit_price": winner["price"],
+            "delivery_days": winner["delivery"],
+            "reliability_score": winner["reliability"],
+            "reasoning": winner["reason"]
         },
-        "final_price": total_cost,
-        "reasoning": reasoning,
-        "negotiation_logs": negotiation_logs
+        "final_price": winner["price"] * quantity,
+        "reasoning": winner["reason"],
+        "negotiation_logs": [
+            item
+            for r in comp_result["rounds"]
+            for item in [
+                {"role": "agent", "message": f"Round {r['round']}: Requesting best offers for {quantity} units..."},
+                {"role": "supplier", "message": f"Competitive offers: " + ", ".join([f"{s['name']}: ${s['price']}" for s in r['suppliers']])}
+            ]
+        ]
     }
+
+

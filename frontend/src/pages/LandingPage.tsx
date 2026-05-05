@@ -554,7 +554,6 @@ const Footer = () => (
           <h4 className="font-bold mb-6 text-slate-900 uppercase text-xs tracking-widest">Product</h4>
           <ul className="space-y-4 text-slate-500 font-bold text-sm">
             <li><a href="#" className="hover:text-indigo-600 transition-colors">Features</a></li>
-            <li><a href="#" className="hover:text-indigo-600 transition-colors">Agents</a></li>
             <li><a href="#" className="hover:text-indigo-600 transition-colors">Enterprise</a></li>
             <li><a href="#" className="hover:text-indigo-600 transition-colors">Escrow</a></li>
           </ul>

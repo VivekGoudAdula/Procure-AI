@@ -19,7 +19,13 @@ import {
   DollarSign,
   Layers,
   Clock,
-  Lock
+  Lock,
+  FileText,
+  Image as ImageIcon,
+  Eye,
+  Trash2,
+  FileUp,
+  Upload
 } from 'lucide-react';
 import { useApp } from '../context/AppContext';
 import { cn } from '../lib/utils';
@@ -42,6 +48,9 @@ interface Supplier {
   price: number;
   rating: number;
   deliveryTime: string;
+  reliability: number;
+  success_rate: number;
+  score: number;
 }
 
 interface Log {
@@ -58,6 +67,9 @@ interface ProcurementResult {
     finalPrice: number;
     reasoning: string;
     wallet_address?: string;
+    unit_price: number;
+    reliability: number;
+    deliveryTime: string;
   };
 }
 
@@ -94,6 +106,16 @@ const Procurement = () => {
   const [isConfirming, setIsConfirming] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [paymentPhase, setPaymentPhase] = useState(0);
+
+  // Delivery Verification State
+  const [proofType, setProofType] = useState<'invoice_file' | 'timestamp' | 'tracking_id'>('invoice_file');
+  const [proofValue, setProofValue] = useState('');
+  const [selectedFile, setSelectedFile] = useState<File | null>(null);
+  const [proofUrl, setProofUrl] = useState<string | null>(null);
+  const [isSubmittingProof, setIsSubmittingProof] = useState(false);
+  const [isVerifying, setIsVerifying] = useState(false);
+  const [escrowStatus, setEscrowStatus] = useState<string>('funded');
+  const [isVerified, setIsVerified] = useState(false);
 
   // Sync state to session storage
   useEffect(() => {
@@ -135,35 +157,41 @@ const Procurement = () => {
     setError(null);
 
     try {
+      // 1. Call the new Dynamic Agent Competition endpoint
       const response = await axios.post(`${API_BASE_URL}/api/select-supplier`, {
         productName,
         quantity,
         budget
       });
 
-      // Wait for at least 5 seconds for the animation to play out
-      await new Promise(res => setTimeout(res, 5000));
-
-      // Use the backend response directly as mapped in main.py
+      // The backend now returns computed competition data
       const data = response.data;
+      
+      // Wait for a short moment to transition
+      await new Promise(res => setTimeout(res, 1000));
+
       const normalizedResult = {
         suppliers: data.suppliers,
         selectedSupplier: data.selectedSupplier,
-        negotiationLogs: data.negotiationLogs
+        negotiationLogs: data.negotiationLogs,
+        rounds: data.rounds,
+        finalDecision: data.finalDecision,
+        deal: data.deal
       };
 
       setResult(normalizedResult);
       setStep('result');
-      toast.success('Agent found the best supplier and negotiated a deal!');
+      toast.success('AI Agents competed and negotiated the best deal dynamically!');
     } catch (err: any) {
-      console.error('[ProcureAI] Search Error:', err);
-      setError(`Failed to find suppliers: ${err.message || 'Check backend connection.'}`);
+      console.error('[ProcureAI] Competition Error:', err);
+      setError(`Failed to run competition: ${err.message || 'Check backend connection.'}`);
       setStep('form');
-      toast.error('Procurement agent failed to initialize.');
+      toast.error('Agent competition failed to initialize.');
     } finally {
       setIsSearching(false);
     }
   };
+
 
   const handleConnectWallet = async () => {
     try {
@@ -241,12 +269,19 @@ const Procurement = () => {
 
       const composer = new algosdk.AtomicTransactionComposer();
       
+      let signingPromise: Promise<Uint8Array[]> | null = null;
       const signer: algosdk.TransactionSigner = async (group, indexes) => {
-        const signToSign = group.map(txn => ({
-          txn,
-          signers: [activeAddress]
-        }));
-        const signedTxns = await peraWallet.signTransaction([signToSign]);
+        if (!signingPromise) {
+          const signToSign = group.map(txn => ({
+            txn,
+            signers: [activeAddress]
+          }));
+          signingPromise = peraWallet.signTransaction([signToSign]).catch(err => {
+            signingPromise = null;
+            throw err;
+          });
+        }
+        const signedTxns = await signingPromise;
         return indexes.map(i => signedTxns[i]);
       };
 
@@ -274,6 +309,17 @@ const Procurement = () => {
       const fundResult = await composer.execute(algodClient, 4);
       
       setTxId(fundResult.txIDs[0]);
+      
+      // Update status to awaiting_delivery in backend
+      try {
+        await axios.post(`${API_BASE_URL}/api/update-escrow-status`, {
+          transaction_id: response.data.transaction_id,
+          status: "awaiting_delivery"
+        });
+      } catch (e) {
+        console.warn("[ProcureAI] Failed to update status to awaiting_delivery", e);
+      }
+
       setStep('escrow_locked');
       toast.success('Funds successfully locked in the smart contract escrow!');
     } catch (err: any) {
@@ -284,6 +330,90 @@ const Procurement = () => {
     } finally {
       setIsExecuting(false);
       setPaymentPhase(0);
+    }
+  };
+
+  const handleSubmitProof = async () => {
+    if (!txId && !appId) return;
+    if (proofType === 'invoice_file' && !selectedFile) {
+      toast.error('Please select an invoice file to upload.');
+      return;
+    }
+    
+    setIsSubmittingProof(true);
+    try {
+      const id = appId ? appId.toString() : txId!;
+      const formData = new FormData();
+      formData.append("escrow_id", id);
+      formData.append("proof_type", proofType);
+      
+      if (selectedFile) {
+        formData.append("file", selectedFile);
+      }
+      if (proofType !== 'invoice_file' && proofValue) {
+        formData.append("value", proofValue);
+      }
+
+      const response = await axios.post(`${API_BASE_URL}/api/submit-delivery-proof`, formData, {
+        headers: {
+          'Content-Type': 'multipart/form-data'
+        }
+      });
+      
+      setEscrowStatus('proof_submitted');
+      setProofUrl(response.data.delivery_proof.file_path);
+      toast.success('Delivery proof submitted successfully!');
+    } catch (err: any) {
+      console.error('[ProcureAI] Submit Proof Error:', err);
+      toast.error(err.response?.data?.detail || 'Failed to submit delivery proof.');
+    } finally {
+      setIsSubmittingProof(false);
+    }
+  };
+
+  const handleVerifyProof = async () => {
+    if (!txId && !appId) return;
+    setIsVerifying(true);
+    try {
+      const id = appId ? appId.toString() : txId!;
+      const response = await axios.post(`${API_BASE_URL}/api/verify-delivery`, {
+        escrow_id: id
+      });
+      
+      // Also mark verified on-chain
+      const suggestedParams = await algodClient.getTransactionParams().do();
+      const composer = new algosdk.AtomicTransactionComposer();
+      const method = new algosdk.ABIMethod({
+        name: "mark_verified",
+        args: [],
+        returns: { type: "void" }
+      });
+
+      const activeAddress = walletAddress;
+      if (!activeAddress) throw new Error("Wallet not connected");
+
+      composer.addMethodCall({
+        appID: BigInt(appId!),
+        method,
+        methodArgs: [],
+        sender: activeAddress,
+        suggestedParams,
+        signer: async (txns: algosdk.Transaction[]) => {
+          const singleTxnGroups = txns.map(txn => ({ txn, signers: [activeAddress] }));
+          return await peraWallet.signTransaction([singleTxnGroups]);
+        }
+      });
+
+      await composer.execute(algodClient, 4);
+
+      setEscrowStatus('verified');
+      setIsVerified(true);
+      toast.success('Delivery verified on-chain!');
+    } catch (err: any) {
+      console.error('[ProcureAI] Verify Proof Error:', err);
+      toast.error('Verification failed. Check proof details.');
+    } finally {
+      setIsVerifying(false);
     }
   };
 
@@ -604,13 +734,13 @@ const Procurement = () => {
                   { delay: 0.1, color: 'text-white/30', icon: '›', text: `Connecting to supplier mesh network...` },
                   { delay: 0.5, color: 'text-emerald-400', icon: '✓', text: `Database connection established (344 suppliers indexed)` },
                   { delay: 1.0, color: 'text-white/30', icon: '›', text: `Running semantic search for: "${productName}"...` },
-                  { delay: 1.5, color: 'text-amber-400', icon: '>', text: `Found 12 candidate suppliers. Filtering by budget $${budget}...` },
+                  { delay: 1.5, color: 'text-amber-400', icon: '>', text: `Filtering candidates by budget $${budget}...` },
                   { delay: 2.0, color: 'text-primary', icon: '>', text: `AGENT → Supplier A: Requesting quote for ${quantity}x ${productName}` },
-                  { delay: 2.5, color: 'text-emerald-400', icon: '<', text: `Supplier A: Standard price $${Math.floor(budget * 1.2)}/unit. Volume discounts available.` },
-                  { delay: 3.0, color: 'text-primary', icon: '>', text: `AGENT: We represent an enterprise buyer. Can you match $${Math.floor(budget * 0.95)}/unit for a 12-month contract?` },
-                  { delay: 3.5, color: 'text-emerald-400', icon: '<', text: `Supplier A: Accepted. Adjusting to $${Math.floor(budget * 0.97)}/unit with Net-30 terms.` },
-                  { delay: 4.0, color: 'text-amber-400', icon: '>', text: `Running multi-criteria evaluation: price, rating, delivery SLA...` },
-                  { delay: 4.5, color: 'text-primary', icon: '>', text: `AGENT → Supplier B: Counter-proposal with penalty clauses for late delivery.` },
+                  { delay: 2.5, color: 'text-emerald-400', icon: '<', text: `Supplier A: Standard price $${Math.floor(budget / quantity * 1.2)}/unit. Volume discounts available.` },
+                  { delay: 3.0, color: 'text-primary', icon: '>', text: `AGENT: Negotiating for bulk pricing and TestNet escrow settlement...` },
+                  { delay: 3.5, color: 'text-emerald-400', icon: '<', text: `Supplier A: Accepted. Finalizing unit price with 15% partner discount.` },
+                  { delay: 4.0, color: 'text-amber-400', icon: '>', text: `Running multi-criteria evaluation: price, reliability, delivery SLA...` },
+                  { delay: 4.5, color: 'text-primary', icon: '>', text: `AGENT → All: Running A2A protocol to find optimal trust-price balance.` },
                   { delay: 4.8, color: 'text-white/30', icon: '›', text: `Applying ML scoring model to rank finalist suppliers...` },
                 ].map(({ delay, color, icon, text }) => (
                   <motion.div
@@ -794,19 +924,47 @@ const Procurement = () => {
                         animate={{ opacity: 1, y: 0 }}
                         transition={{ delay: 0.4 + idx * 0.1 }}
                       >
-                        <div className="bg-white border border-slate-100 rounded-2xl p-4 hover:border-slate-200 hover:shadow-md transition-all group cursor-pointer">
-                          <p className="font-bold text-slate-800 text-sm group-hover:text-primary transition-colors leading-tight mb-2 truncate">{s.name}</p>
+                        <div className="bg-white border border-slate-100 rounded-2xl p-4 hover:border-slate-200 hover:shadow-md transition-all group cursor-pointer relative">
+                          {/* Trust Badge */}
+                          <div className="absolute top-3 right-3">
+                            {s.reliability >= 90 ? (
+                              <Badge className="bg-emerald-50 text-emerald-600 border-emerald-100 text-[8px] font-black uppercase tracking-tighter">High Trust</Badge>
+                            ) : s.reliability >= 80 ? (
+                              <Badge className="bg-amber-50 text-amber-600 border-amber-100 text-[8px] font-black uppercase tracking-tighter">Medium Trust</Badge>
+                            ) : (
+                              <Badge className="bg-rose-50 text-rose-600 border-rose-100 text-[8px] font-black uppercase tracking-tighter">Low Trust</Badge>
+                            )}
+                          </div>
+
+                          <p className="font-bold text-slate-800 text-sm group-hover:text-primary transition-colors leading-tight mb-2 truncate pr-16">{s.name}</p>
                           <p className="text-2xl font-display font-bold text-slate-900 mb-3">${s.price.toLocaleString(undefined, { minimumFractionDigits: 0 })}</p>
-                          <div className="flex flex-col gap-1">
+                          
+                          <div className="flex flex-col gap-1.5">
                             <div className="flex items-center justify-between text-[10px] text-slate-400 font-bold">
-                              <span>Rating</span><span className="text-slate-600">{s.rating.toFixed(1)}/5</span>
+                              <span className="flex items-center gap-1">Rating</span>
+                              <span className="text-slate-600">{s.rating.toFixed(1)}/5</span>
                             </div>
                             <div className="flex items-center justify-between text-[10px] text-slate-400 font-bold">
-                              <span>Delivery</span><span className="text-slate-600">{s.deliveryTime}</span>
+                              <span className="flex items-center gap-1">Delivery</span>
+                              <span className="text-slate-600">{s.deliveryTime}</span>
+                            </div>
+                            <div className="flex items-center justify-between text-[10px] text-slate-400 font-bold">
+                              <span className="flex items-center gap-1">Reliability</span>
+                              <span className={cn(
+                                "font-black",
+                                s.reliability >= 90 ? "text-emerald-500" : s.reliability >= 80 ? "text-amber-500" : "text-rose-500"
+                              )}>{s.reliability}%</span>
                             </div>
                           </div>
+                          
                           <div className="mt-3 h-1 w-full bg-slate-100 rounded-full overflow-hidden">
-                            <div className="h-full bg-slate-200 rounded-full" style={{ width: `${(s.rating / 5) * 100}%` }} />
+                            <div 
+                              className={cn(
+                                "h-full rounded-full transition-all duration-500",
+                                s.reliability >= 90 ? "bg-emerald-500" : s.reliability >= 80 ? "bg-amber-500" : "bg-rose-500"
+                              )} 
+                              style={{ width: `${s.reliability}%` }} 
+                            />
                           </div>
                         </div>
                       </motion.div>
@@ -823,34 +981,62 @@ const Procurement = () => {
                   <div className="bg-white border border-slate-100 rounded-3xl overflow-hidden shadow-[0_4px_24px_rgba(0,0,0,0.06)]">
                     <div className="bg-gradient-to-br from-primary to-indigo-700 p-6 relative overflow-hidden">
                       <div className="absolute inset-0 bg-[url('https://www.transparenttextures.com/patterns/cubes.png')] opacity-10" />
-                      <Badge className="bg-white/20 text-white border-none font-bold text-[10px] tracking-widest uppercase mb-4">Agent's Choice</Badge>
+                      <div className="flex justify-between items-start mb-4">
+                        <Badge className="bg-white/20 text-white border-none font-bold text-[10px] tracking-widest uppercase">Agent's Choice</Badge>
+                        {result.selectedSupplier.reliability >= 90 ? (
+                          <Badge className="bg-emerald-400 text-white border-none text-[8px] font-black uppercase tracking-tighter">High Trust Selection</Badge>
+                        ) : (
+                          <Badge className="bg-amber-400 text-white border-none text-[8px] font-black uppercase tracking-tighter">Balanced Selection</Badge>
+                        )}
+                      </div>
                       <h3 className="text-xl font-display font-bold text-white">{result.selectedSupplier.name}</h3>
-                      <p className="text-white/60 text-xs font-medium mt-1">Verified • Best Reliability • Lowest Final Price</p>
+                      <p className="text-white/60 text-xs font-medium mt-1">Verified • Best Overall Value • AI Optimized</p>
                     </div>
 
                     <div className="p-6 space-y-5">
-                      {/* Price + savings */}
-                      <div className="flex items-center justify-between">
+                      {/* Breakdown Stats */}
+                      <div className="grid grid-cols-3 gap-3">
+                        <div className="bg-slate-50 rounded-xl p-2.5 border border-slate-100 flex flex-col items-center text-center">
+                          <DollarSign className="w-4 h-4 text-primary mb-1" />
+                          <span className="text-[8px] font-black text-slate-400 uppercase tracking-tighter">Price</span>
+                          <span className="text-xs font-bold text-slate-900">${result.selectedSupplier.unit_price}</span>
+                        </div>
+                        <div className="bg-slate-50 rounded-xl p-2.5 border border-slate-100 flex flex-col items-center text-center">
+                          <ShieldCheck className="w-4 h-4 text-emerald-500 mb-1" />
+                          <span className="text-[8px] font-black text-slate-400 uppercase tracking-tighter">Trust</span>
+                          <span className="text-xs font-bold text-slate-900">{result.selectedSupplier.reliability}%</span>
+                        </div>
+                        <div className="bg-slate-50 rounded-xl p-2.5 border border-slate-100 flex flex-col items-center text-center">
+                          <Clock className="w-4 h-4 text-amber-500 mb-1" />
+                          <span className="text-[8px] font-black text-slate-400 uppercase tracking-tighter">Delivery</span>
+                          <span className="text-xs font-bold text-slate-900">{result.selectedSupplier.deliveryTime}</span>
+                        </div>
+                      </div>
+
+                      {/* Final Price */}
+                      <div className="flex items-center justify-between py-2">
                         <div>
-                          <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1">Final Negotiated Price</p>
+                          <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1">Total Deal Value</p>
                           <p className="text-4xl font-display font-bold text-slate-900 tracking-tight">${result.selectedSupplier.finalPrice.toLocaleString(undefined, { minimumFractionDigits: 2 })}</p>
                         </div>
-                        <div className="w-14 h-14 bg-emerald-50 rounded-2xl flex items-center justify-center">
+                        <div className="w-14 h-14 bg-emerald-50 rounded-2xl flex items-center justify-center shadow-sm">
                           <CheckCircle2 className="text-emerald-500 w-7 h-7" />
                         </div>
                       </div>
 
                       {/* AI Reasoning */}
-                      <div className="bg-slate-50 rounded-2xl p-4 border border-slate-100">
-                        <p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest mb-2">AI Agent Reasoning</p>
-                        <p className="text-xs text-slate-600 leading-relaxed italic border-l-2 border-primary/30 pl-3">"{result.selectedSupplier.reasoning}"</p>
+                      <div className="bg-primary/5 rounded-2xl p-4 border border-primary/10">
+                        <p className="text-[9px] font-bold text-primary uppercase tracking-widest mb-2 flex items-center gap-2">
+                          <Cpu className="w-3 h-3" /> AI AGENT REASONING
+                        </p>
+                        <p className="text-xs text-slate-700 leading-relaxed font-medium">"{result.selectedSupplier.reasoning}"</p>
                       </div>
 
                       {/* Wallet section */}
                       {!walletAddress ? (
                         <Button
                           onClick={handleConnectWallet}
-                          className="w-full h-13 text-base font-bold bg-[#0A2540] hover:bg-[#0d2e50] text-white rounded-xl transition-all flex items-center justify-center gap-2 shadow-lg"
+                          className="w-full h-14 text-base font-bold bg-[#0A2540] hover:bg-[#0d2e50] text-white rounded-xl transition-all flex items-center justify-center gap-2 shadow-lg"
                         >
                           <Wallet className="w-5 h-5" />
                           Connect Pera Wallet
@@ -876,8 +1062,8 @@ const Procurement = () => {
                           <div className="flex items-start gap-2 p-3 rounded-xl bg-amber-50 border border-amber-100">
                             <AlertCircle className="w-3.5 h-3.5 text-amber-600 shrink-0 mt-0.5" />
                             <p className="text-[10px] text-amber-700 font-medium leading-relaxed">
-                              <span className="font-bold">TestNet Mode — </span>
-                              Algorand transaction using {DEMO_TRANSACTION_AMOUNT} ALGOS on TestNet.
+                              <span className="font-bold text-amber-800">TRUST-BASED PROCUREMENT — </span>
+                              This selection prioritizes reliability and delivery speed over raw price.
                             </p>
                           </div>
 
@@ -887,7 +1073,7 @@ const Procurement = () => {
                             className="w-full h-14 text-base font-bold bg-primary hover:bg-primary/90 text-white rounded-xl transition-all group shadow-lg shadow-primary/20 flex items-center justify-center gap-2"
                           >
                             {isExecuting ? (
-                              <><Loader2 className="w-5 h-5 animate-spin" />Processing...</>
+                              <><Loader2 className="w-5 h-5 animate-spin" />Processing Transaction...</>
                             ) : (
                               <>
                                 <Lock className="w-5 h-5" />
@@ -922,7 +1108,7 @@ const Procurement = () => {
             key="escrow_locked"
             initial={{ opacity: 0, scale: 0.95 }}
             animate={{ opacity: 1, scale: 1 }}
-            className="max-w-2xl mx-auto"
+            className="max-w-3xl mx-auto"
           >
             <Card className="bg-white border-slate-100 overflow-hidden shadow-[0_8px_30px_rgb(0,0,0,0.08)] rounded-[2rem] p-0">
               <div className="bg-[#0A2540] pt-10 pb-8 px-8 text-center text-white relative">
@@ -938,43 +1124,243 @@ const Procurement = () => {
                     <Lock className="w-7 h-7 text-white relative z-10" />
                   </div>
                 </motion.div>
-                <h2 className="text-2xl font-display font-medium mb-2 tracking-tight">Transaction Locked in Escrow</h2>
-                <Badge className="bg-amber-500/20 text-amber-400 border-amber-500/30 mb-4 font-bold tracking-widest px-4 py-1 uppercase text-[10px]">Escrow Active</Badge>
-                <p className="text-slate-300 max-w-sm mx-auto font-medium text-xs leading-relaxed">Funds secured via smart contract. Awaiting delivery confirmation to release transaction to <span className="text-white font-bold">{result?.selectedSupplier.name}</span>.</p>
+                <h2 className="text-2xl font-display font-medium mb-2 tracking-tight">Delivery Verification Protocol</h2>
+                <Badge className="bg-amber-500/20 text-amber-400 border-amber-500/30 mb-4 font-bold tracking-widest px-4 py-1 uppercase text-[10px]">Proof Required</Badge>
+                <p className="text-slate-300 max-w-sm mx-auto font-medium text-xs leading-relaxed">Funds are locked on-chain. Settlement requires valid delivery proof and buyer verification.</p>
               </div>
 
               <CardContent className="p-8 space-y-8">
-                <div className="bg-slate-50/50 rounded-2xl border border-slate-100 p-6 space-y-4">
-                  <div className="flex justify-between items-center text-sm">
-                    <span className="text-slate-500 font-bold tracking-wide">Supplier</span>
-                    <span className="text-slate-900 font-bold">{result?.selectedSupplier.name}</span>
+                {/* Escrow Status Stepper (5 STAGES) */}
+                <div className="space-y-6">
+                  <div className="flex items-center justify-between px-2">
+                    <p className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em]">Escrow Lifecycle</p>
+                    <Badge variant="outline" className={cn(
+                      "text-[9px] font-bold uppercase tracking-widest px-3 py-1",
+                      isVerified ? "bg-emerald-50 text-emerald-600 border-emerald-100" : "bg-amber-50 text-amber-600 border-amber-100"
+                    )}>
+                      {isVerified ? "Verified" : "Verification Pending"}
+                    </Badge>
                   </div>
-                  <div className="flex justify-between items-center text-sm">
-                    <span className="text-slate-500 font-bold tracking-wide">Amount Secured</span>
-                    <span className="text-amber-600 font-bold text-base">${result?.selectedSupplier.finalPrice.toLocaleString(undefined, { minimumFractionDigits: 2 })}</span>
-                  </div>
-                  <div className="flex justify-between items-center text-sm pt-4 border-t border-dashed border-slate-200">
-                    <span className="text-slate-500 font-bold tracking-wide">Escrow Record ID</span>
-                    <a
-                      href={`https://testnet.explorer.perawallet.app/tx/${txId}`}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="flex items-center gap-1.5 cursor-pointer group hover:opacity-80 transition-opacity"
-                    >
-                      <span className="text-slate-900 font-mono font-bold truncate max-w-[150px]">{txId}</span>
-                      <ExternalLink className="w-3.5 h-3.5 text-slate-400 group-hover:text-primary transition-colors" />
-                    </a>
+
+                  <div className="relative">
+                    {/* Progress line */}
+                    <div className="absolute top-5 left-4 right-4 h-0.5 bg-slate-100" />
+                    <motion.div 
+                      className="absolute top-5 left-4 h-0.5 bg-primary z-10"
+                      initial={{ width: '0%' }}
+                      animate={{ 
+                        width: escrowStatus === 'released' ? '100%' : 
+                               escrowStatus === 'verified' ? '75%' : 
+                               escrowStatus === 'proof_submitted' ? '50%' : 
+                               '25%' 
+                      }}
+                    />
+                    
+                    <div className="grid grid-cols-5 gap-2 relative z-10">
+                      {[
+                        { id: 'funded', label: 'Locked', icon: Lock, status: 'completed' },
+                        { id: 'awaiting_delivery', label: 'Delivery', icon: Zap, status: escrowStatus === 'funded' ? 'current' : 'completed' },
+                        { id: 'proof_submitted', label: 'Proof', icon: MessageSquare, status: escrowStatus === 'proof_submitted' ? 'current' : (escrowStatus === 'verified' || escrowStatus === 'released' ? 'completed' : 'upcoming') },
+                        { id: 'verified', label: 'Verified', icon: ShieldCheck, status: escrowStatus === 'verified' ? 'current' : (escrowStatus === 'released' ? 'completed' : 'upcoming') },
+                        { id: 'released', label: 'Released', icon: CheckCircle2, status: escrowStatus === 'released' ? 'current' : 'upcoming' }
+                      ].map((s, i) => (
+                        <div key={s.id} className="flex flex-col items-center gap-3">
+                          <div className={cn(
+                            "w-10 h-10 rounded-full flex items-center justify-center border-2 transition-all duration-500 shadow-sm",
+                            s.status === 'completed' ? "bg-emerald-500 border-emerald-500 text-white shadow-emerald-200" :
+                            s.status === 'current' ? "bg-white border-primary text-primary shadow-primary/10 animate-pulse" :
+                            "bg-white border-slate-100 text-slate-300"
+                          )}>
+                            <s.icon className="w-5 h-5" />
+                          </div>
+                          <span className={cn(
+                            "text-[8px] font-black uppercase tracking-widest text-center",
+                            s.status === 'upcoming' ? "text-slate-300" : "text-slate-900"
+                          )}>{s.label}</span>
+                        </div>
+                      ))}
+                    </div>
                   </div>
                 </div>
 
-                <Button
-                  onClick={handleConfirmDelivery}
-                  disabled={isConfirming}
-                  className="w-full h-14 text-lg font-bold bg-amber-500 hover:bg-amber-600 text-white rounded-xl shadow-lg shadow-amber-500/20"
-                >
-                  {isConfirming ? <Loader2 className="w-6 h-6 animate-spin mr-2" /> : null}
-                  Confirm Delivery
-                </Button>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                  {/* Proof Submission Panel */}
+                  <div className="space-y-4 bg-slate-50/50 rounded-2xl border border-slate-100 p-6">
+                    <h3 className="text-xs font-black text-slate-900 uppercase tracking-widest mb-4 flex items-center gap-2">
+                      <FileUp className="w-4 h-4 text-primary" /> Submit Proof
+                    </h3>
+                    
+                    <div className="space-y-3">
+                      <label className="text-[9px] font-bold text-slate-400 uppercase tracking-widest">Proof Method</label>
+                      <select 
+                        value={proofType}
+                        onChange={(e: any) => setProofType(e.target.value)}
+                        className="w-full h-11 px-3 bg-white border border-slate-200 rounded-xl text-xs font-bold focus:ring-2 focus:ring-primary/20 outline-none transition-all shadow-sm"
+                      >
+                        <option value="invoice_file">Invoice Upload (Image/PDF)</option>
+                        <option value="timestamp">Delivery Timestamp</option>
+                        <option value="tracking_id">Carrier Tracking ID</option>
+                      </select>
+                    </div>
+
+                    {proofType === 'invoice_file' ? (
+                      <div className="space-y-3">
+                        <label className="text-[9px] font-bold text-slate-400 uppercase tracking-widest">Upload Document</label>
+                        <div className="relative">
+                          <input
+                            type="file"
+                            id="invoice-upload"
+                            className="hidden"
+                            accept="image/*,application/pdf"
+                            onChange={(e) => {
+                              const file = e.target.files?.[0];
+                              if (file) setSelectedFile(file);
+                            }}
+                          />
+                          <label
+                            htmlFor="invoice-upload"
+                            className={cn(
+                              "flex flex-col items-center justify-center w-full h-32 border-2 border-dashed rounded-2xl cursor-pointer transition-all gap-2",
+                              selectedFile ? "border-emerald-200 bg-emerald-50/30" : "border-slate-200 bg-white hover:border-primary/30 hover:bg-slate-50"
+                            )}
+                          >
+                            {selectedFile ? (
+                              <>
+                                <CheckCircle2 className="w-8 h-8 text-emerald-500" />
+                                <div className="text-center px-4">
+                                  <p className="text-[10px] font-black text-emerald-600 uppercase truncate max-w-[200px]">{selectedFile.name}</p>
+                                  <p className="text-[8px] text-slate-400 mt-0.5">{(selectedFile.size / 1024).toFixed(1)} KB • Click to change</p>
+                                </div>
+                              </>
+                            ) : (
+                              <>
+                                <Upload className="w-8 h-8 text-slate-300" />
+                                <div className="text-center px-4">
+                                  <p className="text-[10px] font-black text-slate-400 uppercase">Drop invoice here</p>
+                                  <p className="text-[8px] text-slate-400 mt-0.5">PNG, JPG, PDF up to 5MB</p>
+                                </div>
+                              </>
+                            )}
+                          </label>
+                        </div>
+                      </div>
+                    ) : (
+                      <div className="space-y-3">
+                        <label className="text-[9px] font-bold text-slate-400 uppercase tracking-widest">
+                          {proofType === 'timestamp' ? 'Submission Timestamp' : 'Tracking Number'}
+                        </label>
+                        <Input 
+                          placeholder={proofType === 'timestamp' ? "e.g. 2024-05-01 14:00" : "e.g. TRK-8829-X"}
+                          value={proofValue}
+                          onChange={(e) => setProofValue(e.target.value)}
+                          className="h-11 bg-white border-slate-200 rounded-xl text-xs font-bold"
+                        />
+                      </div>
+                    )}
+
+                    <Button
+                      onClick={handleSubmitProof}
+                      disabled={isSubmittingProof || escrowStatus !== 'funded'}
+                      className="w-full h-12 text-xs font-black uppercase tracking-widest bg-slate-900 hover:bg-black text-white rounded-xl transition-all shadow-lg"
+                    >
+                      {isSubmittingProof ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : null}
+                      Submit for Review
+                    </Button>
+                    
+                    <p className="text-[8px] text-slate-400 font-bold uppercase text-center mt-2 leading-relaxed">
+                      MVP: Proof submitted via buyer interface for demonstration.
+                    </p>
+                  </div>
+
+                  {/* Verification Panel */}
+                  <div className="space-y-4 bg-primary/5 rounded-2xl border border-primary/10 p-6 flex flex-col">
+                    <h3 className="text-xs font-black text-primary uppercase tracking-widest mb-4 flex items-center gap-2">
+                      <ShieldCheck className="w-4 h-4" /> Audit & Validate
+                    </h3>
+                    
+                    <div className="flex-1 space-y-5">
+                      <div className="flex items-start gap-3 p-3 bg-white/50 rounded-xl border border-primary/5">
+                        <div className="w-8 h-8 rounded-lg bg-primary/10 flex items-center justify-center shrink-0">
+                          <Eye className="w-4 h-4 text-primary" />
+                        </div>
+                        <div>
+                          <p className="text-[10px] font-black text-slate-900 uppercase">Validation Logic</p>
+                          <p className="text-[9px] text-slate-500 font-medium leading-relaxed mt-0.5">
+                            Our AI validates document authenticity and cross-references metadata with ledger entries.
+                          </p>
+                        </div>
+                      </div>
+
+                      {escrowStatus === 'proof_submitted' && (
+                        <div className="space-y-3">
+                          <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Verification Target</p>
+                          {proofUrl ? (
+                            <div className="relative group">
+                              <div className="h-32 w-full rounded-xl overflow-hidden border border-slate-100 bg-white relative">
+                                {proofUrl.endsWith('.pdf') ? (
+                                  <div className="h-full w-full flex flex-col items-center justify-center gap-2 bg-slate-50">
+                                    <FileText className="w-8 h-8 text-rose-500" />
+                                    <span className="text-[8px] font-black uppercase text-slate-400">PDF Document</span>
+                                  </div>
+                                ) : (
+                                  <img 
+                                    src={`${API_BASE_URL}${proofUrl}`} 
+                                    alt="Proof Preview" 
+                                    className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
+                                  />
+                                )}
+                                <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
+                                  <a 
+                                    href={`${API_BASE_URL}${proofUrl}`} 
+                                    target="_blank" 
+                                    rel="noreferrer"
+                                    className="bg-white text-slate-950 p-2 rounded-lg text-[9px] font-black uppercase flex items-center gap-2"
+                                  >
+                                    <ExternalLink className="w-3 h-3" /> Full View
+                                  </a>
+                                </div>
+                              </div>
+                            </div>
+                          ) : (
+                            <div className="p-3 bg-white border border-slate-100 rounded-xl flex flex-col gap-1 shadow-sm">
+                              <span className="text-[8px] font-black text-slate-400 uppercase tracking-tighter">Metadata</span>
+                              <span className="text-xs font-mono font-bold text-slate-900 truncate">{proofValue}</span>
+                            </div>
+                          )}
+                        </div>
+                      )}
+                    </div>
+
+                    <Button
+                      onClick={handleVerifyProof}
+                      disabled={isVerifying || escrowStatus !== 'proof_submitted'}
+                      className="w-full h-14 text-xs font-black uppercase tracking-widest bg-primary hover:bg-primary/90 text-white rounded-xl shadow-xl shadow-primary/20"
+                    >
+                      {isVerifying ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : <ShieldCheck className="w-4 h-4 mr-2" />}
+                      Finalize Verification
+                    </Button>
+                  </div>
+                </div>
+
+                <div className="pt-4 border-t border-slate-100">
+                  <Button
+                    onClick={handleConfirmDelivery}
+                    disabled={isConfirming || !isVerified}
+                    className={cn(
+                      "w-full h-16 text-lg font-bold rounded-2xl shadow-xl transition-all flex items-center justify-center gap-3",
+                      isVerified 
+                        ? "bg-emerald-500 hover:bg-emerald-600 text-white shadow-emerald-500/20" 
+                        : "bg-slate-100 text-slate-400 cursor-not-allowed shadow-none"
+                    )}
+                  >
+                    {isConfirming ? <Loader2 className="w-6 h-6 animate-spin" /> : <Zap className={cn("w-6 h-6", isVerified ? "animate-pulse" : "")} />}
+                    {isVerified ? "Confirm Release & Settle" : "Verification Required to Release"}
+                  </Button>
+                  
+                  <p className="text-[9px] text-center text-slate-400 font-bold uppercase tracking-widest mt-4">
+                    On-chain settlement is irreversible. verify carefully.
+                  </p>
+                </div>
               </CardContent>
             </Card>
           </motion.div>

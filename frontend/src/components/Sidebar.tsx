@@ -23,7 +23,6 @@ const Sidebar = () => {
   const navItems = [
     { name: 'Dashboard', icon: LayoutDashboard, path: '/dashboard' },
     { name: 'Procurement', icon: ShoppingCart, path: '/procurement' },
-    { name: 'Agents', icon: Cpu, path: '/agents' },
     { name: 'Transactions', icon: History, path: '/transactions' },
     { name: 'Analytics', icon: BarChart3, path: '/analytics' },
   ];
@@ -41,24 +40,7 @@ const Sidebar = () => {
           <span className="text-2xl font-display font-medium tracking-tight text-slate-950">ProcureAI</span>
         </div>
 
-        {/* Workspace Switcher */}
-        <div className="mb-10 px-1">
-          <div className="flex items-center justify-between p-4 rounded-[1.25rem] bg-slate-50 border border-slate-100 hover:border-primary/20 hover:bg-white hover:shadow-2xl hover:shadow-slate-200/50 transition-all cursor-pointer group">
-            <div className="flex items-center gap-3">
-              <div className="w-10 h-10 rounded-xl bg-white border border-slate-200 flex items-center justify-center text-xs font-black text-slate-900 shadow-sm group-hover:scale-110 transition-transform">
-                HQ
-              </div>
-              <div className="flex flex-col">
-                <span className="text-xs font-black text-slate-900">Main Hub</span>
-                <span className="text-[9px] font-black text-primary uppercase tracking-[0.15em] mt-0.5">Enterprise</span>
-              </div>
-            </div>
-            <ChevronDown className="w-4 h-4 text-slate-400 group-hover:text-primary transition-colors" />
-          </div>
-        </div>
-
-        <nav className="space-y-2 flex-1">
-          <p className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] mb-4 pl-4">Protocol Menu</p>
+        <nav className="space-y-2 flex-1 mt-4">
           {navItems.map((item) => (
             <NavLink
               key={item.name}
