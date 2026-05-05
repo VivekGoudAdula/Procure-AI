@@ -49,10 +49,18 @@ class User(BaseModel):
     email: str
     password: str
 
+class ProcurementPolicy(BaseModel):
+    max_budget: float | None = None
+    min_reliability: float | None = None
+    max_delivery_days: int | None = None
+    min_success_rate: float | None = None
+    require_on_chain_verified: bool = False
+
 class SupplierRequest(BaseModel):
     productName: str
     quantity: int
     budget: float
+    policy: ProcurementPolicy | None = None
 
 class TransactionRequest(BaseModel):
     sender: str
@@ -145,18 +153,23 @@ async def login(user: User):
 
 @app.post("/api/agent-competition")
 def agent_competition_api(req: SupplierRequest):
-    result = run_agent_competition(req.productName, req.quantity, req.budget)
+    policy_dict = req.policy.dict() if req.policy else None
+    result = run_agent_competition(req.productName, req.quantity, req.budget, policy_dict)
     return result
 
 @app.post("/api/select-supplier")
 async def select_supplier_api(req: SupplierRequest):
     try:
-        result = select_best_supplier(req.productName, req.quantity, req.budget)
+        policy_dict = req.policy.dict() if req.policy else None
+        result = select_best_supplier(req.productName, req.quantity, req.budget, policy_dict)
     except ValueError as e:
         raise HTTPException(status_code=404, detail=str(e))
     except Exception as e:
         print(f"Error in select_supplier_api: {e}")
         raise HTTPException(status_code=500, detail="Internal server error")
+    
+    if result.get("status") == "no_supplier_found":
+        return result
     
     if "error" in result:
         raise HTTPException(status_code=404, detail=result["error"])
@@ -188,7 +201,10 @@ async def select_supplier_api(req: SupplierRequest):
             "unit_price": result["selected_supplier"].get("unit_price", 0),
             "reliability": result["selected_supplier"]["reliability_score"],
             "deliveryTime": f"{result['selected_supplier']['delivery_days']} days"
-        }
+        },
+        "policy_applied": result.get("policy_applied", False),
+        "filtered_out_count": result.get("filtered_out_count", 0),
+        "rejection_reasons": result.get("rejection_reasons", [])
     }
 
 

@@ -13,7 +13,7 @@ const Layout = () => {
   }
 
   return (
-    <div className="flex min-h-screen bg-background text-foreground overflow-hidden">
+    <div className="flex h-screen bg-background text-foreground overflow-hidden">
       {/* Background Blobs */}
       <div className="fixed inset-0 overflow-hidden -z-10">
         <div className="absolute top-[-10%] right-[-10%] w-[40%] h-[40%] rounded-full bg-primary/10 blur-[120px]" />
@@ -22,7 +22,7 @@ const Layout = () => {
 
       <Sidebar />
       
-      <div className="flex-1 flex flex-col min-w-0">
+      <div className="flex-1 ml-72 flex flex-col min-w-0">
         <Topbar />
         
         <main className="flex-1 overflow-y-auto p-4 md:p-8">

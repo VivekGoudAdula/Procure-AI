@@ -33,7 +33,7 @@ const Sidebar = () => {
   };
 
   return (
-    <div className="w-72 bg-white/80 backdrop-blur-xl border-r border-slate-100 h-screen flex flex-col sticky top-0 z-40">
+    <div className="w-72 bg-white/80 backdrop-blur-xl border-r border-slate-100 h-screen flex flex-col fixed left-0 top-0 z-40">
       <div className="p-7 flex-1 flex flex-col overflow-y-auto">
         <div className="flex items-center gap-3 mb-10 pl-2 group cursor-pointer" onClick={() => navigate('/dashboard')}>
           <img src="/logo.png" alt="ProcureAI Logo" className="h-11 w-auto group-hover:rotate-6 transition-transform duration-500 shadow-2xl rounded-2xl" />

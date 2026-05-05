@@ -12,9 +12,9 @@ load_dotenv()
 GROQ_API_KEY = os.environ.get("GROQ_API_KEY", "")
 client = Groq(api_key=GROQ_API_KEY) if GROQ_API_KEY else None
 
-# 10. OPTIONAL (STABILITY): Dynamic BASE_URL for A2A communication
+# Dynamic BASE_URL for A2A communication
 BASE_URL = os.environ.get("APP_URL", "http://localhost:8000")
-if BASE_URL == "MY_APP_URL": # Default placeholder from .env
+if BASE_URL == "MY_APP_URL":
     BASE_URL = "http://localhost:8000"
 
 DATABASE_PATH = os.path.join(os.path.dirname(__file__), "database.json")
@@ -25,7 +25,7 @@ def load_data():
     with open(DATABASE_PATH, "r") as f:
         return json.load(f)
 
-def run_agent_competition(product_name, quantity, budget):
+def run_agent_competition(product_name, quantity, budget, policy=None):
     print(f"\n[ProcureAI] Starting Dynamic Agent Competition for '{product_name}'...")
     
     data = load_data()
@@ -40,16 +40,59 @@ def run_agent_competition(product_name, quantity, budget):
         else:
             all_suppliers = data.get("suppliers", [])[:10]
 
-    candidates = [s for s in all_suppliers if s["base_price"] <= budget * 1.5]
-    if not candidates: candidates = all_suppliers[:10]
-    
-    if not candidates:
-        raise ValueError("No suppliers found in database")
+    # POLICY ENFORCEMENT
+    filtered_out_count = 0
+    rejection_reasons = []
+    valid_suppliers = []
+
+    if policy:
+        print(f"[ProcureAI] Applying Procurement Policy: {policy}")
+        for s in all_suppliers:
+            reasons = []
+            
+            # 1. Budget Constraint (Total budget)
+            total_price = s["base_price"] * quantity
+            if policy.get("max_budget") and total_price > policy["max_budget"]:
+                reasons.append(f"Price (${total_price}) exceeds max budget (${policy['max_budget']})")
+            
+            # 2. Reliability Constraint
+            if policy.get("min_reliability") and s.get("reliability_score", 0) < policy["min_reliability"]:
+                reasons.append(f"Reliability ({s.get('reliability_score', 0)}%) below minimum ({policy['min_reliability']}%)")
+            
+            # 3. Delivery Days Constraint
+            if policy.get("max_delivery_days") and s.get("delivery_days", 99) > policy["max_delivery_days"]:
+                reasons.append(f"Delivery ({s.get('delivery_days')} days) exceeds maximum ({policy['max_delivery_days']} days)")
+                
+            # 4. Success Rate Constraint
+            if policy.get("min_success_rate") and s.get("success_rate", 0) < policy["min_success_rate"]:
+                reasons.append(f"Success rate ({s.get('success_rate')}%) below minimum ({policy['min_success_rate']}%)")
+                
+            # 5. On-chain Verified Constraint
+            if policy.get("require_on_chain_verified") and not s.get("reputation_hash"):
+                reasons.append("Supplier is not on-chain verified")
+
+            if not reasons:
+                valid_suppliers.append(s)
+            else:
+                filtered_out_count += 1
+                rejection_reasons.append({"supplier": s["name"], "reasons": reasons})
+    else:
+        valid_suppliers = all_suppliers
+
+    if not valid_suppliers:
+        return {
+            "status": "no_supplier_found",
+            "reason": "No suppliers match procurement policy",
+            "filtered_out_count": filtered_out_count,
+            "rejection_reasons": rejection_reasons[:5]
+        }
+
+    candidates = [s for s in valid_suppliers if s["base_price"] <= budget * 1.5]
+    if not candidates: candidates = valid_suppliers[:3]
     
     top_suppliers = sorted(candidates, key=lambda x: x.get("reliability_score", 0), reverse=True)[:3]
     
     rounds = []
-    # Initial state
     current_states = {
         s["id"]: {
             "id": s["id"],
@@ -60,19 +103,18 @@ def run_agent_competition(product_name, quantity, budget):
             "success_rate": s.get("success_rate", 90),
             "total_deals": s.get("total_deals", 0),
             "last_updated": s.get("last_updated"),
-            "reputation_hash": s.get("reputation_hash")
+            "reputation_hash": s.get("reputation_hash"),
+            "category": s.get("category", "General"),
+            "product": s.get("product", product_name)
         } for s in top_suppliers
     }
 
-    # Simulation: 3 Rounds
     for r_num in range(1, 4):
         round_suppliers = []
         for s_id, state in current_states.items():
-            # Reduce price randomly 5-15%
             reduction = random.uniform(0.05, 0.15)
             state["price"] = round(state["price"] * (1 - reduction), 2)
             
-            # Optionally adjust delivery +/- 1 day
             if random.random() > 0.6:
                 adj = random.choice([-1, 0, 1])
                 state["delivery"] = max(1, state["delivery"] + adj)
@@ -84,19 +126,13 @@ def run_agent_competition(product_name, quantity, budget):
             "suppliers": round_suppliers
         })
 
-    # Compute Winner
-    # score = (reliability * 0.5) + (1/price * 0.3) + (1/delivery * 0.2)
-    # We need to normalize price and delivery to make the weights meaningful
     min_price = min(s["price"] for s in current_states.values())
     min_delivery = min(s["delivery"] for s in current_states.values())
     
     scored_results = []
     for s_id, state in current_states.items():
-        # Using ratios for normalization: (min / current) ensures lower is better and result is 0-1
         price_factor = min_price / state["price"]
         delivery_factor = min_delivery / state["delivery"]
-        
-        # Reliability is 0-100, so we normalize to 0-1
         rel_factor = state["reliability"] / 100.0
         
         score = (rel_factor * 0.5) + (price_factor * 0.3) + (delivery_factor * 0.2)
@@ -108,6 +144,7 @@ def run_agent_competition(product_name, quantity, budget):
     winner["reason"] = f"Best balance of price (${winner['price']}), reliability ({winner['reliability']}%), and delivery ({winner['delivery']} days). On-chain verified history with {winner['total_deals']} successful deals."
 
     return {
+        "status": "success",
         "deal": {
             "product": product_name,
             "quantity": quantity,
@@ -119,50 +156,62 @@ def run_agent_competition(product_name, quantity, budget):
                 "name": s["name"],
                 "base_price": s["base_price"],
                 "reliability_score": s["reliability_score"],
-                "delivery_days": s["delivery_days"]
+                "delivery_days": s["delivery_days"],
+                "success_rate": s.get("success_rate", 90),
+                "total_deals": s.get("total_deals", 0),
+                "last_updated": s.get("last_updated"),
+                "reputation_hash": s.get("reputation_hash"),
+                "category": s.get("category", "General"),
+                "product": s.get("product", product_name)
             } for s in top_suppliers
         ],
         "rounds": rounds,
         "winner": winner,
-        "scored_results": scored_results
+        "scored_results": scored_results,
+        "policy_applied": policy is not None,
+        "filtered_out_count": filtered_out_count,
+        "rejection_reasons": rejection_reasons[:5]
     }
 
-def select_best_supplier(product_name, quantity, budget):
-    # Keep this for compatibility but use the new logic
-    comp_result = run_agent_competition(product_name, quantity, budget)
+def select_best_supplier(product_name, quantity, budget, policy=None):
+    comp_result = run_agent_competition(product_name, quantity, budget, policy)
+    
+    if comp_result.get("status") == "no_supplier_found":
+        return comp_result
+
     winner = comp_result["winner"]
     
     return {
         **comp_result,
-        "supplier_list": [
+        "suppliers": [
             {
                 "id": s["id"],
                 "name": s["name"],
-                "negotiated_price": s["price"],
+                "price": s["price"],
                 "delivery_days": s["delivery"],
-                "reliability_score": s["reliability"],
+                "reliability": s["reliability"],
                 "score": s["score"],
                 "rating": round((s["reliability"] / 20), 1),
-                "success_rate": s.get("success_rate", 90),
-                "total_deals": s.get("total_deals", 0),
-                "last_updated": s.get("last_updated"),
-                "reputation_hash": s.get("reputation_hash")
+                "success_rate": s["success_rate"],
+                "total_deals": s["total_deals"],
+                "last_updated": s["last_updated"],
+                "reputation_hash": s["reputation_hash"],
+                "category": s["category"],
+                "product": s["product"]
             } for s in comp_result["scored_results"]
         ],
-        "selected_supplier": {
+        "selectedSupplier": {
             "id": winner["id"],
             "name": winner["name"],
-            "final_price": winner["price"] * quantity,
+            "finalPrice": round(winner["price"] * quantity, 2),
             "unit_price": winner["price"],
-            "delivery_days": winner["delivery"],
-            "reliability_score": winner["reliability"],
+            "deliveryTime": f"{winner['delivery']} Days",
+            "reliability": winner["reliability"],
             "reasoning": winner["reason"],
             "last_updated": winner.get("last_updated"),
             "reputation_hash": winner.get("reputation_hash")
         },
-        "final_price": winner["price"] * quantity,
-        "reasoning": winner["reason"],
-        "negotiation_logs": [
+        "negotiationLogs": [
             item
             for r in comp_result["rounds"]
             for item in [
@@ -171,5 +220,3 @@ def select_best_supplier(product_name, quantity, budget):
             ]
         ]
     }
-
-

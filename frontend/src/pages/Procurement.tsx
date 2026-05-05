@@ -25,7 +25,13 @@ import {
   Eye,
   Trash2,
   FileUp,
-  Upload
+  Upload,
+  Settings,
+  Shield,
+  Activity,
+  Truck,
+  Percent,
+  Check
 } from 'lucide-react';
 import { useApp } from '../context/AppContext';
 import { cn } from '../lib/utils';
@@ -78,6 +84,11 @@ interface ProcurementResult {
     reliability: number;
     deliveryTime: string;
   };
+  status?: string;
+  reason?: string;
+  policy_applied?: boolean;
+  filtered_out_count?: number;
+  rejection_reasons?: Array<{ supplier: string; reasons: string[] }>;
 }
 
 const Procurement = () => {
@@ -87,6 +98,13 @@ const Procurement = () => {
   const [productName, setProductName] = useState('');
   const [quantity, setQuantity] = useState(1);
   const [budget, setBudget] = useState(1000);
+
+  // Policy Engine State
+  const [enablePolicy, setEnablePolicy] = useState(false);
+  const [minReliability, setMinReliability] = useState<number>(80);
+  const [maxDeliveryDays, setMaxDeliveryDays] = useState<number>(7);
+  const [minSuccessRate, setMinSuccessRate] = useState<number>(85);
+  const [requireOnChain, setRequireOnChain] = useState(false);
 
   // State Persistence Logic ( survives page reloads )
   const [step, setStep] = useState<'form' | 'negotiating' | 'result' | 'escrow_locked' | 'payment'>(() => {
@@ -166,10 +184,19 @@ const Procurement = () => {
 
     try {
       // 1. Call the new Dynamic Agent Competition endpoint
+      const policy = enablePolicy ? {
+        max_budget: budget,
+        min_reliability: minReliability,
+        max_delivery_days: maxDeliveryDays,
+        min_success_rate: minSuccessRate,
+        require_on_chain_verified: requireOnChain
+      } : null;
+
       const response = await axios.post(`${API_BASE_URL}/api/select-supplier`, {
         productName,
         quantity,
-        budget
+        budget,
+        policy
       });
 
       // The backend now returns computed competition data
@@ -178,13 +205,23 @@ const Procurement = () => {
       // Wait for a short moment to transition
       await new Promise(res => setTimeout(res, 1000));
 
+      if (data.status === "no_supplier_found") {
+        setResult(data as any);
+        setStep('result');
+        toast.error('No suppliers matched your procurement policy.');
+        return;
+      }
+
       const normalizedResult = {
         suppliers: data.suppliers,
         selectedSupplier: data.selectedSupplier,
         negotiationLogs: data.negotiationLogs,
         rounds: data.rounds,
         finalDecision: data.finalDecision,
-        deal: data.deal
+        deal: data.deal,
+        policy_applied: data.policy_applied,
+        filtered_out_count: data.filtered_out_count,
+        rejection_reasons: data.rejection_reasons
       };
 
       setResult(normalizedResult);
@@ -581,7 +618,7 @@ const Procurement = () => {
                             required
                             className="h-16 pl-12 bg-white/50 backdrop-blur-sm border-slate-200 rounded-2xl focus:border-primary/50 focus:ring-4 focus:ring-primary/5 transition-all text-lg font-medium shadow-sm group-hover:bg-white"
                             value={quantity}
-                            onChange={(e) => setQuantity(parseInt(e.target.value))}
+                            onChange={(e) => setQuantity(parseInt(e.target.value) || 0)}
                           />
                         </div>
                       </div>
@@ -597,11 +634,114 @@ const Procurement = () => {
                             required
                             className="h-16 pl-12 bg-white/50 backdrop-blur-sm border-slate-200 rounded-2xl focus:border-primary/50 focus:ring-4 focus:ring-primary/5 transition-all text-lg font-medium shadow-sm group-hover:bg-white"
                             value={budget}
-                            onChange={(e) => setBudget(parseInt(e.target.value))}
+                            onChange={(e) => setBudget(parseInt(e.target.value) || 0)}
                           />
                         </div>
                       </div>
                     </div>
+                  </div>
+
+                  {/* --- PROCUREMENT POLICY ENGINE PANEL --- */}
+                  <div className="pt-4 border-t border-slate-100">
+                    <div className="flex items-center justify-between mb-6">
+                      <div className="flex items-center gap-2">
+                        <div className="p-2 bg-primary/10 rounded-lg">
+                          <Settings className="w-4 h-4 text-primary" />
+                        </div>
+                        <div>
+                          <h3 className="text-sm font-bold text-slate-900">Procurement Policy</h3>
+                          <p className="text-[10px] text-slate-400 font-medium">Define rules your AI agent must follow</p>
+                        </div>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => setEnablePolicy(!enablePolicy)}
+                        className={cn(
+                          "relative inline-flex h-6 w-11 items-center rounded-full transition-colors focus:outline-none focus:ring-2 focus:ring-primary/20 focus:ring-offset-2",
+                          enablePolicy ? "bg-primary" : "bg-slate-200"
+                        )}
+                      >
+                        <span
+                          className={cn(
+                            "inline-block h-4 w-4 transform rounded-full bg-white transition-transform",
+                            enablePolicy ? "translate-x-6" : "translate-x-1"
+                          )}
+                        />
+                      </button>
+                    </div>
+
+                    <AnimatePresence>
+                      {enablePolicy && (
+                        <motion.div
+                          initial={{ height: 0, opacity: 0 }}
+                          animate={{ height: 'auto', opacity: 1 }}
+                          exit={{ height: 0, opacity: 0 }}
+                          className="overflow-hidden"
+                        >
+                          <div className="grid grid-cols-2 gap-6 p-6 bg-slate-50/50 rounded-2xl border border-slate-100 shadow-inner mb-6">
+                            <div className="space-y-2">
+                              <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest flex items-center gap-1.5">
+                                <Shield className="w-3 h-3" /> Min Reliability (%)
+                              </label>
+                              <Input
+                                type="number"
+                                min="0"
+                                max="100"
+                                value={minReliability}
+                                onChange={(e) => setMinReliability(parseInt(e.target.value) || 0)}
+                                className="h-12 bg-white border-slate-200 rounded-xl text-sm font-bold"
+                              />
+                            </div>
+                            <div className="space-y-2">
+                              <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest flex items-center gap-1.5">
+                                <Truck className="w-3 h-3" /> Max Delivery (Days)
+                              </label>
+                              <Input
+                                type="number"
+                                min="1"
+                                value={maxDeliveryDays}
+                                onChange={(e) => setMaxDeliveryDays(parseInt(e.target.value) || 0)}
+                                className="h-12 bg-white border-slate-200 rounded-xl text-sm font-bold"
+                              />
+                            </div>
+                            <div className="space-y-2">
+                              <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest flex items-center gap-1.5">
+                                <Percent className="w-3 h-3" /> Min Success Rate (%)
+                              </label>
+                              <Input
+                                type="number"
+                                min="0"
+                                max="100"
+                                value={minSuccessRate}
+                                onChange={(e) => setMinSuccessRate(parseInt(e.target.value) || 0)}
+                                className="h-12 bg-white border-slate-200 rounded-xl text-sm font-bold"
+                              />
+                            </div>
+                            <div className="space-y-2">
+                              <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest flex items-center gap-1.5">
+                                <Activity className="w-3 h-3" /> Trust Anchor
+                              </label>
+                              <div 
+                                onClick={() => setRequireOnChain(!requireOnChain)}
+                                className={cn(
+                                  "h-12 flex items-center justify-between px-4 rounded-xl border cursor-pointer transition-all",
+                                  requireOnChain ? "bg-emerald-50 border-emerald-200 text-emerald-700" : "bg-white border-slate-200 text-slate-400"
+                                )}
+                              >
+                                <span className="text-[10px] font-bold uppercase tracking-wider">Require On-chain</span>
+                                {requireOnChain ? <Check className="w-4 h-4" /> : <div className="w-4 h-4 rounded-full border-2 border-slate-200" />}
+                              </div>
+                            </div>
+                          </div>
+                          <div className="flex items-center gap-2 p-3 bg-primary/5 rounded-xl border border-primary/10 mb-6">
+                            <ShieldCheck className="w-4 h-4 text-primary shrink-0" />
+                            <p className="text-[10px] text-primary/80 font-bold uppercase tracking-wider">
+                              Policy Enforcement Active: Agent will reject non-compliant suppliers.
+                            </p>
+                          </div>
+                        </motion.div>
+                      )}
+                    </AnimatePresence>
                   </div>
 
                   {error && (
@@ -796,7 +936,51 @@ const Procurement = () => {
             animate={{ opacity: 1, y: 0 }}
             className="space-y-8"
           >
-            {/* ─── HERO DEAL SUMMARY STRIP ─────────────────────────────── */}
+            {result.status === 'no_supplier_found' ? (
+              <motion.div
+                initial={{ opacity: 0, scale: 0.95 }}
+                animate={{ opacity: 1, scale: 1 }}
+                className="max-w-2xl mx-auto"
+              >
+                <Card className="glass-card border-rose-200 overflow-hidden shadow-2xl shadow-rose-200/20">
+                  <CardHeader className="text-center pb-6 pt-8 bg-rose-50/50 border-b border-rose-100 relative overflow-hidden">
+                    <div className="w-14 h-14 bg-white border border-rose-200 rounded-2xl flex items-center justify-center mx-auto mb-4 shadow-xl relative z-10">
+                      <AlertCircle className="text-rose-500 w-7 h-7" />
+                    </div>
+                    <CardTitle className="text-2xl font-display font-bold text-slate-900 tracking-tight">Policy Violation</CardTitle>
+                    <CardDescription className="text-slate-500 text-xs font-medium max-w-[280px] mx-auto mt-1">No suppliers matched your procurement policy constraints.</CardDescription>
+                  </CardHeader>
+                  <CardContent className="p-8 text-center space-y-6">
+                    <div className="space-y-4">
+                      <p className="text-sm font-bold text-slate-400 uppercase tracking-[0.1em]">Constraint Violations</p>
+                      <div className="space-y-2">
+                        {result.rejection_reasons?.map((item, idx) => (
+                          <div key={idx} className="p-4 bg-slate-50 rounded-xl border border-slate-100 text-left">
+                            <p className="text-[10px] font-black text-slate-900 uppercase tracking-widest mb-1">{item.supplier}</p>
+                            <div className="flex flex-wrap gap-2">
+                              {item.reasons.map((reason, ridx) => (
+                                <Badge key={ridx} variant="outline" className="bg-rose-50 text-rose-600 border-rose-100 text-[9px] font-bold py-0">{reason}</Badge>
+                              ))}
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                    <div className="pt-4 flex flex-col gap-3">
+                      <Button 
+                        onClick={() => setStep('form')}
+                        className="w-full h-14 bg-slate-900 hover:bg-black text-white rounded-xl font-bold shadow-lg"
+                      >
+                        Relax Procurement Policy
+                      </Button>
+                      <p className="text-[10px] text-slate-400 font-bold uppercase tracking-widest">Enterprise Guardrails are Active</p>
+                    </div>
+                  </CardContent>
+                </Card>
+              </motion.div>
+            ) : (
+              <>
+                {/* ─── HERO DEAL SUMMARY STRIP ─────────────────────────────── */}
             <motion.div
               initial={{ opacity: 0, y: -10 }}
               animate={{ opacity: 1, y: 0 }}
@@ -838,6 +1022,11 @@ const Procurement = () => {
                   <div>
                     <p className="text-[9px] text-white/30 uppercase tracking-widest font-bold">Suppliers Evaluated</p>
                     <p className="text-white font-bold text-sm">{result.suppliers.length} Vendors</p>
+                    {result.policy_applied && (
+                      <p className="text-rose-400 font-bold text-[8px] uppercase tracking-tighter mt-0.5">
+                        {result.filtered_out_count} Filtered by Policy
+                      </p>
+                    )}
                   </div>
                 </div>
                 <div className="flex items-center gap-3">
@@ -877,7 +1066,11 @@ const Procurement = () => {
                       </div>
                       <div>
                         <p className="font-bold text-slate-900 text-sm">Negotiation History</p>
-                        <p className="text-[10px] uppercase tracking-widest text-slate-400 font-bold">Live conversation with suppliers</p>
+                        <p className="text-[10px] uppercase tracking-widest text-slate-400 font-bold">
+                          {result.policy_applied 
+                            ? "Suppliers not meeting policy were automatically excluded" 
+                            : "Live conversation with suppliers"}
+                        </p>
                       </div>
                     </div>
                     <div className="flex items-center gap-1.5 px-3 py-1 rounded-full bg-emerald-50 border border-emerald-100">
@@ -1052,8 +1245,11 @@ const Procurement = () => {
 
                       {/* AI Reasoning */}
                       <div className="bg-primary/5 rounded-2xl p-4 border border-primary/10">
-                        <p className="text-[9px] font-bold text-primary uppercase tracking-widest mb-2 flex items-center gap-2">
-                          <Cpu className="w-3 h-3" /> AI AGENT REASONING
+                        <p className="text-[9px] font-bold text-primary uppercase tracking-widest mb-2 flex items-center justify-between">
+                          <span className="flex items-center gap-2"><Cpu className="w-3 h-3" /> AI AGENT REASONING</span>
+                          {result.policy_applied && (
+                            <Badge className="bg-primary/20 text-primary border-none text-[8px] font-black uppercase tracking-tighter">Policy Constrained</Badge>
+                          )}
                         </p>
                         <p className="text-xs text-slate-700 leading-relaxed font-medium">"{result.selectedSupplier.reasoning}"</p>
                       </div>
@@ -1126,10 +1322,12 @@ const Procurement = () => {
                 </div>
               </div>
             </div>
+            </>
+          )}
           </motion.div>
         )}
 
-        {step === 'escrow_locked' && (
+        {step === 'escrow_locked' && txId && (
           <motion.div
             key="escrow_locked"
             initial={{ opacity: 0, scale: 0.95 }}
