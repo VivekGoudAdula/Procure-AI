@@ -4,6 +4,8 @@ from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
 import json
 import os
+import hashlib
+from datetime import datetime
 from dotenv import load_dotenv
 
 # Load .env file
@@ -61,6 +63,8 @@ class EscrowRequest(BaseModel):
     sender: str
     receiver: str
     amount: float = 0.1
+    supplier_id: int
+    promised_delivery_days: int
 
 class ConfirmDeliveryRequest(BaseModel):
     transaction_id: str
@@ -88,6 +92,44 @@ def load_escrow_db():
 def save_escrow_db(data):
     with open(ESCROW_DB_PATH, "w") as f:
         json.dump(data, f, indent=4)
+
+def update_supplier_reputation(supplier_id: int, delivered_on_time: bool):
+    db = load_db()
+    suppliers = db.get("suppliers", [])
+    supplier = next((s for s in suppliers if s["id"] == supplier_id), None)
+    
+    if not supplier:
+        return
+    
+    supplier["total_deals"] = supplier.get("total_deals", 0) + 1
+    supplier["successful_deals"] = supplier.get("successful_deals", 0) + 1
+    
+    if delivered_on_time:
+        supplier["on_time_deliveries"] = supplier.get("on_time_deliveries", 0) + 1
+    else:
+        supplier["late_deliveries"] = supplier.get("late_deliveries", 0) + 1
+        
+    # Recalculate metrics
+    total = supplier["total_deals"]
+    success_rate = (supplier["successful_deals"] / total) * 100
+    on_time_rate = (supplier["on_time_deliveries"] / total) * 100
+    
+    reliability_score = (success_rate * 0.6) + (on_time_rate * 0.4)
+    reliability_score = max(0, min(100, reliability_score))
+    
+    rating = round((reliability_score / 100) * 5, 1)
+    
+    supplier["reliability_score"] = int(reliability_score)
+    supplier["success_rate"] = int(success_rate)
+    supplier["rating"] = rating
+    supplier["last_updated"] = datetime.now().isoformat()
+    
+    # On-chain Hash MVP
+    reputation_data = f"{supplier['id']}-{supplier['total_deals']}-{int(success_rate)}-{int(on_time_rate)}"
+    supplier["reputation_hash"] = hashlib.sha256(reputation_data.encode()).hexdigest()
+    
+    save_db(db)
+    print(f"Updated reputation for supplier {supplier_id}")
 
 # --- Endpoints ---
 
@@ -186,6 +228,8 @@ async def create_escrow(req: EscrowRequest):
         "sender_address": req.sender,
         "receiver_address": req.receiver,
         "amount": req.amount,
+        "supplier_id": req.supplier_id,
+        "promised_delivery_days": req.promised_delivery_days,
         "escrow_status": "funded",
         "timestamp": time.time(),
         "delivery_proof": None,
@@ -216,6 +260,28 @@ async def confirm_delivery(req: ConfirmDeliveryRequest):
         raise HTTPException(status_code=400, detail="Delivery must be verified before release")
 
     record["escrow_status"] = "released"
+    
+    # Update Reputation
+    supplier_id = record.get("supplier_id")
+    if supplier_id:
+        # Calculate if on-time
+        promised_days = record.get("promised_delivery_days", 3)
+        created_at = record.get("timestamp", time.time())
+        # If proof exists, use its submission time, else use now
+        proof = record.get("delivery_proof")
+        if proof and "submitted_at" in proof:
+             try:
+                 submitted_at_dt = datetime.fromisoformat(proof["submitted_at"])
+                 created_at_dt = datetime.fromtimestamp(created_at)
+                 actual_days = (submitted_at_dt - created_at_dt).days
+             except:
+                 actual_days = 0
+        else:
+             actual_days = 0
+             
+        on_time = actual_days <= promised_days
+        update_supplier_reputation(supplier_id, on_time)
+
     save_escrow_db(db)
     return record
 
@@ -367,6 +433,29 @@ async def signup(user: User):
     users.append({"email": user.email, "password": user.password})
     save_db(db)
     return {"message": "User registered successfully"}
+
+@app.get("/api/suppliers")
+async def get_suppliers():
+    db = load_db()
+    return db.get("suppliers", [])
+
+@app.get("/api/suppliers/{supplier_id}")
+async def get_supplier(supplier_id: int):
+    db = load_db()
+    suppliers = db.get("suppliers", [])
+    supplier = next((s for s in suppliers if s["id"] == supplier_id), None)
+    if not supplier:
+        raise HTTPException(status_code=404, detail="Supplier not found")
+    return supplier
+
+class UpdateReputationRequest(BaseModel):
+    supplier_id: int
+    delivered_on_time: bool
+
+@app.post("/api/update-reputation")
+async def update_reputation_endpoint(req: UpdateReputationRequest):
+    update_supplier_reputation(req.supplier_id, req.delivered_on_time)
+    return {"message": "Reputation updated"}
 
 # --- Supplier Agent Endpoint ---
 

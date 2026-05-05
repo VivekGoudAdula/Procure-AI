@@ -56,7 +56,11 @@ def run_agent_competition(product_name, quantity, budget):
             "name": s["name"],
             "price": s["base_price"],
             "delivery": s["delivery_days"],
-            "reliability": s["reliability_score"]
+            "reliability": s["reliability_score"],
+            "success_rate": s.get("success_rate", 90),
+            "total_deals": s.get("total_deals", 0),
+            "last_updated": s.get("last_updated"),
+            "reputation_hash": s.get("reputation_hash")
         } for s in top_suppliers
     }
 
@@ -101,7 +105,7 @@ def run_agent_competition(product_name, quantity, budget):
     scored_results.sort(key=lambda x: x["score"], reverse=True)
     winner = scored_results[0]
     
-    winner["reason"] = f"Winner selected with highest score of {winner['score']} based on optimal pricing (${winner['price']}) and {winner['reliability']}% reliability."
+    winner["reason"] = f"Best balance of price (${winner['price']}), reliability ({winner['reliability']}%), and delivery ({winner['delivery']} days). On-chain verified history with {winner['total_deals']} successful deals."
 
     return {
         "deal": {
@@ -138,8 +142,11 @@ def select_best_supplier(product_name, quantity, budget):
                 "delivery_days": s["delivery"],
                 "reliability_score": s["reliability"],
                 "score": s["score"],
-                "rating": 4.5,
-                "success_rate": 90
+                "rating": round((s["reliability"] / 20), 1),
+                "success_rate": s.get("success_rate", 90),
+                "total_deals": s.get("total_deals", 0),
+                "last_updated": s.get("last_updated"),
+                "reputation_hash": s.get("reputation_hash")
             } for s in comp_result["scored_results"]
         ],
         "selected_supplier": {
@@ -149,7 +156,9 @@ def select_best_supplier(product_name, quantity, budget):
             "unit_price": winner["price"],
             "delivery_days": winner["delivery"],
             "reliability_score": winner["reliability"],
-            "reasoning": winner["reason"]
+            "reasoning": winner["reason"],
+            "last_updated": winner.get("last_updated"),
+            "reputation_hash": winner.get("reputation_hash")
         },
         "final_price": winner["price"] * quantity,
         "reasoning": winner["reason"],

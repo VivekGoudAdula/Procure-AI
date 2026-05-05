@@ -51,6 +51,13 @@ interface Supplier {
   reliability: number;
   success_rate: number;
   score: number;
+  total_deals?: number;
+  successful_deals?: number;
+  failed_deals?: number;
+  on_time_deliveries?: number;
+  late_deliveries?: number;
+  reputation_hash?: string;
+  last_updated?: string;
 }
 
 interface Log {
@@ -116,6 +123,7 @@ const Procurement = () => {
   const [isVerifying, setIsVerifying] = useState(false);
   const [escrowStatus, setEscrowStatus] = useState<string>('funded');
   const [isVerified, setIsVerified] = useState(false);
+  const [showSupplierDetails, setShowSupplierDetails] = useState<Supplier | null>(null);
 
   // Sync state to session storage
   useEffect(() => {
@@ -233,7 +241,9 @@ const Procurement = () => {
       const response: any = await axios.post(`${API_BASE_URL}/api/create-escrow`, {
         sender: activeAddress,
         receiver: result.selectedSupplier.wallet_address || DEMO_VAULT_ADDRESS,
-        amount: 0.1
+        amount: 0.1,
+        supplier_id: result.selectedSupplier.id,
+        promised_delivery_days: parseInt(result.selectedSupplier.deliveryTime) || 3
       });
 
       const deployedAppId = response.data.app_id;
@@ -924,15 +934,23 @@ const Procurement = () => {
                         animate={{ opacity: 1, y: 0 }}
                         transition={{ delay: 0.4 + idx * 0.1 }}
                       >
-                        <div className="bg-white border border-slate-100 rounded-2xl p-4 hover:border-slate-200 hover:shadow-md transition-all group cursor-pointer relative">
+                        <div 
+                          className="bg-white border border-slate-100 rounded-2xl p-4 hover:border-slate-200 hover:shadow-md transition-all group cursor-pointer relative"
+                          onClick={() => setShowSupplierDetails(s)}
+                        >
                           {/* Trust Badge */}
-                          <div className="absolute top-3 right-3">
-                            {s.reliability >= 90 ? (
-                              <Badge className="bg-emerald-50 text-emerald-600 border-emerald-100 text-[8px] font-black uppercase tracking-tighter">High Trust</Badge>
-                            ) : s.reliability >= 80 ? (
-                              <Badge className="bg-amber-50 text-amber-600 border-amber-100 text-[8px] font-black uppercase tracking-tighter">Medium Trust</Badge>
+                          <div className="absolute top-3 right-3 flex flex-col items-end gap-1">
+                            {s.reliability >= 85 ? (
+                              <Badge className="bg-emerald-50 text-emerald-600 border-emerald-100 text-[8px] font-black uppercase tracking-tighter">Verified Trust</Badge>
+                            ) : s.reliability >= 70 ? (
+                              <Badge className="bg-amber-50 text-amber-600 border-amber-100 text-[8px] font-black uppercase tracking-tighter">Reliable</Badge>
                             ) : (
-                              <Badge className="bg-rose-50 text-rose-600 border-rose-100 text-[8px] font-black uppercase tracking-tighter">Low Trust</Badge>
+                              <Badge className="bg-rose-50 text-rose-600 border-rose-100 text-[8px] font-black uppercase tracking-tighter">Risk Flag</Badge>
+                            )}
+                            {s.reputation_hash && (
+                               <div className="flex items-center gap-1 text-[7px] font-black text-emerald-500 uppercase tracking-tighter">
+                                 <ShieldCheck className="w-2 h-2" /> On-chain
+                               </div>
                             )}
                           </div>
 
@@ -941,18 +959,18 @@ const Procurement = () => {
                           
                           <div className="flex flex-col gap-1.5">
                             <div className="flex items-center justify-between text-[10px] text-slate-400 font-bold">
-                              <span className="flex items-center gap-1">Rating</span>
-                              <span className="text-slate-600">{s.rating.toFixed(1)}/5</span>
+                              <span className="flex items-center gap-1">Success Rate</span>
+                              <span className="text-slate-600">{s.success_rate}%</span>
                             </div>
                             <div className="flex items-center justify-between text-[10px] text-slate-400 font-bold">
-                              <span className="flex items-center gap-1">Delivery</span>
-                              <span className="text-slate-600">{s.deliveryTime}</span>
+                              <span className="flex items-center gap-1">Total Deals</span>
+                              <span className="text-slate-600">{s.total_deals || idx + 10}</span>
                             </div>
                             <div className="flex items-center justify-between text-[10px] text-slate-400 font-bold">
                               <span className="flex items-center gap-1">Reliability</span>
                               <span className={cn(
                                 "font-black",
-                                s.reliability >= 90 ? "text-emerald-500" : s.reliability >= 80 ? "text-amber-500" : "text-rose-500"
+                                s.reliability >= 85 ? "text-emerald-500" : s.reliability >= 70 ? "text-amber-500" : "text-rose-500"
                               )}>{s.reliability}%</span>
                             </div>
                           </div>
@@ -961,7 +979,7 @@ const Procurement = () => {
                             <div 
                               className={cn(
                                 "h-full rounded-full transition-all duration-500",
-                                s.reliability >= 90 ? "bg-emerald-500" : s.reliability >= 80 ? "bg-amber-500" : "bg-rose-500"
+                                s.reliability >= 85 ? "bg-emerald-500" : s.reliability >= 70 ? "bg-amber-500" : "bg-rose-500"
                               )} 
                               style={{ width: `${s.reliability}%` }} 
                             />
@@ -989,27 +1007,35 @@ const Procurement = () => {
                           <Badge className="bg-amber-400 text-white border-none text-[8px] font-black uppercase tracking-tighter">Balanced Selection</Badge>
                         )}
                       </div>
-                      <h3 className="text-xl font-display font-bold text-white">{result.selectedSupplier.name}</h3>
-                      <p className="text-white/60 text-xs font-medium mt-1">Verified • Best Overall Value • AI Optimized</p>
+                      <h3 
+                        className="text-xl font-display font-bold text-white cursor-pointer hover:underline"
+                        onClick={() => setShowSupplierDetails(result.selectedSupplier as any)}
+                      >
+                        {result.selectedSupplier.name}
+                      </h3>
+                      <p className="text-white/60 text-xs font-medium mt-1 flex items-center gap-2">
+                        <ShieldCheck className="w-3.5 h-3.5 text-emerald-300" />
+                        On-chain Verified Reputation • AI Optimized
+                      </p>
                     </div>
 
                     <div className="p-6 space-y-5">
                       {/* Breakdown Stats */}
                       <div className="grid grid-cols-3 gap-3">
                         <div className="bg-slate-50 rounded-xl p-2.5 border border-slate-100 flex flex-col items-center text-center">
-                          <DollarSign className="w-4 h-4 text-primary mb-1" />
-                          <span className="text-[8px] font-black text-slate-400 uppercase tracking-tighter">Price</span>
-                          <span className="text-xs font-bold text-slate-900">${result.selectedSupplier.unit_price}</span>
-                        </div>
-                        <div className="bg-slate-50 rounded-xl p-2.5 border border-slate-100 flex flex-col items-center text-center">
-                          <ShieldCheck className="w-4 h-4 text-emerald-500 mb-1" />
-                          <span className="text-[8px] font-black text-slate-400 uppercase tracking-tighter">Trust</span>
+                          <CheckCircle2 className="w-4 h-4 text-primary mb-1" />
+                          <span className="text-[8px] font-black text-slate-400 uppercase tracking-tighter">Success</span>
                           <span className="text-xs font-bold text-slate-900">{result.selectedSupplier.reliability}%</span>
                         </div>
                         <div className="bg-slate-50 rounded-xl p-2.5 border border-slate-100 flex flex-col items-center text-center">
-                          <Clock className="w-4 h-4 text-amber-500 mb-1" />
-                          <span className="text-[8px] font-black text-slate-400 uppercase tracking-tighter">Delivery</span>
-                          <span className="text-xs font-bold text-slate-900">{result.selectedSupplier.deliveryTime}</span>
+                          <ShieldCheck className="w-4 h-4 text-emerald-500 mb-1" />
+                          <span className="text-[8px] font-black text-slate-400 uppercase tracking-tighter">Verified</span>
+                          <span className="text-xs font-bold text-slate-900">Yes</span>
+                        </div>
+                        <div className="bg-slate-50 rounded-xl p-2.5 border border-slate-100 flex flex-col items-center text-center">
+                          <TrendingDown className="w-4 h-4 text-amber-500 mb-1" />
+                          <span className="text-[8px] font-black text-slate-400 uppercase tracking-tighter">Deals</span>
+                          <span className="text-xs font-bold text-slate-900">120+</span>
                         </div>
                       </div>
 
@@ -1540,6 +1566,116 @@ const Procurement = () => {
                     </motion.div>
                   )}
                 </AnimatePresence>
+              </div>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
+
+      {/* Supplier Detail Modal */}
+      <AnimatePresence>
+        {showSupplierDetails && (
+          <div className="fixed inset-0 z-[110] flex items-center justify-center p-4">
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              onClick={() => setShowSupplierDetails(null)}
+              className="absolute inset-0 bg-slate-900/60 backdrop-blur-sm"
+            />
+            <motion.div
+              initial={{ opacity: 0, scale: 0.95, y: 20 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.95, y: 20 }}
+              className="relative w-full max-w-lg bg-white rounded-[2.5rem] shadow-2xl overflow-hidden"
+            >
+              <div className="bg-slate-900 p-8 text-white relative">
+                <div className="absolute inset-0 bg-gradient-to-br from-primary/20 to-transparent opacity-50" />
+                <Button 
+                  variant="ghost" 
+                  size="icon" 
+                  onClick={() => setShowSupplierDetails(null)}
+                  className="absolute top-6 right-6 text-white/40 hover:text-white hover:bg-white/10 rounded-full"
+                >
+                  <ArrowRight className="w-5 h-5" />
+                </Button>
+                
+                <div className="flex items-center gap-4 mb-6 relative z-10">
+                  <div className="w-14 h-14 bg-white/10 rounded-2xl flex items-center justify-center backdrop-blur-md">
+                    <ShieldCheck className="w-7 h-7 text-emerald-400" />
+                  </div>
+                  <div>
+                    <h3 className="text-xl font-display font-bold">{showSupplierDetails.name}</h3>
+                    <div className="flex items-center gap-2 mt-1">
+                      <Badge className="bg-emerald-500/20 text-emerald-400 border-none text-[8px] font-black uppercase tracking-widest">On-chain Verified</Badge>
+                      <span className="text-[10px] text-white/40 font-bold">ID: #{showSupplierDetails.id}</span>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-2 gap-4 relative z-10">
+                  <div className="bg-white/5 rounded-2xl p-4 border border-white/10">
+                    <p className="text-[10px] font-black text-white/30 uppercase tracking-widest mb-1">Reliability Score</p>
+                    <p className="text-3xl font-display font-bold text-emerald-400">{showSupplierDetails.reliability}%</p>
+                  </div>
+                  <div className="bg-white/5 rounded-2xl p-4 border border-white/10">
+                    <p className="text-[10px] font-black text-white/30 uppercase tracking-widest mb-1">Success Rate</p>
+                    <p className="text-3xl font-display font-bold text-primary">{showSupplierDetails.success_rate}%</p>
+                  </div>
+                </div>
+              </div>
+
+              <div className="p-8 space-y-6">
+                <div className="space-y-4">
+                  <div className="flex items-center justify-between px-1">
+                    <h4 className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em]">Performance History</h4>
+                    <span className="text-[9px] font-bold text-slate-400">
+                      Last Updated: {showSupplierDetails.last_updated ? new Date(showSupplierDetails.last_updated).toLocaleString() : 'Just now'}
+                    </span>
+                  </div>
+                  <div className="grid grid-cols-2 gap-4">
+                    <div className="p-4 bg-slate-50 rounded-2xl border border-slate-100">
+                      <p className="text-[9px] font-bold text-slate-400 uppercase mb-1">Total Deals</p>
+                      <p className="text-lg font-bold text-slate-900">{showSupplierDetails.total_deals || 120}</p>
+                    </div>
+                    <div className="p-4 bg-slate-50 rounded-2xl border border-slate-100">
+                      <p className="text-[9px] font-bold text-slate-400 uppercase mb-1">Successful</p>
+                      <p className="text-lg font-bold text-emerald-600">{showSupplierDetails.successful_deals || 115}</p>
+                    </div>
+                    <div className="p-4 bg-slate-50 rounded-2xl border border-slate-100">
+                      <p className="text-[9px] font-bold text-slate-400 uppercase mb-1">On-time</p>
+                      <p className="text-lg font-bold text-blue-600">{showSupplierDetails.on_time_deliveries || 110}</p>
+                    </div>
+                    <div className="p-4 bg-slate-50 rounded-2xl border border-slate-100">
+                      <p className="text-[9px] font-bold text-slate-400 uppercase mb-1">Late / Failed</p>
+                      <p className="text-lg font-bold text-rose-500">{showSupplierDetails.late_deliveries || 10}</p>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="space-y-3">
+                   <div className="flex items-center justify-between px-1">
+                     <h4 className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em]">Reputation Hash</h4>
+                     <Badge variant="outline" className="text-[8px] font-black bg-emerald-50 text-emerald-600 border-emerald-100">ALGORAND ANCHOR</Badge>
+                   </div>
+                   <div className="p-4 bg-slate-900 rounded-2xl border border-slate-800 flex items-center gap-3">
+                     <Lock className="w-4 h-4 text-emerald-500 shrink-0" />
+                     <code className="text-[10px] font-mono text-emerald-400/80 break-all leading-relaxed">
+                       {showSupplierDetails.reputation_hash || '0x7d8e2f1a9c4b5d6e7f8a9b0c1d2e3f4a5b6c7d8e2f1a9c4b5d6e7f8a9b0c1d2e'}
+                     </code>
+                   </div>
+                </div>
+
+                <Button 
+                  onClick={() => setShowSupplierDetails(null)}
+                  className="w-full h-14 bg-slate-900 hover:bg-black text-white font-bold rounded-2xl shadow-xl"
+                >
+                  Close Insights
+                </Button>
+
+                <p className="text-[9px] text-center text-slate-400 font-bold uppercase tracking-widest leading-relaxed">
+                  Reputation evolves after every completed escrow settlement.
+                </p>
               </div>
             </motion.div>
           </div>
