@@ -13,8 +13,11 @@ load_dotenv()
 from ai_agent import select_best_supplier, run_agent_competition
 from blockchain import create_transaction, simulate_escrow
 from escrow_service import deploy_escrow
+from services.alibaba_procurement_service import AlibabaProcurementService
 
 app = FastAPI(title="ProcureAI Backend - Autonomous Agentic Commerce Platform")
+
+procurement_engine = AlibabaProcurementService()
 
 # CORS setup for frontend connection
 app.add_middleware(
@@ -61,6 +64,15 @@ class SupplierRequest(BaseModel):
     quantity: int
     budget: float
     policy: ProcurementPolicy | None = None
+
+class ProcurementIntelligenceRequest(BaseModel):
+    product_name: str
+    quantity: int
+    budget: float
+    lead_time_days: int | None = None
+    shipping_region: str | None = None
+    quality_level: str | None = None
+    procurement_policy: dict | None = None
 
 class TransactionRequest(BaseModel):
     sender: str
@@ -140,6 +152,15 @@ def update_supplier_reputation(supplier_id: int, delivered_on_time: bool):
     print(f"Updated reputation for supplier {supplier_id}")
 
 # --- Endpoints ---
+
+@app.post("/api/procurement/intelligence")
+async def get_procurement_intelligence(req: ProcurementIntelligenceRequest):
+    try:
+        result = procurement_engine.run_intelligence(req.dict())
+        return result
+    except Exception as e:
+        print(f"[ProcureAI] Error: {str(e)}")
+        raise HTTPException(status_code=500, detail=str(e))
 
 @app.post("/api/login")
 async def login(user: User):

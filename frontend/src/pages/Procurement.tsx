@@ -31,8 +31,12 @@ import {
   Activity,
   Truck,
   Percent,
-  Check
+  Check,
+  Package
 } from 'lucide-react';
+import IntelligenceLoading from '../components/procurement/IntelligenceLoading';
+import SupplierIntelligenceDashboard from '../components/procurement/SupplierIntelligenceDashboard';
+import ProcurementTerminal from '../components/procurement/ProcurementTerminal';
 import { useApp } from '../context/AppContext';
 import { cn } from '../lib/utils';
 import { motion, AnimatePresence } from 'motion/react';
@@ -91,6 +95,13 @@ interface ProcurementResult {
   rejection_reasons?: Array<{ supplier: string; reasons: string[] }>;
 }
 
+interface IntelligenceResult {
+  suppliers: any[];
+  recommended_supplier: any;
+  procurement_analysis: any;
+  rejected_suppliers: any[];
+}
+
 const Procurement = () => {
   const { addTransaction, walletAddress, setWalletAddress } = useApp();
 
@@ -98,6 +109,7 @@ const Procurement = () => {
   const [productName, setProductName] = useState('');
   const [quantity, setQuantity] = useState(1);
   const [budget, setBudget] = useState(1000);
+  const [shippingRegion, setShippingRegion] = useState('Global');
 
   // Policy Engine State
   const [enablePolicy, setEnablePolicy] = useState(false);
@@ -107,9 +119,15 @@ const Procurement = () => {
   const [requireOnChain, setRequireOnChain] = useState(false);
 
   // State Persistence Logic ( survives page reloads )
-  const [step, setStep] = useState<'form' | 'negotiating' | 'result' | 'escrow_locked' | 'payment'>(() => {
+  const [step, setStep] = useState<'form' | 'intelligence_loading' | 'intelligence_dashboard' | 'escrow_locked' | 'payment'>(() => {
     return (sessionStorage.getItem('procureai_step') as any) || 'form';
   });
+  const [intelligenceResult, setIntelligenceResult] = useState<IntelligenceResult | null>(() => {
+    const saved = sessionStorage.getItem('procureai_intelligence');
+    return saved ? JSON.parse(saved) : null;
+  });
+  const [procurementLogs, setProcurementLogs] = useState<string[]>([]);
+  const [showTerminal, setShowTerminal] = useState(false);
   const [result, setResult] = useState<ProcurementResult | null>(() => {
     const saved = sessionStorage.getItem('procureai_result');
     return saved ? JSON.parse(saved) : null;
@@ -147,6 +165,7 @@ const Procurement = () => {
   useEffect(() => {
     sessionStorage.setItem('procureai_step', step);
     if (result) sessionStorage.setItem('procureai_result', JSON.stringify(result));
+    if (intelligenceResult) sessionStorage.setItem('procureai_intelligence', JSON.stringify(intelligenceResult));
     if (txId) sessionStorage.setItem('procureai_txid', txId);
     if (appId) sessionStorage.setItem('procureai_appid', appId.toString());
     if (appAddress) sessionStorage.setItem('procureai_appaddress', appAddress);
@@ -179,61 +198,159 @@ const Procurement = () => {
   const handleFindSupplier = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsSearching(true);
-    setStep('negotiating');
+    setStep('intelligence_loading');
     setError(null);
 
     try {
-      // 1. Call the new Dynamic Agent Competition endpoint
-      const policy = enablePolicy ? {
-        max_budget: budget,
-        min_reliability: minReliability,
-        max_delivery_days: maxDeliveryDays,
-        min_success_rate: minSuccessRate,
-        require_on_chain_verified: requireOnChain
-      } : null;
-
-      const response = await axios.post(`${API_BASE_URL}/api/select-supplier`, {
-        productName,
+      const response = await axios.post(`${API_BASE_URL}/api/procurement/intelligence`, {
+        product_name: productName,
         quantity,
         budget,
-        policy
+        shipping_region: shippingRegion,
+        procurement_policy: enablePolicy ? {
+          min_reliability: minReliability,
+          max_delivery_days: maxDeliveryDays,
+          min_success_rate: minSuccessRate,
+          require_on_chain: requireOnChain
+        } : null
       });
 
-      // The backend now returns computed competition data
-      const data = response.data;
+      setIntelligenceResult(response.data);
+      setProcurementLogs(response.data.logs || []);
       
-      // Wait for a short moment to transition
-      await new Promise(res => setTimeout(res, 1000));
+      // Artificial delay for premium loading experience
+      await new Promise(res => setTimeout(res, 6000));
 
-      if (data.status === "no_supplier_found") {
-        setResult(data as any);
-        setStep('result');
-        toast.error('No suppliers matched your procurement policy.');
-        return;
-      }
-
-      const normalizedResult = {
-        suppliers: data.suppliers,
-        selectedSupplier: data.selectedSupplier,
-        negotiationLogs: data.negotiationLogs,
-        rounds: data.rounds,
-        finalDecision: data.finalDecision,
-        deal: data.deal,
-        policy_applied: data.policy_applied,
-        filtered_out_count: data.filtered_out_count,
-        rejection_reasons: data.rejection_reasons
-      };
-
-      setResult(normalizedResult);
-      setStep('result');
-      toast.success('AI Agents competed and negotiated the best deal dynamically!');
+      setShowTerminal(true);
+      setStep('intelligence_dashboard');
+      toast.success('Procurement intelligence scan complete!');
     } catch (err: any) {
-      console.error('[ProcureAI] Competition Error:', err);
-      setError(`Failed to run competition: ${err.message || 'Check backend connection.'}`);
+      console.error('[ProcureAI] Intelligence Error:', err);
+      setError(`Failed to fetch intelligence: ${err.message || 'Check backend connection.'}`);
       setStep('form');
-      toast.error('Agent competition failed to initialize.');
+      toast.error('Procurement scan failed.');
     } finally {
       setIsSearching(false);
+    }
+  };
+
+  const handleSelectIntelligenceSupplier = (supplier: any) => {
+    // Map intelligence supplier to the format expected by the escrow flow
+    const selected = {
+      id: supplier.id,
+      name: supplier.name,
+      finalPrice: supplier.negotiated_price * quantity,
+      unit_price: supplier.negotiated_price,
+      deliveryTime: `${supplier.lead_time_days} Days`,
+      reliability: supplier.trust_score,
+      reasoning: "AI recommended based on optimal price and trust index.",
+      wallet_address: supplier.address || DEMO_VAULT_ADDRESS
+    };
+
+    setResult({
+      suppliers: intelligenceResult?.suppliers.map(s => ({
+        ...s,
+        price: s.negotiated_price,
+        deliveryTime: `${s.lead_time_days} days`,
+        reliability: s.trust_score,
+        rating: s.rating,
+        success_rate: s.success_rate
+      })) || [],
+      selectedSupplier: selected,
+      negotiationLogs: [
+        { role: 'agent', message: "System scan complete. Evaluating candidates..." },
+        { role: 'supplier', message: `Best offer: $${supplier.negotiated_price} per unit.` }
+      ]
+    });
+
+    // Directly move to escrow phase after selection
+    handleExecuteDealFromSelection(selected);
+  };
+
+  const handleExecuteDealFromSelection = async (selected: any) => {
+    // This is essentially handleExecuteDeal but using the passed supplier
+    if (isExecuting) return; 
+    
+    const activeAddress = walletAddress;
+    if (!activeAddress) {
+      toast.error("Please connect your wallet first.");
+      return;
+    }
+
+    setIsExecuting(true);
+    setPaymentPhase(0);
+    setError(null);
+
+    // Cycle through 4 animation phases
+    const phaseInterval = setInterval(() => {
+      setPaymentPhase(p => (p < 3 ? p + 1 : p));
+    }, 250);
+
+    try {
+      const response: any = await axios.post(`${API_BASE_URL}/api/create-escrow`, {
+        sender: activeAddress,
+        receiver: selected.wallet_address || DEMO_VAULT_ADDRESS,
+        amount: 0.1,
+        supplier_id: selected.id,
+        promised_delivery_days: parseInt(selected.deliveryTime) || 3
+      });
+
+      const deployedAppId = response.data.app_id;
+      const deployedAppAddress = response.data.app_address;
+      
+      setAppId(deployedAppId);
+      setAppAddress(deployedAppAddress);
+
+      const suggestedParams = await algodClient.getTransactionParams().do();
+      const rentTxn = algosdk.makePaymentTxnWithSuggestedParamsFromObject({
+        sender: activeAddress,
+        receiver: deployedAppAddress,
+        amount: 400000, 
+        suggestedParams
+      });
+
+      const payTxn = algosdk.makePaymentTxnWithSuggestedParamsFromObject({
+        sender: activeAddress,
+        receiver: deployedAppAddress,
+        amount: 100000, 
+        suggestedParams
+      });
+
+      const composer = new algosdk.AtomicTransactionComposer();
+      const signer: algosdk.TransactionSigner = async (group, indexes) => {
+        const signToSign = group.map(txn => ({ txn, signers: [activeAddress] }));
+        const signedTxns = await peraWallet.signTransaction([signToSign]);
+        return indexes.map(i => signedTxns[i]);
+      };
+
+      const method = new algosdk.ABIMethod({
+        name: "fund",
+        args: [{ type: "pay", name: "payment" }],
+        returns: { type: "void" }
+      });
+
+      composer.addMethodCall({
+        appID: BigInt(deployedAppId),
+        method,
+        methodArgs: [{ txn: payTxn, signer }],
+        sender: activeAddress,
+        suggestedParams,
+        signer
+      });
+      composer.addTransaction({ txn: rentTxn, signer });
+
+      const fundResult = await composer.execute(algodClient, 4);
+      setTxId(fundResult.txIDs[0]);
+      
+      setStep('escrow_locked');
+      toast.success('Escrow settlement initiated and funds locked!');
+    } catch (err: any) {
+      clearInterval(phaseInterval);
+      setError(`Transaction failed: ${err.message || 'Check wallet connection.'}`);
+      toast.error('Failed to initiate escrow settlement.');
+    } finally {
+      setIsExecuting(false);
+      setPaymentPhase(0);
     }
   };
 
@@ -552,8 +669,8 @@ const Procurement = () => {
           <Badge variant="outline" className="bg-primary/5 text-primary border-primary/10 px-4 py-2 gap-2 uppercase tracking-widest text-[9px] font-black rounded-xl shadow-sm">
             <div className="w-1.5 h-1.5 rounded-full bg-primary animate-ping" /> Agent-to-Agent Active
           </Badge>
-          <Badge variant="outline" className="bg-emerald-50 text-emerald-600 border-emerald-100 px-4 py-2 gap-2 uppercase tracking-widest text-[9px] font-black rounded-xl shadow-sm">
-            <ShieldCheck className="w-3.5 h-3.5" /> On-chain Verified
+          <Badge variant="outline" className="bg-amber-50 text-amber-600 border-amber-100 px-4 py-2 gap-2 uppercase tracking-widest text-[9px] font-black rounded-xl shadow-sm">
+            <ShieldCheck className="w-3.5 h-3.5" /> Trade Assurance
           </Badge>
         </div>
       </div>
@@ -637,6 +754,27 @@ const Procurement = () => {
                             onChange={(e) => setBudget(parseInt(e.target.value) || 0)}
                           />
                         </div>
+                      </div>
+                    </div>
+
+                    <div className="space-y-3">
+                      <label className="text-[10px] font-black text-slate-400 uppercase tracking-[0.15em]">Supplier Region</label>
+                      <div className="relative group">
+                        <div className="absolute inset-y-0 left-4 flex items-center pointer-events-none">
+                          <Truck className="w-5 h-5 text-slate-400 group-focus-within:text-primary transition-colors" />
+                        </div>
+                        <select
+                          className="w-full h-16 pl-12 bg-white/50 backdrop-blur-sm border-slate-200 rounded-2xl focus:border-primary/50 focus:ring-4 focus:ring-primary/5 transition-all text-lg font-medium shadow-sm group-hover:bg-white appearance-none outline-none"
+                          value={shippingRegion}
+                          onChange={(e) => setShippingRegion(e.target.value)}
+                        >
+                          <option value="Global">Global</option>
+                          <option value="China">China</option>
+                          <option value="India">India</option>
+                          <option value="Vietnam">Vietnam</option>
+                          <option value="Europe">Europe</option>
+                          <option value="USA">USA</option>
+                        </select>
                       </div>
                     </div>
                   </div>
@@ -786,546 +924,42 @@ const Procurement = () => {
           </motion.div>
         )}
 
-        {step === 'negotiating' && (
+        {step === 'intelligence_loading' && (
           <motion.div
-            key="negotiating"
+            key="intelligence_loading"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="space-y-12"
+          >
+            <IntelligenceLoading />
+            <ProcurementTerminal logs={["[SYSTEM] Initializing telemetry...", "[SYSTEM] Connecting to global sourcing nodes..."]} isOpen={true} />
+          </motion.div>
+        )}
+
+        {step === 'intelligence_dashboard' && intelligenceResult && (
+          <motion.div
+            key="intelligence_dashboard"
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0, y: -20 }}
-            className="max-w-4xl mx-auto space-y-8"
-          >
-            {/* Premium AI Processing Banner */}
-            <div className="bg-[#0A2540] rounded-3xl p-10 flex flex-col items-center text-center relative overflow-hidden shadow-2xl">
-              <div className="absolute inset-0 bg-[url('https://www.transparenttextures.com/patterns/cubes.png')] opacity-20 mix-blend-overlay" />
-              {/* Scanning sweep line */}
-              <motion.div
-                className="absolute left-0 w-full h-[2px] bg-gradient-to-r from-transparent via-primary to-transparent opacity-60"
-                animate={{ top: ['0%', '100%', '0%'] }}
-                transition={{ repeat: Infinity, duration: 3, ease: 'linear' }}
-              />
-
-              {/* Orbital ring loader */}
-              <div className="relative w-24 h-24 mb-6 flex items-center justify-center">
-                {/* Outer orbit */}
-                <motion.div
-                  animate={{ rotate: 360 }}
-                  transition={{ repeat: Infinity, duration: 3, ease: 'linear' }}
-                  className="absolute inset-0 rounded-full border-2 border-transparent border-t-primary border-r-primary/30"
-                />
-                {/* Middle orbit */}
-                <motion.div
-                  animate={{ rotate: -360 }}
-                  transition={{ repeat: Infinity, duration: 2, ease: 'linear' }}
-                  className="absolute inset-2.5 rounded-full border-2 border-transparent border-t-secondary border-l-secondary/30"
-                />
-                {/* Inner orbit */}
-                <motion.div
-                  animate={{ rotate: 360 }}
-                  transition={{ repeat: Infinity, duration: 1.5, ease: 'linear' }}
-                  className="absolute inset-5 rounded-full border-2 border-transparent border-t-emerald-400 border-b-emerald-400/30"
-                />
-                {/* Center icon */}
-                <motion.div
-                  animate={{ scale: [1, 1.1, 1], opacity: [0.8, 1, 0.8] }}
-                  transition={{ repeat: Infinity, duration: 2, ease: 'easeInOut' }}
-                  className="w-12 h-12 bg-primary/20 rounded-full flex items-center justify-center border border-primary/40 backdrop-blur-sm"
-                >
-                  <Cpu className="w-6 h-6 text-primary" />
-                </motion.div>
-              </div>
-
-              <h2 className="text-2xl font-display font-semibold mb-2 text-white tracking-tight relative z-10">Agent-to-Agent Negotiation Active</h2>
-              <p className="text-slate-400 max-w-md font-medium text-xs leading-relaxed relative z-10">
-                ProcureAI Buyer Agent is communicating with Supplier Agents dynamically via API to negotiate real-time discounts and optimal terms.
-              </p>
-
-              {/* Animated step pills */}
-              <div className="flex items-center gap-3 mt-8 relative z-10 flex-wrap justify-center">
-                {['Searching Suppliers', 'Comparing Prices', 'Negotiating', 'Finishing'].map((label, i) => (
-                  <motion.div
-                    key={label}
-                    initial={{ opacity: 0, y: 8 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    transition={{ delay: i * 0.4 }}
-                    className="flex items-center gap-2 px-3 py-1.5 rounded-full bg-white/5 border border-white/10 text-[10px] font-bold tracking-widest text-white/60 uppercase"
-                  >
-                    <motion.div
-                      animate={{ opacity: [0.4, 1, 0.4] }}
-                      transition={{ repeat: Infinity, duration: 1.5, delay: i * 0.3 }}
-                      className="w-1.5 h-1.5 rounded-full bg-primary"
-                    />
-                    {label}
-                  </motion.div>
-                ))}
-              </div>
-            </div>
-
-            {/* Terminal Card */}
-            <Card className="bg-[#0D1117] border border-white/5 rounded-3xl overflow-hidden shadow-2xl shadow-black/40">
-              <div className="bg-white/5 px-6 py-3.5 border-b border-white/5 flex items-center justify-between">
-                <div className="flex items-center gap-3">
-                  <div className="flex items-center gap-1.5">
-                    <div className="w-3 h-3 rounded-full bg-rose-500 shadow-[0_0_8px_rgba(244,63,94,0.5)]" />
-                    <div className="w-3 h-3 rounded-full bg-amber-400 shadow-[0_0_8px_rgba(251,191,36,0.5)]" />
-                    <div className="w-3 h-3 rounded-full bg-emerald-500 shadow-[0_0_8px_rgba(16,185,129,0.5)]" />
-                  </div>
-                  <div className="h-4 w-px bg-white/10 mx-2" />
-                  <span className="text-[10px] font-mono font-bold text-white/30 uppercase tracking-widest">procure-ai — agent-terminal — zsh</span>
-                </div>
-                <Badge className="bg-primary/20 text-primary border-none font-bold text-[10px] uppercase tracking-widest gap-1.5">
-                  <motion.span animate={{ opacity: [1, 0.3, 1] }} transition={{ repeat: Infinity, duration: 1 }} className="w-1.5 h-1.5 rounded-full bg-primary inline-block" />
-                  Live
-                </Badge>
-              </div>
-
-              <div className="p-8 font-mono text-sm h-[420px] overflow-y-auto space-y-3" style={{ scrollbarWidth: 'none' }}>
-                {[
-                  { delay: 0, color: 'text-white/30', icon: '›', text: `Initializing ProcureAI Agent v2.4.0...` },
-                  { delay: 0.1, color: 'text-white/30', icon: '›', text: `Connecting to supplier mesh network...` },
-                  { delay: 0.5, color: 'text-emerald-400', icon: '✓', text: `Database connection established (344 suppliers indexed)` },
-                  { delay: 1.0, color: 'text-white/30', icon: '›', text: `Running semantic search for: "${productName}"...` },
-                  { delay: 1.5, color: 'text-amber-400', icon: '>', text: `Filtering candidates by budget $${budget}...` },
-                  { delay: 2.0, color: 'text-primary', icon: '>', text: `AGENT → Supplier A: Requesting quote for ${quantity}x ${productName}` },
-                  { delay: 2.5, color: 'text-emerald-400', icon: '<', text: `Supplier A: Standard price $${Math.floor(budget / quantity * 1.2)}/unit. Volume discounts available.` },
-                  { delay: 3.0, color: 'text-primary', icon: '>', text: `AGENT: Negotiating for bulk pricing and TestNet escrow settlement...` },
-                  { delay: 3.5, color: 'text-emerald-400', icon: '<', text: `Supplier A: Accepted. Finalizing unit price with 15% partner discount.` },
-                  { delay: 4.0, color: 'text-amber-400', icon: '>', text: `Running multi-criteria evaluation: price, reliability, delivery SLA...` },
-                  { delay: 4.5, color: 'text-primary', icon: '>', text: `AGENT → All: Running A2A protocol to find optimal trust-price balance.` },
-                  { delay: 4.8, color: 'text-white/30', icon: '›', text: `Applying ML scoring model to rank finalist suppliers...` },
-                ].map(({ delay, color, icon, text }) => (
-                  <motion.div
-                    key={text}
-                    initial={{ opacity: 0, x: -6 }}
-                    animate={{ opacity: 1, x: 0 }}
-                    transition={{ delay }}
-                    className={`flex items-start gap-3 ${color}`}
-                  >
-                    <span className="text-[10px] text-white/20 mt-0.5 shrink-0">[{new Date().toLocaleTimeString()}]</span>
-                    <span className="shrink-0 font-bold">{icon}</span>
-                    <span className="leading-relaxed">{text}</span>
-                  </motion.div>
-                ))}
-
-                {/* Blinking cursor + status */}
-                <motion.div
-                  initial={{ opacity: 0 }}
-                  animate={{ opacity: 1 }}
-                  transition={{ delay: 5.5 }}
-                  className="flex items-center gap-3 pt-4 border-t border-white/5 mt-4"
-                >
-                  <div className="flex items-center gap-2">
-                    <motion.div
-                      animate={{ opacity: [1, 0, 1] }}
-                      transition={{ repeat: Infinity, duration: 1 }}
-                      className="w-2 h-4 bg-primary rounded-sm"
-                    />
-                  </div>
-                  <span className="text-primary font-bold uppercase tracking-widest text-[10px]">
-                    Finalizing contracts... running on-chain validation...
-                  </span>
-                </motion.div>
-              </div>
-            </Card>
-          </motion.div>
-        )}
-
-        {step === 'result' && result && (
-          <motion.div
-            key="result"
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
             className="space-y-8"
           >
-            {result.status === 'no_supplier_found' ? (
-              <motion.div
-                initial={{ opacity: 0, scale: 0.95 }}
-                animate={{ opacity: 1, scale: 1 }}
-                className="max-w-2xl mx-auto"
-              >
-                <Card className="glass-card border-rose-200 overflow-hidden shadow-2xl shadow-rose-200/20">
-                  <CardHeader className="text-center pb-6 pt-8 bg-rose-50/50 border-b border-rose-100 relative overflow-hidden">
-                    <div className="w-14 h-14 bg-white border border-rose-200 rounded-2xl flex items-center justify-center mx-auto mb-4 shadow-xl relative z-10">
-                      <AlertCircle className="text-rose-500 w-7 h-7" />
-                    </div>
-                    <CardTitle className="text-2xl font-display font-bold text-slate-900 tracking-tight">Policy Violation</CardTitle>
-                    <CardDescription className="text-slate-500 text-xs font-medium max-w-[280px] mx-auto mt-1">No suppliers matched your procurement policy constraints.</CardDescription>
-                  </CardHeader>
-                  <CardContent className="p-8 text-center space-y-6">
-                    <div className="space-y-4">
-                      <p className="text-sm font-bold text-slate-400 uppercase tracking-[0.1em]">Constraint Violations</p>
-                      <div className="space-y-2">
-                        {result.rejection_reasons?.map((item, idx) => (
-                          <div key={idx} className="p-4 bg-slate-50 rounded-xl border border-slate-100 text-left">
-                            <p className="text-[10px] font-black text-slate-900 uppercase tracking-widest mb-1">{item.supplier}</p>
-                            <div className="flex flex-wrap gap-2">
-                              {item.reasons.map((reason, ridx) => (
-                                <Badge key={ridx} variant="outline" className="bg-rose-50 text-rose-600 border-rose-100 text-[9px] font-bold py-0">{reason}</Badge>
-                              ))}
-                            </div>
-                          </div>
-                        ))}
-                      </div>
-                    </div>
-                    <div className="pt-4 flex flex-col gap-3">
-                      <Button 
-                        onClick={() => setStep('form')}
-                        className="w-full h-14 bg-slate-900 hover:bg-black text-white rounded-xl font-bold shadow-lg"
-                      >
-                        Relax Procurement Policy
-                      </Button>
-                      <p className="text-[10px] text-slate-400 font-bold uppercase tracking-widest">Enterprise Guardrails are Active</p>
-                    </div>
-                  </CardContent>
-                </Card>
-              </motion.div>
-            ) : (
-              <>
-                {/* ─── HERO DEAL SUMMARY STRIP ─────────────────────────────── */}
-            <motion.div
-              initial={{ opacity: 0, y: -10 }}
-              animate={{ opacity: 1, y: 0 }}
-              className="bg-[#0A2540] rounded-3xl p-6 flex flex-col md:flex-row items-center md:items-stretch gap-6 relative overflow-hidden shadow-2xl"
-            >
-              <div className="absolute inset-0 bg-[url('https://www.transparenttextures.com/patterns/cubes.png')] opacity-20 mix-blend-overlay" />
-              {/* Glow blob */}
-              <div className="absolute -top-12 -right-12 w-64 h-64 bg-primary/20 rounded-full blur-3xl" />
-
-              {/* Left: agent won badge */}
-              <div className="flex items-center gap-5 flex-1 relative z-10">
-                <div className="w-16 h-16 bg-primary rounded-2xl flex items-center justify-center shadow-lg shadow-primary/30 shrink-0">
-                  <Cpu className="w-8 h-8 text-white" />
-                </div>
-                <div>
-                  <p className="text-[10px] font-bold text-white/40 uppercase tracking-widest mb-1">AI Agent Decision</p>
-                  <h2 className="text-2xl font-display font-bold text-white tracking-tight leading-tight">{result.selectedSupplier.name}</h2>
-                  <p className="text-white/50 text-sm font-medium mt-0.5">Selected for optimal price & reliability</p>
-                </div>
-              </div>
-
-              {/* Divider */}
-              <div className="hidden md:block w-px bg-white/10 mx-2 self-stretch" />
-
-              {/* Center: pricing */}
-              <div className="flex flex-col items-center justify-center relative z-10 px-4">
-                <p className="text-[10px] font-bold text-white/40 uppercase tracking-widest mb-1">Negotiated Price</p>
-                <p className="text-5xl font-display font-bold text-white tracking-tight">${result.selectedSupplier.finalPrice.toLocaleString(undefined, { minimumFractionDigits: 2 })}</p>
-                <Badge className="bg-emerald-500/20 text-emerald-400 border-emerald-500/30 mt-2 font-bold text-[10px] tracking-widest uppercase">Best Deal Found</Badge>
-              </div>
-
-              {/* Divider */}
-              <div className="hidden md:block w-px bg-white/10 mx-2 self-stretch" />
-
-              {/* Right: stats */}
-              <div className="flex flex-col justify-center gap-3 relative z-10 min-w-[140px]">
-                <div className="flex items-center gap-3">
-                  <div className="w-8 h-8 rounded-lg bg-white/5 flex items-center justify-center"><Zap className="w-4 h-4 text-amber-400" /></div>
-                  <div>
-                    <p className="text-[9px] text-white/30 uppercase tracking-widest font-bold">Suppliers Evaluated</p>
-                    <p className="text-white font-bold text-sm">{result.suppliers.length} Vendors</p>
-                    {result.policy_applied && (
-                      <p className="text-rose-400 font-bold text-[8px] uppercase tracking-tighter mt-0.5">
-                        {result.filtered_out_count} Filtered by Policy
-                      </p>
-                    )}
-                  </div>
-                </div>
-                <div className="flex items-center gap-3">
-                  <div className="w-8 h-8 rounded-lg bg-white/5 flex items-center justify-center"><ShieldCheck className="w-4 h-4 text-emerald-400" /></div>
-                  <div>
-                    <p className="text-[9px] text-white/30 uppercase tracking-widest font-bold">Reliability Score</p>
-                    <p className="text-white font-bold text-sm">{(result.selectedSupplier.reasoning.match(/(\d+\.?\d*)%/)?.[1] ?? '—')}%</p>
-                  </div>
-                </div>
-                <div className="flex items-center gap-3 transition-opacity hover:opacity-80">
-                  <div className="w-8 h-8 rounded-lg bg-white/5 flex items-center justify-center"><ArrowRight className="w-4 h-4 text-primary rotate-[-45deg]" /></div>
-                  <a
-                    href="https://testnet.explorer.perawallet.app/"
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="cursor-pointer"
-                  >
-                    <p className="text-[9px] text-white/30 uppercase tracking-widest font-bold">Network</p>
-                    <p className="text-white font-bold text-sm">Algorand TestNet</p>
-                  </a>
-                </div>
-              </div>
-            </motion.div>
-
-            {/* ─── MAIN CONTENT GRID ───────────────────────────────────── */}
-            <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
-
-              {/* LEFT: Chat + Other Suppliers */}
-              <div className="lg:col-span-7 space-y-6">
-
-                {/* Negotiation Chat */}
-                <Card className="bg-white border border-slate-100 rounded-3xl overflow-hidden shadow-[0_4px_24px_rgba(0,0,0,0.06)] flex flex-col h-[380px]">
-                  <div className="px-6 py-4 border-b border-slate-50 flex items-center justify-between bg-slate-50/50">
-                    <div className="flex items-center gap-3">
-                      <div className="w-9 h-9 rounded-xl bg-primary/10 flex items-center justify-center">
-                        <MessageSquare className="text-primary w-4 h-4" />
-                      </div>
-                      <div>
-                        <p className="font-bold text-slate-900 text-sm">Negotiation History</p>
-                        <p className="text-[10px] uppercase tracking-widest text-slate-400 font-bold">
-                          {result.policy_applied 
-                            ? "Suppliers not meeting policy were automatically excluded" 
-                            : "Live conversation with suppliers"}
-                        </p>
-                      </div>
-                    </div>
-                    <div className="flex items-center gap-1.5 px-3 py-1 rounded-full bg-emerald-50 border border-emerald-100">
-                      <motion.div animate={{ opacity: [1, 0.3, 1] }} transition={{ repeat: Infinity, duration: 1.5 }} className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
-                      <span className="text-[10px] font-bold text-emerald-600 uppercase tracking-widest">Live</span>
-                    </div>
-                  </div>
-                  <div className="flex-1 overflow-y-auto p-5 space-y-4 bg-[#F7F9FC]" style={{ scrollbarWidth: 'none' }}>
-                    {result.negotiationLogs.map((log, i) => (
-                      <motion.div
-                        key={i}
-                        initial={{ opacity: 0, y: 6 }}
-                        animate={{ opacity: 1, y: 0 }}
-                        transition={{ delay: i * 0.1 }}
-                        className={cn("flex gap-3 max-w-[88%]", log.role === 'agent' ? "ml-auto flex-row-reverse" : "")}
-                      >
-                        <div className={cn(
-                          "w-7 h-7 rounded-full flex items-center justify-center text-[10px] font-black shrink-0 mt-0.5 shadow-sm",
-                          log.role === 'agent' ? "bg-primary text-white" : "bg-white border border-slate-200 text-slate-600"
-                        )}>
-                          {log.role === 'agent' ? 'AI' : 'S'}
-                        </div>
-                        <div className="flex flex-col gap-1">
-                          <span className={cn("text-[9px] font-bold uppercase tracking-widest", log.role === 'agent' ? "text-right text-primary/60" : "text-slate-400")}>
-                            {log.role === 'agent' ? 'ProcureAI Agent' : 'Supplier'}
-                          </span>
-                          <div className={cn(
-                            "px-4 py-2.5 rounded-2xl text-sm leading-relaxed font-medium shadow-sm",
-                            log.role === 'agent'
-                              ? "bg-primary text-white rounded-tr-none"
-                              : "bg-white border border-slate-100 text-slate-700 rounded-tl-none"
-                          )}>
-                            {log.message}
-                          </div>
-                        </div>
-                      </motion.div>
-                    ))}
-                    <div ref={logsEndRef} />
-                  </div>
-                </Card>
-
-                {/* Other Suppliers */}
-                <div>
-                  <div className="flex items-center gap-2 mb-4 px-1">
-                    <Layers className="w-4 h-4 text-slate-400" />
-                    <h3 className="text-xs font-bold text-slate-400 uppercase tracking-widest">Other Suppliers Evaluated</h3>
-                    <div className="flex-1 h-px bg-slate-100 ml-2" />
-                  </div>
-                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-                    {result.suppliers.filter(s => s.id !== result.selectedSupplier.id).map((s, idx) => (
-                      <motion.div
-                        key={s.id}
-                        initial={{ opacity: 0, y: 8 }}
-                        animate={{ opacity: 1, y: 0 }}
-                        transition={{ delay: 0.4 + idx * 0.1 }}
-                      >
-                        <div 
-                          className="bg-white border border-slate-100 rounded-2xl p-4 hover:border-slate-200 hover:shadow-md transition-all group cursor-pointer relative"
-                          onClick={() => setShowSupplierDetails(s)}
-                        >
-                          {/* Trust Badge */}
-                          <div className="absolute top-3 right-3 flex flex-col items-end gap-1">
-                            {s.reliability >= 85 ? (
-                              <Badge className="bg-emerald-50 text-emerald-600 border-emerald-100 text-[8px] font-black uppercase tracking-tighter">Verified Trust</Badge>
-                            ) : s.reliability >= 70 ? (
-                              <Badge className="bg-amber-50 text-amber-600 border-amber-100 text-[8px] font-black uppercase tracking-tighter">Reliable</Badge>
-                            ) : (
-                              <Badge className="bg-rose-50 text-rose-600 border-rose-100 text-[8px] font-black uppercase tracking-tighter">Risk Flag</Badge>
-                            )}
-                            {s.reputation_hash && (
-                               <div className="flex items-center gap-1 text-[7px] font-black text-emerald-500 uppercase tracking-tighter">
-                                 <ShieldCheck className="w-2 h-2" /> On-chain
-                               </div>
-                            )}
-                          </div>
-
-                          <p className="font-bold text-slate-800 text-sm group-hover:text-primary transition-colors leading-tight mb-2 truncate pr-16">{s.name}</p>
-                          <p className="text-2xl font-display font-bold text-slate-900 mb-3">${s.price.toLocaleString(undefined, { minimumFractionDigits: 0 })}</p>
-                          
-                          <div className="flex flex-col gap-1.5">
-                            <div className="flex items-center justify-between text-[10px] text-slate-400 font-bold">
-                              <span className="flex items-center gap-1">Success Rate</span>
-                              <span className="text-slate-600">{s.success_rate}%</span>
-                            </div>
-                            <div className="flex items-center justify-between text-[10px] text-slate-400 font-bold">
-                              <span className="flex items-center gap-1">Total Deals</span>
-                              <span className="text-slate-600">{s.total_deals || idx + 10}</span>
-                            </div>
-                            <div className="flex items-center justify-between text-[10px] text-slate-400 font-bold">
-                              <span className="flex items-center gap-1">Reliability</span>
-                              <span className={cn(
-                                "font-black",
-                                s.reliability >= 85 ? "text-emerald-500" : s.reliability >= 70 ? "text-amber-500" : "text-rose-500"
-                              )}>{s.reliability}%</span>
-                            </div>
-                          </div>
-                          
-                          <div className="mt-3 h-1 w-full bg-slate-100 rounded-full overflow-hidden">
-                            <div 
-                              className={cn(
-                                "h-full rounded-full transition-all duration-500",
-                                s.reliability >= 85 ? "bg-emerald-500" : s.reliability >= 70 ? "bg-amber-500" : "bg-rose-500"
-                              )} 
-                              style={{ width: `${s.reliability}%` }} 
-                            />
-                          </div>
-                        </div>
-                      </motion.div>
-                    ))}
-                  </div>
-                </div>
-              </div>
-
-              {/* RIGHT: Action Panel */}
-              <div className="lg:col-span-5">
-                <div className="sticky top-8 space-y-5">
-
-                  {/* Supplier Card */}
-                  <div className="bg-white border border-slate-100 rounded-3xl overflow-hidden shadow-[0_4px_24px_rgba(0,0,0,0.06)]">
-                    <div className="bg-gradient-to-br from-primary to-indigo-700 p-6 relative overflow-hidden">
-                      <div className="absolute inset-0 bg-[url('https://www.transparenttextures.com/patterns/cubes.png')] opacity-10" />
-                      <div className="flex justify-between items-start mb-4">
-                        <Badge className="bg-white/20 text-white border-none font-bold text-[10px] tracking-widest uppercase">Agent's Choice</Badge>
-                        {result.selectedSupplier.reliability >= 90 ? (
-                          <Badge className="bg-emerald-400 text-white border-none text-[8px] font-black uppercase tracking-tighter">High Trust Selection</Badge>
-                        ) : (
-                          <Badge className="bg-amber-400 text-white border-none text-[8px] font-black uppercase tracking-tighter">Balanced Selection</Badge>
-                        )}
-                      </div>
-                      <h3 
-                        className="text-xl font-display font-bold text-white cursor-pointer hover:underline"
-                        onClick={() => setShowSupplierDetails(result.selectedSupplier as any)}
-                      >
-                        {result.selectedSupplier.name}
-                      </h3>
-                      <p className="text-white/60 text-xs font-medium mt-1 flex items-center gap-2">
-                        <ShieldCheck className="w-3.5 h-3.5 text-emerald-300" />
-                        On-chain Verified Reputation • AI Optimized
-                      </p>
-                    </div>
-
-                    <div className="p-6 space-y-5">
-                      {/* Breakdown Stats */}
-                      <div className="grid grid-cols-3 gap-3">
-                        <div className="bg-slate-50 rounded-xl p-2.5 border border-slate-100 flex flex-col items-center text-center">
-                          <CheckCircle2 className="w-4 h-4 text-primary mb-1" />
-                          <span className="text-[8px] font-black text-slate-400 uppercase tracking-tighter">Success</span>
-                          <span className="text-xs font-bold text-slate-900">{result.selectedSupplier.reliability}%</span>
-                        </div>
-                        <div className="bg-slate-50 rounded-xl p-2.5 border border-slate-100 flex flex-col items-center text-center">
-                          <ShieldCheck className="w-4 h-4 text-emerald-500 mb-1" />
-                          <span className="text-[8px] font-black text-slate-400 uppercase tracking-tighter">Verified</span>
-                          <span className="text-xs font-bold text-slate-900">Yes</span>
-                        </div>
-                        <div className="bg-slate-50 rounded-xl p-2.5 border border-slate-100 flex flex-col items-center text-center">
-                          <TrendingDown className="w-4 h-4 text-amber-500 mb-1" />
-                          <span className="text-[8px] font-black text-slate-400 uppercase tracking-tighter">Deals</span>
-                          <span className="text-xs font-bold text-slate-900">120+</span>
-                        </div>
-                      </div>
-
-                      {/* Final Price */}
-                      <div className="flex items-center justify-between py-2">
-                        <div>
-                          <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1">Total Deal Value</p>
-                          <p className="text-4xl font-display font-bold text-slate-900 tracking-tight">${result.selectedSupplier.finalPrice.toLocaleString(undefined, { minimumFractionDigits: 2 })}</p>
-                        </div>
-                        <div className="w-14 h-14 bg-emerald-50 rounded-2xl flex items-center justify-center shadow-sm">
-                          <CheckCircle2 className="text-emerald-500 w-7 h-7" />
-                        </div>
-                      </div>
-
-                      {/* AI Reasoning */}
-                      <div className="bg-primary/5 rounded-2xl p-4 border border-primary/10">
-                        <p className="text-[9px] font-bold text-primary uppercase tracking-widest mb-2 flex items-center justify-between">
-                          <span className="flex items-center gap-2"><Cpu className="w-3 h-3" /> AI AGENT REASONING</span>
-                          {result.policy_applied && (
-                            <Badge className="bg-primary/20 text-primary border-none text-[8px] font-black uppercase tracking-tighter">Policy Constrained</Badge>
-                          )}
-                        </p>
-                        <p className="text-xs text-slate-700 leading-relaxed font-medium">"{result.selectedSupplier.reasoning}"</p>
-                      </div>
-
-                      {/* Wallet section */}
-                      {!walletAddress ? (
-                        <Button
-                          onClick={handleConnectWallet}
-                          className="w-full h-14 text-base font-bold bg-[#0A2540] hover:bg-[#0d2e50] text-white rounded-xl transition-all flex items-center justify-center gap-2 shadow-lg"
-                        >
-                          <Wallet className="w-5 h-5" />
-                          Connect Pera Wallet
-                        </Button>
-                      ) : (
-                        <div className="space-y-3">
-                          <div className="flex items-center justify-between p-3 rounded-xl bg-slate-50 border border-slate-100">
-                            <div className="flex items-center gap-2.5">
-                              <div className="w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center">
-                                <Wallet className="w-4 h-4 text-primary" />
-                              </div>
-                              <div>
-                                <p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest">Connected Wallet</p>
-                                <p className="text-xs font-mono font-bold text-slate-800">{walletAddress.substring(0, 8)}...{walletAddress.substring(walletAddress.length - 6)}</p>
-                              </div>
-                            </div>
-                            <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-emerald-50 border border-emerald-100">
-                              <div className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
-                              <span className="text-[9px] font-bold text-emerald-600 uppercase tracking-widest">Live</span>
-                            </div>
-                          </div>
-
-                          <div className="flex items-start gap-2 p-3 rounded-xl bg-amber-50 border border-amber-100">
-                            <AlertCircle className="w-3.5 h-3.5 text-amber-600 shrink-0 mt-0.5" />
-                            <p className="text-[10px] text-amber-700 font-medium leading-relaxed">
-                              <span className="font-bold text-amber-800">TRUST-BASED PROCUREMENT — </span>
-                              This selection prioritizes reliability and delivery speed over raw price.
-                            </p>
-                          </div>
-
-                          <Button
-                            onClick={handleExecuteDeal}
-                            disabled={isExecuting}
-                            className="w-full h-14 text-base font-bold bg-primary hover:bg-primary/90 text-white rounded-xl transition-all group shadow-lg shadow-primary/20 flex items-center justify-center gap-2"
-                          >
-                            {isExecuting ? (
-                              <><Loader2 className="w-5 h-5 animate-spin" />Processing Transaction...</>
-                            ) : (
-                              <>
-                                <Lock className="w-5 h-5" />
-                                Execute Deal & Lock Escrow
-                                <ChevronRight className="w-5 h-5 group-hover:translate-x-1 transition-transform" />
-                              </>
-                            )}
-                          </Button>
-                        </div>
-                      )}
-
-                      {error && (
-                        <motion.div
-                          initial={{ opacity: 0, scale: 0.95 }}
-                          animate={{ opacity: 1, scale: 1 }}
-                          className="p-3 bg-red-50 border border-red-100 rounded-xl flex items-center gap-2 text-red-600 text-xs font-medium"
-                        >
-                          <AlertCircle className="w-4 h-4 shrink-0" />
-                          {error}
-                        </motion.div>
-                      )}
-                    </div>
-                  </div>
-                </div>
-              </div>
-            </div>
-            </>
-          )}
+            <ProcurementTerminal logs={procurementLogs} isOpen={showTerminal} />
+            
+            <SupplierIntelligenceDashboard 
+              data={intelligenceResult}
+              onSelectSupplier={handleSelectIntelligenceSupplier}
+              requestDetails={{
+                product_name: productName,
+                quantity: quantity,
+                budget: budget,
+                shipping_region: "Global"
+              }}
+            />
           </motion.div>
         )}
+
 
         {step === 'escrow_locked' && txId && (
           <motion.div
