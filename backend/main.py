@@ -6,6 +6,8 @@ import json
 import os
 import hashlib
 from datetime import datetime
+import time
+import random
 from dotenv import load_dotenv
 
 # Load .env file
@@ -98,6 +100,21 @@ class SupplierNegotiationRequest(BaseModel):
 class VerifyDeliveryRequest(BaseModel):
     escrow_id: str
 
+class X402SessionRequest(BaseModel):
+    product_name: str
+    quantity: int
+    budget: float
+
+class X402SessionResponse(BaseModel):
+    session_id: str
+    status: str
+    authorization: str
+    credits_allocated: bool
+    secure_channel: bool
+    negotiation_enabled: bool
+    logs: list[str]
+    timestamps: dict
+
 ESCROW_DB_PATH = os.path.join(os.path.dirname(__file__), "escrow_records.json")
 
 def load_escrow_db():
@@ -152,6 +169,34 @@ def update_supplier_reputation(supplier_id: int, delivered_on_time: bool):
     print(f"Updated reputation for supplier {supplier_id}")
 
 # --- Endpoints ---
+
+@app.post("/api/x402/initiate-session", response_model=X402SessionResponse)
+async def initiate_x402_session(req: X402SessionRequest):
+    session_id = f"X402-PROC-{random.randint(1000, 9999)}"
+    now = datetime.now()
+    
+    return {
+        "session_id": session_id,
+        "status": "ACTIVE",
+        "authorization": "APPROVED",
+        "credits_allocated": True,
+        "secure_channel": True,
+        "negotiation_enabled": True,
+        "logs": [
+            "Opening agentic procurement channel...",
+            "Establishing x402 authorization...",
+            "Negotiation credits allocated.",
+            "Supplier intelligence request approved.",
+            "Cross-border procurement channel secured.",
+            "Machine-to-machine procurement orchestration active.",
+            "AI negotiation cycle initiated..."
+        ],
+        "timestamps": {
+            "initialized": now.isoformat(),
+            "authorized": (now).isoformat(),
+            "negotiation_started": (now).isoformat()
+        }
+    }
 
 @app.post("/api/procurement/intelligence")
 async def get_procurement_intelligence(req: ProcurementIntelligenceRequest):
@@ -246,8 +291,6 @@ async def escrow_api(action: str):
 
 @app.post("/api/create-escrow")
 async def create_escrow(req: EscrowRequest):
-    import time
-    
     # 1. Deploy real smart contract on TestNet
     amount_microalgos = int(req.amount * 1_000_000)
     deployment = deploy_escrow(req.sender, req.receiver, amount_microalgos)
@@ -348,7 +391,6 @@ async def submit_delivery_proof(
     file: UploadFile = File(None),
     value: str = Form(None)
 ):
-    import time
     db = load_escrow_db()
     record = db.get(escrow_id)
     if not record:
@@ -531,7 +573,6 @@ async def supplier_respond(supplier_id: int, req: SupplierNegotiationRequest):
         "We hope to establish a long-term partnership with your procurement network."
     ]
     
-    import random
     message = random.choice(messages)
     if req.round == 3:
         message = f"This is our final offer of ${offer_price} per unit. We cannot go lower."

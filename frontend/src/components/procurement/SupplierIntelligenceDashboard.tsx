@@ -122,7 +122,7 @@ const SupplierIntelligenceDashboard: React.FC<SupplierIntelligenceDashboardProps
                 <div className="mt-4 pt-3 border-t border-slate-200/50 flex justify-between items-center">
                   <span className="text-[9px] font-black text-slate-400 uppercase">Trust Index: {s.trust_score}%</span>
                   <Button variant="ghost" className="h-6 px-2 text-[9px] font-bold text-amber-600 hover:text-amber-700 hover:bg-amber-50" onClick={() => onSelectSupplier(s)}>
-                    Initialize Negotiation
+                    Start AI Negotiation
                   </Button>
                 </div>
               </motion.div>

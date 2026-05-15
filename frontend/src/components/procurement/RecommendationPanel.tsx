@@ -173,7 +173,7 @@ const RecommendationPanel: React.FC<RecommendationPanelProps> = ({
                   className="w-full h-16 bg-slate-900 hover:bg-black text-white rounded-2xl text-lg font-black group relative overflow-hidden transition-all shadow-xl shadow-slate-200"
                 >
                   <div className="absolute inset-0 bg-gradient-to-r from-primary/20 via-transparent to-primary/20 opacity-0 group-hover:opacity-100 transition-opacity" />
-                  Proceed with Supplier
+                  Initiate Procurement Commitment
                   <ArrowRight className="ml-3 w-6 h-6 group-hover:translate-x-2 transition-transform" />
                 </Button>
                 <p className="text-[9px] text-center text-slate-400 font-bold uppercase tracking-widest mt-4">

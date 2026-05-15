@@ -492,5 +492,43 @@
             "submitted_at": "2026-05-05 21:15:16.731071"
         },
         "verified": true
+    },
+    "UFHEFUT2ZQ4U2JH5XTWEVYXB3ZMZOHYV3WUC3Q66KRG4HTIMHJGA": {
+        "transaction_id": "UFHEFUT2ZQ4U2JH5XTWEVYXB3ZMZOHYV3WUC3Q66KRG4HTIMHJGA",
+        "app_id": 762473624,
+        "app_address": "IRAZWC5QU2MLYKOGO5CBFP2C7JNYQKC2ZJY6O66TFO6YV2SHZJ3XB6JBOU",
+        "sender_address": "FL7U7GHUZB2R6RACPGY5UFD2K47CP2IL4RQWX7LKYE5QSFGXVJCDGPRLBE",
+        "receiver_address": "2RIRIX5XK6GWK7LOXDAYIDTN4IYDVNRDJFXR4TJCLYIM72A3EF2UQPROQY",
+        "amount": 0.1,
+        "supplier_id": 1601430048740,
+        "promised_delivery_days": 10,
+        "escrow_status": "verified",
+        "timestamp": 1778847935.9580941,
+        "delivery_proof": {
+            "type": "invoice_file",
+            "value": "762473624_1778847986.png",
+            "file_path": "/uploads/invoices/762473624_1778847986.png",
+            "submitted_at": "2026-05-15 17:56:26.351758"
+        },
+        "verified": true
+    },
+    "Q7GRM3W3AB7I2KFJUA4HU7TKQGU2FD6B3ATC5NKCA3LVPYGC73BA": {
+        "transaction_id": "Q7GRM3W3AB7I2KFJUA4HU7TKQGU2FD6B3ATC5NKCA3LVPYGC73BA",
+        "app_id": 762474050,
+        "app_address": "BXHSHHDZGXKUXAQP74F2ZPS6VTFBK4CAFWEY3H4XK6XK5S2QSRPDVJXKTM",
+        "sender_address": "FL7U7GHUZB2R6RACPGY5UFD2K47CP2IL4RQWX7LKYE5QSFGXVJCDGPRLBE",
+        "receiver_address": "2RIRIX5XK6GWK7LOXDAYIDTN4IYDVNRDJFXR4TJCLYIM72A3EF2UQPROQY",
+        "amount": 0.1,
+        "supplier_id": 1601593678729,
+        "promised_delivery_days": 10,
+        "escrow_status": "released",
+        "timestamp": 1778848420.0169828,
+        "delivery_proof": {
+            "type": "invoice_file",
+            "value": "762474050_1778848441.png",
+            "file_path": "/uploads/invoices/762474050_1778848441.png",
+            "submitted_at": "2026-05-15 18:04:01.967786"
+        },
+        "verified": true
     }
 }

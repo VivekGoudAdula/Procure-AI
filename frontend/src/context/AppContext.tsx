@@ -59,6 +59,14 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     localStorage.setItem('procureai_txs', JSON.stringify(transactions));
   }, [transactions]);
 
+  useEffect(() => {
+    if (walletAddress) {
+      localStorage.setItem('walletAddress', walletAddress);
+    } else {
+      localStorage.removeItem('walletAddress');
+    }
+  }, [walletAddress]);
+
   const login = (email: string) => {
     const newUser = { email };
     setUser(newUser);

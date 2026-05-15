@@ -10,9 +10,33 @@ import {
 } from 'lucide-react';
 import { Button } from './ui/button';
 import { Badge } from './ui/badge';
+import { peraWallet } from '../lib/pera';
+import { toast } from 'sonner';
 
 const Topbar = () => {
-  const { user, walletAddress } = useApp();
+  const { user, walletAddress, setWalletAddress } = useApp();
+
+  const handleConnectWallet = async () => {
+    if (walletAddress) {
+      await peraWallet.disconnect();
+      setWalletAddress(null);
+      localStorage.removeItem('walletAddress');
+      toast.success('Wallet disconnected');
+      return;
+    }
+
+    try {
+      const accounts = await peraWallet.connect();
+      if (accounts.length > 0) {
+        setWalletAddress(accounts[0]);
+        localStorage.setItem('walletAddress', accounts[0]);
+        toast.success('Wallet connected successfully');
+      }
+    } catch (err) {
+      console.error(err);
+      toast.error('Failed to connect wallet');
+    }
+  };
 
   return (
     <header className="h-20 border-b border-slate-100/60 bg-white/60 backdrop-blur-2xl sticky top-0 z-30 flex items-center justify-between px-10">
@@ -29,7 +53,10 @@ const Topbar = () => {
 
       <div className="flex items-center gap-6">
         {/* Wallet Status */}
-        <div className="hidden sm:flex items-center gap-3 px-4 py-2.5 rounded-2xl bg-white border border-slate-100 shadow-sm hover:shadow-xl transition-all cursor-pointer group">
+        <div 
+          onClick={handleConnectWallet}
+          className="hidden sm:flex items-center gap-3 px-4 py-2.5 rounded-2xl bg-white border border-slate-100 shadow-sm hover:shadow-xl transition-all cursor-pointer group"
+        >
           <div className={cn(
             "w-8 h-8 rounded-xl flex items-center justify-center transition-all group-hover:scale-110",
             walletAddress ? "bg-emerald-50 text-emerald-600" : "bg-slate-50 text-slate-400"

@@ -142,6 +142,10 @@ const Procurement = () => {
   const [appAddress, setAppAddress] = useState<string | null>(() => {
     return sessionStorage.getItem('procureai_appaddress');
   });
+  const [x402Session, setX402Session] = useState<any>(() => {
+    const saved = sessionStorage.getItem('procureai_x402_session');
+    return saved ? JSON.parse(saved) : null;
+  });
 
   // UI State
   const [isSearching, setIsSearching] = useState(false);
@@ -169,6 +173,7 @@ const Procurement = () => {
     if (txId) sessionStorage.setItem('procureai_txid', txId);
     if (appId) sessionStorage.setItem('procureai_appid', appId.toString());
     if (appAddress) sessionStorage.setItem('procureai_appaddress', appAddress);
+    if (x402Session) sessionStorage.setItem('procureai_x402_session', JSON.stringify(x402Session));
 
     // Clear session if we go back to form
     if (step === 'form') {
@@ -176,8 +181,9 @@ const Procurement = () => {
       sessionStorage.removeItem('procureai_txid');
       sessionStorage.removeItem('procureai_appid');
       sessionStorage.removeItem('procureai_appaddress');
+      sessionStorage.removeItem('procureai_x402_session');
     }
-  }, [step, result, txId]);
+  }, [step, result, txId, x402Session]);
 
   const logsEndRef = useRef<HTMLDivElement>(null);
 
@@ -195,13 +201,33 @@ const Procurement = () => {
     }
   }, [result?.negotiationLogs]);
 
+  const streamLogs = async (logs: string[]) => {
+    for (const log of logs) {
+      await new Promise(res => setTimeout(res, 600 + Math.random() * 600));
+      setProcurementLogs(prev => [...prev, `[PROCURE-AI] ${log}`]);
+    }
+  };
+
   const handleFindSupplier = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsSearching(true);
     setStep('intelligence_loading');
     setError(null);
+    setProcurementLogs([]);
 
     try {
+      // 1. Initialize x402 Procurement Session
+      const x402Res = await axios.post(`${API_BASE_URL}/api/x402/initiate-session`, {
+        product_name: productName,
+        quantity,
+        budget
+      });
+      setX402Session(x402Res.data);
+      
+      // 2. Stream x402 Protocol Logs
+      await streamLogs(x402Res.data.logs);
+
+      // 3. Run Global Intelligence Scan
       const response = await axios.post(`${API_BASE_URL}/api/procurement/intelligence`, {
         product_name: productName,
         quantity,
@@ -216,14 +242,20 @@ const Procurement = () => {
       });
 
       setIntelligenceResult(response.data);
-      setProcurementLogs(response.data.logs || []);
       
-      // Artificial delay for premium loading experience
-      await new Promise(res => setTimeout(res, 6000));
+      // 4. Stream Intelligence Logs
+      const intelLogs = response.data.logs || [];
+      for (const log of intelLogs) {
+        await new Promise(res => setTimeout(res, 400));
+        setProcurementLogs(prev => [...prev, log]);
+      }
+      
+      // Small final buffer
+      await new Promise(res => setTimeout(res, 1000));
 
       setShowTerminal(true);
       setStep('intelligence_dashboard');
-      toast.success('Procurement intelligence scan complete!');
+      toast.success('x402 Secure Procurement Session Established!');
     } catch (err: any) {
       console.error('[ProcureAI] Intelligence Error:', err);
       setError(`Failed to fetch intelligence: ${err.message || 'Check backend connection.'}`);
@@ -666,12 +698,28 @@ const Procurement = () => {
           <p className="text-slate-500 max-w-lg font-medium text-sm leading-relaxed">Let AI agents find the best suppliers and handle your on-chain transactions.</p>
         </div>
         <div className="flex items-center gap-2">
+          <Badge variant="outline" className="bg-cyan-950/20 text-cyan-400 border-cyan-500/30 px-4 py-2 gap-2 uppercase tracking-widest text-[9px] font-black rounded-xl shadow-[0_0_15px_rgba(34,211,238,0.2)] animate-pulse group relative cursor-help">
+            <div className="w-1.5 h-1.5 rounded-full bg-cyan-400 shadow-[0_0_8px_rgba(34,211,238,0.8)]" /> 
+            x402 Agentic Authorization
+            <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 w-48 p-2 bg-slate-900 text-white text-[8px] font-medium leading-tight rounded-lg opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none border border-slate-700 shadow-2xl z-[100]">
+              x402 enables secure machine-to-machine procurement authorization and agent orchestration between buyer intelligence agents and supplier ecosystems.
+            </div>
+          </Badge>
           <Badge variant="outline" className="bg-primary/5 text-primary border-primary/10 px-4 py-2 gap-2 uppercase tracking-widest text-[9px] font-black rounded-xl shadow-sm">
             <div className="w-1.5 h-1.5 rounded-full bg-primary animate-ping" /> Agent-to-Agent Active
           </Badge>
           <Badge variant="outline" className="bg-amber-50 text-amber-600 border-amber-100 px-4 py-2 gap-2 uppercase tracking-widest text-[9px] font-black rounded-xl shadow-sm">
             <ShieldCheck className="w-3.5 h-3.5" /> Trade Assurance
           </Badge>
+          {!walletAddress && (
+            <Button 
+              onClick={handleConnectWallet}
+              variant="outline"
+              className="bg-primary text-white border-none hover:bg-primary/90 px-4 py-2 gap-2 uppercase tracking-widest text-[9px] font-black rounded-xl shadow-lg animate-pulse"
+            >
+              <Wallet className="w-3.5 h-3.5" /> Connect Wallet
+            </Button>
+          )}
         </div>
       </div>
 
@@ -909,7 +957,7 @@ const Procurement = () => {
                         </>
                       ) : (
                         <>
-                          Initialize Protocol & Search
+                          Start AI Negotiation
                           <ArrowRight className="ml-2 w-6 h-6 group-hover:translate-x-2 transition-transform" />
                         </>
                       )}
@@ -945,6 +993,52 @@ const Procurement = () => {
             exit={{ opacity: 0, y: -20 }}
             className="space-y-8"
           >
+            {x402Session && (
+              <motion.div
+                initial={{ opacity: 0, y: -20 }}
+                animate={{ opacity: 1, y: 0 }}
+              >
+                <Card className="bg-slate-950 border-cyan-500/30 shadow-[0_0_30px_rgba(34,211,238,0.1)] overflow-hidden">
+                  <CardHeader className="border-b border-white/5 py-4 px-6 flex flex-row items-center justify-between">
+                    <div>
+                      <CardTitle className="text-cyan-400 text-sm font-black uppercase tracking-widest flex items-center gap-2">
+                        <Cpu className="w-4 h-4" /> x402 Procurement Session
+                      </CardTitle>
+                      <CardDescription className="text-slate-500 text-[10px] font-bold">Session ID: {x402Session.session_id}</CardDescription>
+                    </div>
+                    <Badge className="bg-cyan-500/10 text-cyan-400 border-cyan-500/20 text-[8px] animate-pulse">ACTIVE</Badge>
+                  </CardHeader>
+                  <CardContent className="p-0">
+                    <div className="grid grid-cols-2 md:grid-cols-4 divide-x divide-white/5 border-b border-white/5">
+                      {[
+                        { label: "Session Status", value: "ACTIVE", icon: Activity, color: "text-cyan-400" },
+                        { label: "Authorization", value: "APPROVED", icon: ShieldCheck, color: "text-emerald-400" },
+                        { label: "Negotiation Credits", value: "ALLOCATED", icon: DollarSign, color: "text-cyan-400" },
+                        { label: "M2M Link", value: "ESTABLISHED", icon: Cpu, color: "text-emerald-400" }
+                      ].map((item, i) => (
+                        <div key={i} className="p-4 flex flex-col gap-1">
+                          <span className="text-[8px] font-black text-slate-500 uppercase tracking-tighter">{item.label}</span>
+                          <div className="flex items-center gap-2">
+                            <item.icon className={`w-3 h-3 ${item.color}`} />
+                            <span className={`text-[10px] font-black ${item.color}`}>{item.value}</span>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                    <div className="p-3 px-6 flex justify-between items-center bg-white/[0.02]">
+                      <div className="flex gap-4">
+                        <span className="text-[8px] font-medium text-slate-500 uppercase tracking-widest">Initialized: {new Date(x402Session.timestamps.initialized).toLocaleTimeString()}</span>
+                        <span className="text-[8px] font-medium text-slate-500 uppercase tracking-widest">Authorized: {new Date(x402Session.timestamps.authorized).toLocaleTimeString()}</span>
+                      </div>
+                      <span className="text-[8px] font-black text-cyan-500 uppercase tracking-widest flex items-center gap-1">
+                        <div className="w-1 h-1 rounded-full bg-cyan-500 animate-pulse" /> Orchestration Active
+                      </span>
+                    </div>
+                  </CardContent>
+                </Card>
+              </motion.div>
+            )}
+
             <ProcurementTerminal logs={procurementLogs} isOpen={showTerminal} />
             
             <SupplierIntelligenceDashboard 
@@ -1212,7 +1306,7 @@ const Procurement = () => {
                     )}
                   >
                     {isConfirming ? <Loader2 className="w-6 h-6 animate-spin" /> : <Zap className={cn("w-6 h-6", isVerified ? "animate-pulse" : "")} />}
-                    {isVerified ? "Confirm Release & Settle" : "Verification Required to Release"}
+                    {isVerified ? "Complete Procurement Commitment" : "Verification Required to Release"}
                   </Button>
                   
                   <p className="text-[9px] text-center text-slate-400 font-bold uppercase tracking-widest mt-4">
@@ -1242,9 +1336,9 @@ const Procurement = () => {
                 >
                   <CheckCircle2 className="w-10 h-10" />
                 </motion.div>
-                <h2 className="text-2xl font-display font-bold mb-1">Transaction Released</h2>
-                <Badge className="bg-white/20 text-white border-white/30 mb-3 hover:bg-white/20">Completed</Badge>
-                <p className="text-emerald-50/80 max-w-sm mx-auto font-medium text-xs">Funds successfully released to supplier. The autonomous procurement cycle is entirely complete and settled on-chain.</p>
+                <h2 className="text-2xl font-display font-bold mb-1">Procurement Commitment Secured</h2>
+                <Badge className="bg-white/20 text-white border-white/30 mb-3 hover:bg-white/20">Settled on Algorand</Badge>
+                <p className="text-emerald-50/80 max-w-sm mx-auto font-medium text-xs">The procurement commitment has been secured on the Algorand blockchain. The autonomous procurement cycle is entirely complete.</p>
               </div>
 
               <CardContent className="p-8 space-y-6">
@@ -1371,18 +1465,18 @@ const Procurement = () => {
                     >
                       <h3 className="font-display font-bold text-2xl text-slate-900 mb-2 tracking-tight">
                         {[
-                          'Initiating Escrow...',
-                          'Validating Contract...',
-                          'Reserving Funds...',
-                          'Confirming on Chain...',
+                          'Initializing x402 Protocol...',
+                          'Securing Commitment...',
+                          'Anchoring Contract...',
+                          'Finalizing Authorization...',
                         ][paymentPhase]}
                       </h3>
                       <p className="text-slate-500 font-medium text-sm leading-relaxed max-w-[220px]">
                         {[
-                          'Creating your smart escrow record on Algorand network.',
-                          'AI agent validating supplier contract terms and conditions.',
-                          'Funds being securely reserved in escrow vault.',
-                          'Broadcasting escrow lock to Algorand TestNet. Almost done!',
+                          'Establishing agentic authorization channel for the procurement cycle.',
+                          'Securing procurement commitment on Algorand immutable ledger.',
+                          'Anchoring digital contract terms to the blockchain network.',
+                          'Finalizing machine-to-machine authorization for settlement.',
                         ][paymentPhase]}
                       </p>
                     </motion.div>
@@ -1393,8 +1487,8 @@ const Procurement = () => {
                       animate={{ opacity: 1, y: 0 }}
                       className="flex flex-col items-center"
                     >
-                      <h3 className="font-display font-bold text-2xl text-slate-900 mb-2 tracking-tight">Settling Contract...</h3>
-                      <p className="text-slate-500 font-medium text-sm leading-relaxed max-w-[220px]">Broadcasting your signed transaction to Algorand TestNet. Please wait.</p>
+                      <h3 className="font-display font-bold text-2xl text-slate-900 mb-2 tracking-tight">Securing Commitment...</h3>
+                      <p className="text-slate-500 font-medium text-sm leading-relaxed max-w-[220px]">Broadcasting your procurement commitment to the Algorand network. Please wait.</p>
                     </motion.div>
                   )}
                 </AnimatePresence>
