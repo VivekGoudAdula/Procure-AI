@@ -22,11 +22,11 @@ const Layout = () => {
 
       <Sidebar />
       
-      <div className="flex-1 ml-72 flex flex-col min-w-0">
+      <div className="flex-1 ml-64 flex flex-col min-w-0">
         <Topbar />
         
         <main className="flex-1 overflow-y-auto p-4 md:p-8">
-          <div className="max-w-[1800px] mx-auto">
+          <div className="max-w-[1400px] mx-auto">
             <AnimatePresence mode="wait">
               <motion.div
                 key={window.location.pathname}

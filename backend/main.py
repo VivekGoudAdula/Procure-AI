@@ -16,10 +16,12 @@ from ai_agent import select_best_supplier, run_agent_competition
 from blockchain import create_transaction, simulate_escrow
 from escrow_service import deploy_escrow
 from services.alibaba_procurement_service import AlibabaProcurementService
+from services.multilingual_negotiation_service import MultilingualNegotiationService
 
 app = FastAPI(title="ProcureAI Backend - Autonomous Agentic Commerce Platform")
 
 procurement_engine = AlibabaProcurementService()
+negotiation_engine = MultilingualNegotiationService()
 
 # CORS setup for frontend connection
 app.add_middleware(
@@ -114,6 +116,23 @@ class X402SessionResponse(BaseModel):
     negotiation_enabled: bool
     logs: list[str]
     timestamps: dict
+
+class HumanSelectSupplierRequest(BaseModel):
+    supplier_id: str | int
+    session_id: str
+
+class MultilingualNegotiationRequest(BaseModel):
+    """Single-round multilingual negotiation request."""
+    buyer_message: str
+    supplier_language: str
+    product: str
+    round_number: int | None = None
+
+class FullNegotiationRequest(BaseModel):
+    """Full 3-round multilingual negotiation request."""
+    buyer_message: str
+    supplier_language: str
+    product: str
 
 ESCROW_DB_PATH = os.path.join(os.path.dirname(__file__), "escrow_records.json")
 
@@ -273,6 +292,18 @@ async def select_supplier_api(req: SupplierRequest):
         "rejection_reasons": result.get("rejection_reasons", [])
     }
 
+@app.post("/api/procurement/select-supplier")
+async def human_select_supplier(req: HumanSelectSupplierRequest):
+    print(f"[PROCURE-AI] Human procurement approval received.")
+    print(f"[PROCURE-AI] Supplier partnership authorized.")
+    print(f"[PROCURE-AI] Negotiation lifecycle finalized.")
+    print(f"[PROCURE-AI] Preparing procurement commitment...")
+    
+    return {
+        "status": "APPROVED",
+        "selected_supplier": {"id": req.supplier_id},
+        "procurement_commitment_ready": True
+    }
 
 @app.post("/api/prepare-transaction")
 async def prepare_transaction(req: TransactionRequest):
@@ -289,7 +320,7 @@ async def escrow_api(action: str):
     """
     return simulate_escrow(action)
 
-@app.post("/api/create-escrow")
+@app.post("/api/procurement/initiate-commitment")
 async def create_escrow(req: EscrowRequest):
     # 1. Deploy real smart contract on TestNet
     amount_microalgos = int(req.amount * 1_000_000)
@@ -322,7 +353,7 @@ async def create_escrow(req: EscrowRequest):
     
     return escrow_record
     
-@app.post("/api/confirm-delivery")
+@app.post("/api/procurement/release-settlement")
 async def confirm_delivery(req: ConfirmDeliveryRequest):
     db = load_escrow_db()
     # Search by transaction_id OR app_id (often used interchangeably in frontend)
@@ -340,6 +371,11 @@ async def confirm_delivery(req: ConfirmDeliveryRequest):
         raise HTTPException(status_code=400, detail="Delivery must be verified before release")
 
     record["escrow_status"] = "released"
+    
+    print("[PROCURE-AI] Delivery verification confirmed.")
+    print("[PROCURE-AI] Procurement commitment validated.")
+    print("[PROCURE-AI] Executing Algorand settlement release...")
+    print("[PROCURE-AI] Settlement lifecycle completed.")
     
     # Update Reputation
     supplier_id = record.get("supplier_id")
@@ -442,7 +478,7 @@ def import_datetime():
     import datetime
     return datetime.datetime
 
-@app.post("/api/verify-delivery")
+@app.post("/api/procurement/verify-delivery")
 async def verify_delivery(req: VerifyDeliveryRequest):
     db = load_escrow_db()
     record = db.get(req.escrow_id)
@@ -585,6 +621,51 @@ async def supplier_respond(supplier_id: int, req: SupplierNegotiationRequest):
         "message": message,
         "confidence": reliability
     }
+
+# --- Multilingual AI Negotiation Endpoints ---
+
+@app.post("/api/negotiation/multilingual")
+async def multilingual_negotiation(req: MultilingualNegotiationRequest):
+    """
+    Single-round multilingual procurement negotiation.
+    Translates buyer message, simulates supplier response, and returns AI analysis.
+    """
+    try:
+        result = negotiation_engine.run_negotiation(
+            buyer_message=req.buyer_message,
+            supplier_language=req.supplier_language,
+            product=req.product,
+            round_number=req.round_number
+        )
+        return result
+    except Exception as e:
+        print(f"[ProcureAI] Multilingual Negotiation Error: {str(e)}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.post("/api/negotiation/multilingual/full")
+async def full_multilingual_negotiation(req: FullNegotiationRequest):
+    """
+    Full 3-round multilingual procurement negotiation sequence.
+    Returns all negotiation rounds with cumulative AI analysis and procurement recommendation.
+    """
+    try:
+        result = negotiation_engine.run_full_negotiation(
+            buyer_message=req.buyer_message,
+            supplier_language=req.supplier_language,
+            product=req.product
+        )
+        return result
+    except Exception as e:
+        print(f"[ProcureAI] Full Negotiation Error: {str(e)}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.get("/api/negotiation/languages")
+async def get_supported_languages():
+    """Return the list of supported supplier languages for multilingual negotiation."""
+    return negotiation_engine.get_supported_languages()
+
 
 if __name__ == "__main__":
     import uvicorn

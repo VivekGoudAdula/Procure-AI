@@ -235,9 +235,10 @@ class GlobalProcurementEngine:
         self._add_log("Ranking suppliers based on: trust, lead time, pricing, capacity")
         eligible_suppliers.sort(key=lambda x: x["total_score"], reverse=True)
         
-        recommended = eligible_suppliers[0] if eligible_suppliers else None
-        if recommended:
-            self._add_log(f"Recommended supplier: {recommended['name']}")
+        recommended_suppliers = eligible_suppliers[:3]
+        if recommended_suppliers:
+            for rec in recommended_suppliers:
+                self._add_log(f"Recommended supplier: {rec['name']}")
         
         # 6. Analysis Metadata
         analysis = {
@@ -251,7 +252,7 @@ class GlobalProcurementEngine:
                 "Production capacity fully validated",
                 "100% Policy compliant configuration",
                 "Optimized negotiated pricing applied"
-            ] if recommended else ["No suppliers matched strict procurement criteria."]
+            ] if recommended_suppliers else ["No suppliers matched strict procurement criteria."]
         }
         
         self._add_log("Negotiation intelligence initialized...")
@@ -259,7 +260,7 @@ class GlobalProcurementEngine:
         
         return {
             "suppliers": eligible_suppliers,
-            "recommended_supplier": recommended,
+            "recommended_suppliers": recommended_suppliers,
             "rejected_suppliers": rejected_suppliers,
             "procurement_analysis": analysis,
             "logs": self.logs

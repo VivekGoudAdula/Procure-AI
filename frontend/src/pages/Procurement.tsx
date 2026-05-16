@@ -36,7 +36,6 @@ import {
 } from 'lucide-react';
 import IntelligenceLoading from '../components/procurement/IntelligenceLoading';
 import SupplierIntelligenceDashboard from '../components/procurement/SupplierIntelligenceDashboard';
-import ProcurementTerminal from '../components/procurement/ProcurementTerminal';
 import { useApp } from '../context/AppContext';
 import { cn } from '../lib/utils';
 import { motion, AnimatePresence } from 'motion/react';
@@ -266,7 +265,28 @@ const Procurement = () => {
     }
   };
 
-  const handleSelectIntelligenceSupplier = (supplier: any) => {
+  const handleSelectIntelligenceSupplier = async (supplier: any) => {
+    // Human approval logs
+    const approvalLogs = [
+      "Human procurement approval received.",
+      "Supplier partnership authorized.",
+      "Negotiation lifecycle finalized.",
+      "Preparing procurement commitment..."
+    ];
+    
+    await streamLogs(approvalLogs);
+
+    try {
+      // Call backend to select supplier
+      const response = await axios.post(`${API_BASE_URL}/api/procurement/select-supplier`, {
+        supplier_id: supplier.id,
+        session_id: x402Session?.session_id || "DEMO-SESSION"
+      });
+      console.log("[ProcureAI] Select Supplier Response:", response.data);
+    } catch (err) {
+      console.error("[ProcureAI] Failed to notify backend of selection", err);
+    }
+
     // Map intelligence supplier to the format expected by the escrow flow
     const selected = {
       id: supplier.id,
@@ -319,7 +339,7 @@ const Procurement = () => {
     }, 250);
 
     try {
-      const response: any = await axios.post(`${API_BASE_URL}/api/create-escrow`, {
+      const response: any = await axios.post(`${API_BASE_URL}/api/procurement/initiate-commitment`, {
         sender: activeAddress,
         receiver: selected.wallet_address || DEMO_VAULT_ADDRESS,
         amount: 0.1,
@@ -424,7 +444,7 @@ const Procurement = () => {
 
     try {
       // 1. Create Escrow on Backend (Deploys Contract)
-      const response: any = await axios.post(`${API_BASE_URL}/api/create-escrow`, {
+      const response: any = await axios.post(`${API_BASE_URL}/api/procurement/initiate-commitment`, {
         sender: activeAddress,
         receiver: result.selectedSupplier.wallet_address || DEMO_VAULT_ADDRESS,
         amount: 0.1,
@@ -572,7 +592,7 @@ const Procurement = () => {
     setIsVerifying(true);
     try {
       const id = appId ? appId.toString() : txId!;
-      const response = await axios.post(`${API_BASE_URL}/api/verify-delivery`, {
+      const response = await axios.post(`${API_BASE_URL}/api/procurement/verify-delivery`, {
         escrow_id: id
       });
       
@@ -654,7 +674,7 @@ const Procurement = () => {
 
       // 5. Update Backend Escrow status
       // We pass the activeAppId as a fallback for the transaction_id lookup
-      await axios.post(`${API_BASE_URL}/api/confirm-delivery`, { 
+      await axios.post(`${API_BASE_URL}/api/procurement/release-settlement`, { 
         transaction_id: activeAppId.toString() 
       });
 
@@ -683,41 +703,20 @@ const Procurement = () => {
   };
 
   return (
-    <div className="space-y-8 pt-8 pb-12">
-      <div className="flex flex-col md:flex-row md:items-end justify-between gap-6 px-1">
-        <div className="space-y-1">
-          <motion.div
-            initial={{ opacity: 0, x: -20 }}
-            animate={{ opacity: 1, x: 0 }}
-            className="flex items-center gap-2 mb-2"
-          >
-            <div className="w-2 h-2 rounded-full bg-primary animate-pulse" />
-            <span className="text-[10px] uppercase font-bold tracking-[0.2em] text-primary/70">AI Search & Negotiate</span>
-          </motion.div>
-          <h1 className="text-4xl font-display font-medium tracking-tight text-slate-900 leading-tight">Procurement</h1>
-          <p className="text-slate-500 max-w-lg font-medium text-sm leading-relaxed">Let AI agents find the best suppliers and handle your on-chain transactions.</p>
+    <div className="space-y-6 min-h-[calc(100vh-2rem)] bg-slate-50 p-6 -mx-4 md:-mx-8 lg:-mx-12 -mt-4 text-slate-900">
+      {/* HEADER SECTION */}
+      <div className="flex flex-col md:flex-row md:items-end justify-between gap-6 px-1 max-w-7xl mx-auto">
+        <div>
+          <h1 className="text-3xl font-display font-bold tracking-tight text-slate-900">AI Procurement Intelligence</h1>
+          <p className="text-slate-500 mt-1.5 font-medium text-xs">Enterprise copilot for global sourcing.</p>
         </div>
         <div className="flex items-center gap-2">
-          <Badge variant="outline" className="bg-cyan-950/20 text-cyan-400 border-cyan-500/30 px-4 py-2 gap-2 uppercase tracking-widest text-[9px] font-black rounded-xl shadow-[0_0_15px_rgba(34,211,238,0.2)] animate-pulse group relative cursor-help">
-            <div className="w-1.5 h-1.5 rounded-full bg-cyan-400 shadow-[0_0_8px_rgba(34,211,238,0.8)]" /> 
-            x402 Agentic Authorization
-            <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 w-48 p-2 bg-slate-900 text-white text-[8px] font-medium leading-tight rounded-lg opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none border border-slate-700 shadow-2xl z-[100]">
-              x402 enables secure machine-to-machine procurement authorization and agent orchestration between buyer intelligence agents and supplier ecosystems.
-            </div>
-          </Badge>
-          <Badge variant="outline" className="bg-primary/5 text-primary border-primary/10 px-4 py-2 gap-2 uppercase tracking-widest text-[9px] font-black rounded-xl shadow-sm">
-            <div className="w-1.5 h-1.5 rounded-full bg-primary animate-ping" /> Agent-to-Agent Active
-          </Badge>
-          <Badge variant="outline" className="bg-amber-50 text-amber-600 border-amber-100 px-4 py-2 gap-2 uppercase tracking-widest text-[9px] font-black rounded-xl shadow-sm">
-            <ShieldCheck className="w-3.5 h-3.5" /> Trade Assurance
-          </Badge>
+          <Badge className="bg-emerald-50 text-emerald-600 border-none text-[8px] font-black uppercase tracking-widest">x402 Authorized</Badge>
+          <Badge className="bg-amber-50 text-amber-600 border-none text-[8px] font-black uppercase tracking-widest">Trade Assurance</Badge>
+          <Badge className="bg-primary/10 text-primary border-none text-[8px] font-black uppercase tracking-widest">Algorand Secured</Badge>
           {!walletAddress && (
-            <Button 
-              onClick={handleConnectWallet}
-              variant="outline"
-              className="bg-primary text-white border-none hover:bg-primary/90 px-4 py-2 gap-2 uppercase tracking-widest text-[9px] font-black rounded-xl shadow-lg animate-pulse"
-            >
-              <Wallet className="w-3.5 h-3.5" /> Connect Wallet
+            <Button onClick={handleConnectWallet} className="bg-primary text-white hover:bg-primary/90 px-6 font-semibold">
+              Connect Wallet
             </Button>
           )}
         </div>
@@ -727,248 +726,82 @@ const Procurement = () => {
         {step === 'form' && (
           <motion.div
             key="form"
-            initial={{ opacity: 0, scale: 0.95 }}
-            animate={{ opacity: 1, scale: 1 }}
-            exit={{ opacity: 0, scale: 0.95 }}
-            className="max-w-2xl mx-auto"
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -20 }}
+            className="max-w-7xl mx-auto space-y-12"
           >
-            <Card className="glass-card border-slate-200 overflow-hidden shadow-2xl relative shadow-slate-200/50">
-              {/* Decorative scan element */}
-              <div className="absolute top-0 left-0 w-full h-[1px] bg-gradient-to-r from-transparent via-primary/50 to-transparent z-10" />
-
-              <CardHeader className="text-center pb-6 pt-8 bg-slate-50/30 border-b border-slate-100/50 relative overflow-hidden">
-                <div className="absolute inset-0 bg-[url('https://www.transparenttextures.com/patterns/blueprint.png')] opacity-[0.03]" />
-                <div className="w-14 h-14 bg-white border border-slate-200 rounded-2xl flex items-center justify-center mx-auto mb-4' shadow-xl relative z-10 group-hover:scale-105 transition-transform">
-                  <div className="absolute inset-0 bg-primary/5 animate-pulse rounded-2xl" />
-                  <Layers className="text-primary w-7 h-7 relative z-10" />
+            {/* SECTION 1: Procurement Input Area */}
+            <div className="bg-white border border-slate-200 rounded-2xl p-4 shadow-sm">
+              <form onSubmit={handleFindSupplier} className="flex flex-col lg:flex-row gap-4 items-center">
+                <div className="flex-1 w-full flex items-center gap-2 bg-slate-50 border border-slate-200 rounded-xl px-4 h-12">
+                  <Search className="w-4 h-4 text-slate-400" />
+                  <input
+                    type="text"
+                    required
+                    className="bg-transparent border-none outline-none text-slate-900 w-full text-sm font-medium placeholder-slate-400"
+                    placeholder="Search product (e.g. 50x Industrial Motors)"
+                    value={productName}
+                    onChange={(e) => setProductName(e.target.value)}
+                  />
                 </div>
-                <CardTitle className="text-2xl font-display font-bold text-slate-900 relative z-10 tracking-tight">Order Details</CardTitle>
-                <CardDescription className="text-slate-500 text-xs font-medium max-w-[280px] mx-auto mt-1 relative z-10">Enter your requirements and our AI will find and negotiate the best deal for you.</CardDescription>
-              </CardHeader>
+                
+                <div className="w-full lg:w-32 flex items-center gap-2 bg-slate-50 border border-slate-200 rounded-xl px-4 h-12">
+                  <Layers className="w-4 h-4 text-slate-400" />
+                  <input
+                    type="number"
+                    min="1"
+                    required
+                    className="bg-transparent border-none outline-none text-slate-900 w-full text-sm font-medium placeholder-slate-400"
+                    placeholder="Qty"
+                    value={quantity || ''}
+                    onChange={(e) => setQuantity(parseInt(e.target.value) || 0)}
+                  />
+                </div>
 
-              <CardContent className="p-8 relative">
-                <div className="absolute inset-0 bg-gradient-to-b from-transparent to-slate-50/50 -z-10" />
-                <form onSubmit={handleFindSupplier} className="space-y-8">
-                  <div className="space-y-8">
-                    <div className="space-y-3">
-                      <div className="flex justify-between items-center px-1">
-                        <label className="text-[10px] font-black text-slate-400 uppercase tracking-[0.15em]">What do you need?</label>
-                        <Badge variant="outline" className="text-[8px] font-black uppercase text-primary/60 border-primary/20 bg-primary/5">REQUIRED</Badge>
-                      </div>
-                      <div className="relative group">
-                        <div className="absolute inset-y-0 left-4 flex items-center pointer-events-none">
-                          <Search className="w-5 h-5 text-slate-400 group-focus-within:text-primary transition-colors" />
-                        </div>
-                        <Input
-                          type="text"
-                          required
-                          className="h-16 pl-12 bg-white/50 backdrop-blur-sm border-slate-200 rounded-2xl focus:border-primary/50 focus:ring-4 focus:ring-primary/5 transition-all text-lg font-medium shadow-sm group-hover:bg-white"
-                          placeholder="e.g. 50x Industrial Motors"
-                          value={productName}
-                          onChange={(e) => setProductName(e.target.value)}
-                        />
-                      </div>
-                    </div>
+                <div className="w-full lg:w-40 flex items-center gap-2 bg-slate-50 border border-slate-200 rounded-xl px-4 h-12">
+                  <DollarSign className="w-4 h-4 text-slate-400" />
+                  <input
+                    type="number"
+                    min="1"
+                    required
+                    className="bg-transparent border-none outline-none text-slate-900 w-full text-sm font-medium placeholder-slate-400"
+                    placeholder="Budget"
+                    value={budget || ''}
+                    onChange={(e) => setBudget(parseInt(e.target.value) || 0)}
+                  />
+                </div>
 
-                    <div className="grid grid-cols-2 gap-8">
-                      <div className="space-y-3">
-                        <label className="text-[10px] font-black text-slate-400 uppercase tracking-[0.15em] pl-1">Batch Quantity</label>
-                        <div className="relative group">
-                          <div className="absolute inset-y-0 left-4 flex items-center pointer-events-none">
-                            <Layers className="w-5 h-5 text-slate-400 group-focus-within:text-primary transition-colors" />
-                          </div>
-                          <Input
-                            type="number"
-                            min="1"
-                            required
-                            className="h-16 pl-12 bg-white/50 backdrop-blur-sm border-slate-200 rounded-2xl focus:border-primary/50 focus:ring-4 focus:ring-primary/5 transition-all text-lg font-medium shadow-sm group-hover:bg-white"
-                            value={quantity}
-                            onChange={(e) => setQuantity(parseInt(e.target.value) || 0)}
-                          />
-                        </div>
-                      </div>
-                      <div className="space-y-3">
-                        <label className="text-[10px] font-black text-slate-400 uppercase tracking-[0.15em] pl-1">Max Budget ($)</label>
-                        <div className="relative group">
-                          <div className="absolute inset-y-0 left-4 flex items-center pointer-events-none">
-                            <DollarSign className="w-5 h-5 text-slate-400 group-focus-within:text-primary transition-colors" />
-                          </div>
-                          <Input
-                            type="number"
-                            min="1"
-                            required
-                            className="h-16 pl-12 bg-white/50 backdrop-blur-sm border-slate-200 rounded-2xl focus:border-primary/50 focus:ring-4 focus:ring-primary/5 transition-all text-lg font-medium shadow-sm group-hover:bg-white"
-                            value={budget}
-                            onChange={(e) => setBudget(parseInt(e.target.value) || 0)}
-                          />
-                        </div>
-                      </div>
-                    </div>
+                <div className="w-full lg:w-48 flex items-center gap-2 bg-slate-50 border border-slate-200 rounded-xl px-4 h-12">
+                  <Truck className="w-4 h-4 text-slate-400" />
+                  <select
+                    className="bg-transparent border-none outline-none text-slate-900 w-full text-sm font-medium appearance-none"
+                    value={shippingRegion}
+                    onChange={(e) => setShippingRegion(e.target.value)}
+                  >
+                    <option value="Global">Global</option>
+                    <option value="China">China</option>
+                    <option value="India">India</option>
+                    <option value="Europe">Europe</option>
+                    <option value="USA">USA</option>
+                  </select>
+                </div>
 
-                    <div className="space-y-3">
-                      <label className="text-[10px] font-black text-slate-400 uppercase tracking-[0.15em]">Supplier Region</label>
-                      <div className="relative group">
-                        <div className="absolute inset-y-0 left-4 flex items-center pointer-events-none">
-                          <Truck className="w-5 h-5 text-slate-400 group-focus-within:text-primary transition-colors" />
-                        </div>
-                        <select
-                          className="w-full h-16 pl-12 bg-white/50 backdrop-blur-sm border-slate-200 rounded-2xl focus:border-primary/50 focus:ring-4 focus:ring-primary/5 transition-all text-lg font-medium shadow-sm group-hover:bg-white appearance-none outline-none"
-                          value={shippingRegion}
-                          onChange={(e) => setShippingRegion(e.target.value)}
-                        >
-                          <option value="Global">Global</option>
-                          <option value="China">China</option>
-                          <option value="India">India</option>
-                          <option value="Vietnam">Vietnam</option>
-                          <option value="Europe">Europe</option>
-                          <option value="USA">USA</option>
-                        </select>
-                      </div>
-                    </div>
-                  </div>
-
-                  {/* --- PROCUREMENT POLICY ENGINE PANEL --- */}
-                  <div className="pt-4 border-t border-slate-100">
-                    <div className="flex items-center justify-between mb-6">
-                      <div className="flex items-center gap-2">
-                        <div className="p-2 bg-primary/10 rounded-lg">
-                          <Settings className="w-4 h-4 text-primary" />
-                        </div>
-                        <div>
-                          <h3 className="text-sm font-bold text-slate-900">Procurement Policy</h3>
-                          <p className="text-[10px] text-slate-400 font-medium">Define rules your AI agent must follow</p>
-                        </div>
-                      </div>
-                      <button
-                        type="button"
-                        onClick={() => setEnablePolicy(!enablePolicy)}
-                        className={cn(
-                          "relative inline-flex h-6 w-11 items-center rounded-full transition-colors focus:outline-none focus:ring-2 focus:ring-primary/20 focus:ring-offset-2",
-                          enablePolicy ? "bg-primary" : "bg-slate-200"
-                        )}
-                      >
-                        <span
-                          className={cn(
-                            "inline-block h-4 w-4 transform rounded-full bg-white transition-transform",
-                            enablePolicy ? "translate-x-6" : "translate-x-1"
-                          )}
-                        />
-                      </button>
-                    </div>
-
-                    <AnimatePresence>
-                      {enablePolicy && (
-                        <motion.div
-                          initial={{ height: 0, opacity: 0 }}
-                          animate={{ height: 'auto', opacity: 1 }}
-                          exit={{ height: 0, opacity: 0 }}
-                          className="overflow-hidden"
-                        >
-                          <div className="grid grid-cols-2 gap-6 p-6 bg-slate-50/50 rounded-2xl border border-slate-100 shadow-inner mb-6">
-                            <div className="space-y-2">
-                              <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest flex items-center gap-1.5">
-                                <Shield className="w-3 h-3" /> Min Reliability (%)
-                              </label>
-                              <Input
-                                type="number"
-                                min="0"
-                                max="100"
-                                value={minReliability}
-                                onChange={(e) => setMinReliability(parseInt(e.target.value) || 0)}
-                                className="h-12 bg-white border-slate-200 rounded-xl text-sm font-bold"
-                              />
-                            </div>
-                            <div className="space-y-2">
-                              <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest flex items-center gap-1.5">
-                                <Truck className="w-3 h-3" /> Max Delivery (Days)
-                              </label>
-                              <Input
-                                type="number"
-                                min="1"
-                                value={maxDeliveryDays}
-                                onChange={(e) => setMaxDeliveryDays(parseInt(e.target.value) || 0)}
-                                className="h-12 bg-white border-slate-200 rounded-xl text-sm font-bold"
-                              />
-                            </div>
-                            <div className="space-y-2">
-                              <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest flex items-center gap-1.5">
-                                <Percent className="w-3 h-3" /> Min Success Rate (%)
-                              </label>
-                              <Input
-                                type="number"
-                                min="0"
-                                max="100"
-                                value={minSuccessRate}
-                                onChange={(e) => setMinSuccessRate(parseInt(e.target.value) || 0)}
-                                className="h-12 bg-white border-slate-200 rounded-xl text-sm font-bold"
-                              />
-                            </div>
-                            <div className="space-y-2">
-                              <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest flex items-center gap-1.5">
-                                <Activity className="w-3 h-3" /> Trust Anchor
-                              </label>
-                              <div 
-                                onClick={() => setRequireOnChain(!requireOnChain)}
-                                className={cn(
-                                  "h-12 flex items-center justify-between px-4 rounded-xl border cursor-pointer transition-all",
-                                  requireOnChain ? "bg-emerald-50 border-emerald-200 text-emerald-700" : "bg-white border-slate-200 text-slate-400"
-                                )}
-                              >
-                                <span className="text-[10px] font-bold uppercase tracking-wider">Require On-chain</span>
-                                {requireOnChain ? <Check className="w-4 h-4" /> : <div className="w-4 h-4 rounded-full border-2 border-slate-200" />}
-                              </div>
-                            </div>
-                          </div>
-                          <div className="flex items-center gap-2 p-3 bg-primary/5 rounded-xl border border-primary/10 mb-6">
-                            <ShieldCheck className="w-4 h-4 text-primary shrink-0" />
-                            <p className="text-[10px] text-primary/80 font-bold uppercase tracking-wider">
-                              Policy Enforcement Active: Agent will reject non-compliant suppliers.
-                            </p>
-                          </div>
-                        </motion.div>
-                      )}
-                    </AnimatePresence>
-                  </div>
-
-                  {error && (
-                    <motion.div
-                      initial={{ opacity: 0, height: 0 }}
-                      animate={{ opacity: 1, height: 'auto' }}
-                      className="p-4 bg-rose-50 border border-rose-100 rounded-2xl flex items-center gap-3 text-rose-600 text-sm font-bold shadow-sm"
-                    >
-                      <AlertCircle className="w-5 h-5 shrink-0" />
-                      {error}
-                    </motion.div>
-                  )}
-
-                  <div className="pt-2">
-                    <Button
-                      type="submit"
-                      disabled={isSearching}
-                      className="w-full h-16 text-lg font-black bg-slate-900 hover:bg-black text-white rounded-2xl transition-all group relative overflow-hidden shadow-xl shadow-slate-200"
-                    >
-                      {/* Decorative gradient for button */}
-                      <div className="absolute inset-0 bg-gradient-to-r from-primary/20 via-transparent to-primary/20 opacity-0 group-hover:opacity-100 transition-opacity" />
-
-                      {isSearching ? (
-                        <>
-                          <Loader2 className="w-6 h-6 animate-spin mr-3" />
-                          Deploying AI Agent...
-                        </>
-                      ) : (
-                        <>
-                          Start AI Negotiation
-                          <ArrowRight className="ml-2 w-6 h-6 group-hover:translate-x-2 transition-transform" />
-                        </>
-                      )}
-                    </Button>
-                    <div className="text-[10px] text-center text-slate-400 font-bold uppercase tracking-widest mt-4 flex items-center justify-center gap-2">
-                      <div className="w-1 h-1 rounded-full bg-emerald-500" /> System secured by Algorand TestNet Escrow
-                    </div>
-                  </div>
-                </form>
-              </CardContent>
-            </Card>
+                <Button
+                  type="submit"
+                  disabled={isSearching}
+                  className="w-full lg:w-auto h-12 bg-slate-900 hover:bg-slate-800 text-white rounded-xl font-semibold px-8 shadow-sm transition-colors"
+                >
+                  {isSearching ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : <Zap className="w-4 h-4 mr-2" />}
+                  Procure AI
+                </Button>
+              </form>
+            </div>
+            {error && (
+              <div className="mt-4 p-4 bg-[#EF4444]/10 border border-[#EF4444]/20 rounded-xl text-[#EF4444] text-sm font-medium flex items-center gap-2">
+                <AlertCircle className="w-4 h-4" /> {error}
+              </div>
+            )}
           </motion.div>
         )}
 
@@ -981,7 +814,6 @@ const Procurement = () => {
             className="space-y-12"
           >
             <IntelligenceLoading />
-            <ProcurementTerminal logs={["[SYSTEM] Initializing telemetry...", "[SYSTEM] Connecting to global sourcing nodes..."]} isOpen={true} />
           </motion.div>
         )}
 
@@ -991,56 +823,8 @@ const Procurement = () => {
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0, y: -20 }}
-            className="space-y-8"
+            className="max-w-7xl mx-auto space-y-8"
           >
-            {x402Session && (
-              <motion.div
-                initial={{ opacity: 0, y: -20 }}
-                animate={{ opacity: 1, y: 0 }}
-              >
-                <Card className="bg-slate-950 border-cyan-500/30 shadow-[0_0_30px_rgba(34,211,238,0.1)] overflow-hidden">
-                  <CardHeader className="border-b border-white/5 py-4 px-6 flex flex-row items-center justify-between">
-                    <div>
-                      <CardTitle className="text-cyan-400 text-sm font-black uppercase tracking-widest flex items-center gap-2">
-                        <Cpu className="w-4 h-4" /> x402 Procurement Session
-                      </CardTitle>
-                      <CardDescription className="text-slate-500 text-[10px] font-bold">Session ID: {x402Session.session_id}</CardDescription>
-                    </div>
-                    <Badge className="bg-cyan-500/10 text-cyan-400 border-cyan-500/20 text-[8px] animate-pulse">ACTIVE</Badge>
-                  </CardHeader>
-                  <CardContent className="p-0">
-                    <div className="grid grid-cols-2 md:grid-cols-4 divide-x divide-white/5 border-b border-white/5">
-                      {[
-                        { label: "Session Status", value: "ACTIVE", icon: Activity, color: "text-cyan-400" },
-                        { label: "Authorization", value: "APPROVED", icon: ShieldCheck, color: "text-emerald-400" },
-                        { label: "Negotiation Credits", value: "ALLOCATED", icon: DollarSign, color: "text-cyan-400" },
-                        { label: "M2M Link", value: "ESTABLISHED", icon: Cpu, color: "text-emerald-400" }
-                      ].map((item, i) => (
-                        <div key={i} className="p-4 flex flex-col gap-1">
-                          <span className="text-[8px] font-black text-slate-500 uppercase tracking-tighter">{item.label}</span>
-                          <div className="flex items-center gap-2">
-                            <item.icon className={`w-3 h-3 ${item.color}`} />
-                            <span className={`text-[10px] font-black ${item.color}`}>{item.value}</span>
-                          </div>
-                        </div>
-                      ))}
-                    </div>
-                    <div className="p-3 px-6 flex justify-between items-center bg-white/[0.02]">
-                      <div className="flex gap-4">
-                        <span className="text-[8px] font-medium text-slate-500 uppercase tracking-widest">Initialized: {new Date(x402Session.timestamps.initialized).toLocaleTimeString()}</span>
-                        <span className="text-[8px] font-medium text-slate-500 uppercase tracking-widest">Authorized: {new Date(x402Session.timestamps.authorized).toLocaleTimeString()}</span>
-                      </div>
-                      <span className="text-[8px] font-black text-cyan-500 uppercase tracking-widest flex items-center gap-1">
-                        <div className="w-1 h-1 rounded-full bg-cyan-500 animate-pulse" /> Orchestration Active
-                      </span>
-                    </div>
-                  </CardContent>
-                </Card>
-              </motion.div>
-            )}
-
-            <ProcurementTerminal logs={procurementLogs} isOpen={showTerminal} />
-            
             <SupplierIntelligenceDashboard 
               data={intelligenceResult}
               onSelectSupplier={handleSelectIntelligenceSupplier}
@@ -1076,12 +860,49 @@ const Procurement = () => {
                     <Lock className="w-7 h-7 text-white relative z-10" />
                   </div>
                 </motion.div>
-                <h2 className="text-2xl font-display font-medium mb-2 tracking-tight">Delivery Verification Protocol</h2>
+                <h2 className="text-2xl font-display font-medium mb-2 tracking-tight">Secure Procurement Commitment</h2>
                 <Badge className="bg-amber-500/20 text-amber-400 border-amber-500/30 mb-4 font-bold tracking-widest px-4 py-1 uppercase text-[10px]">Proof Required</Badge>
-                <p className="text-slate-300 max-w-sm mx-auto font-medium text-xs leading-relaxed">Funds are locked on-chain. Settlement requires valid delivery proof and buyer verification.</p>
+                <p className="text-slate-300 max-w-sm mx-auto font-medium text-xs leading-relaxed">Algorand-secured procurement settlement lifecycle</p>
               </div>
 
               <CardContent className="p-8 space-y-8">
+                {/* Enterprise Procurement Summary Panel */}
+                <div className="bg-slate-50 border border-slate-100 rounded-2xl p-6">
+                  <h3 className="text-sm font-bold text-slate-900 mb-4 flex items-center gap-2">
+                    <Database className="w-4 h-4 text-primary" /> Enterprise Procurement Summary
+                  </h3>
+                  <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                    <div>
+                      <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-1">Selected Supplier</p>
+                      <p className="text-sm font-bold text-slate-900 truncate" title={result?.selectedSupplier?.name}>{result?.selectedSupplier?.name}</p>
+                    </div>
+                    <div>
+                      <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-1">Negotiated Price</p>
+                      <p className="text-sm font-bold text-emerald-600">${result?.selectedSupplier?.finalPrice}</p>
+                    </div>
+                    <div>
+                      <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-1">Expected Lead Time</p>
+                      <p className="text-sm font-bold text-slate-900">{result?.selectedSupplier?.deliveryTime}</p>
+                    </div>
+                    <div>
+                      <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-1">Procurement Risk</p>
+                      <p className="text-sm font-bold text-emerald-600">LOW</p>
+                    </div>
+                    <div>
+                      <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-1">AI Confidence</p>
+                      <p className="text-sm font-bold text-primary">{result?.selectedSupplier?.reliability}%</p>
+                    </div>
+                    <div>
+                      <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-1">Policy Compliance</p>
+                      <p className="text-sm font-bold text-emerald-600">VERIFIED</p>
+                    </div>
+                    <div className="md:col-span-2">
+                      <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-1">x402 Session Status</p>
+                      <p className="text-sm font-bold text-cyan-600 truncate">AUTHORIZED • {x402Session?.session_id}</p>
+                    </div>
+                  </div>
+                </div>
+
                 {/* Escrow Status Stepper (5 STAGES) */}
                 <div className="space-y-6">
                   <div className="flex items-center justify-between px-2">
@@ -1110,11 +931,11 @@ const Procurement = () => {
                     
                     <div className="grid grid-cols-5 gap-2 relative z-10">
                       {[
-                        { id: 'funded', label: 'Locked', icon: Lock, status: 'completed' },
-                        { id: 'awaiting_delivery', label: 'Delivery', icon: Zap, status: escrowStatus === 'funded' ? 'current' : 'completed' },
-                        { id: 'proof_submitted', label: 'Proof', icon: MessageSquare, status: escrowStatus === 'proof_submitted' ? 'current' : (escrowStatus === 'verified' || escrowStatus === 'released' ? 'completed' : 'upcoming') },
-                        { id: 'verified', label: 'Verified', icon: ShieldCheck, status: escrowStatus === 'verified' ? 'current' : (escrowStatus === 'released' ? 'completed' : 'upcoming') },
-                        { id: 'released', label: 'Released', icon: CheckCircle2, status: escrowStatus === 'released' ? 'current' : 'upcoming' }
+                        { id: 'approved', label: 'Supplier Approved', icon: ShieldCheck, status: 'completed' },
+                        { id: 'funded', label: 'Commitment Initialized', icon: Lock, status: 'completed' },
+                        { id: 'awaiting_delivery', label: 'Funds Secured', icon: Zap, status: escrowStatus === 'funded' ? 'current' : 'completed' },
+                        { id: 'proof_submitted', label: 'Delivery Verification', icon: MessageSquare, status: escrowStatus === 'proof_submitted' || escrowStatus === 'verified' ? 'current' : (escrowStatus === 'released' ? 'completed' : 'upcoming') },
+                        { id: 'released', label: 'Settlement Released', icon: CheckCircle2, status: escrowStatus === 'released' ? 'current' : 'upcoming' }
                       ].map((s, i) => (
                         <div key={s.id} className="flex flex-col items-center gap-3">
                           <div className={cn(
@@ -1135,12 +956,38 @@ const Procurement = () => {
                   </div>
                 </div>
 
+                <div className="grid grid-cols-2 md:grid-cols-5 gap-4 p-5 bg-slate-50 border border-slate-100 rounded-2xl text-center">
+                  <div className="flex flex-col gap-1">
+                    <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Commitment Status</span>
+                    <span className="text-xs font-bold text-emerald-600">ACTIVE</span>
+                  </div>
+                  <div className="flex flex-col gap-1">
+                    <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Settlement Layer</span>
+                    <span className="text-xs font-bold text-slate-900">Algorand</span>
+                  </div>
+                  <div className="flex flex-col gap-1">
+                    <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Escrow Protection</span>
+                    <span className="text-xs font-bold text-slate-900">ENABLED</span>
+                  </div>
+                  <div className="flex flex-col gap-1">
+                    <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Delivery Verification</span>
+                    <span className="text-xs font-bold text-slate-900">REQUIRED</span>
+                  </div>
+                  <div className="flex flex-col gap-1 border-l-0 md:border-l border-slate-200">
+                    <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Supplier Approval</span>
+                    <span className="text-xs font-bold text-emerald-600">VERIFIED</span>
+                  </div>
+                </div>
+
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                   {/* Proof Submission Panel */}
                   <div className="space-y-4 bg-slate-50/50 rounded-2xl border border-slate-100 p-6">
                     <h3 className="text-xs font-black text-slate-900 uppercase tracking-widest mb-4 flex items-center gap-2">
                       <FileUp className="w-4 h-4 text-primary" /> Submit Proof
                     </h3>
+                    <p className="text-[10px] font-bold bg-amber-50 text-amber-700 px-3 py-2 rounded-lg mb-4">
+                      Settlement release requires verified fulfillment.
+                    </p>
                     
                     <div className="space-y-3">
                       <label className="text-[9px] font-bold text-slate-400 uppercase tracking-widest">Proof Method</label>
@@ -1306,7 +1153,7 @@ const Procurement = () => {
                     )}
                   >
                     {isConfirming ? <Loader2 className="w-6 h-6 animate-spin" /> : <Zap className={cn("w-6 h-6", isVerified ? "animate-pulse" : "")} />}
-                    {isVerified ? "Complete Procurement Commitment" : "Verification Required to Release"}
+                    {isVerified ? "Release Procurement Settlement" : "Verification Required to Release"}
                   </Button>
                   
                   <p className="text-[9px] text-center text-slate-400 font-bold uppercase tracking-widest mt-4">
