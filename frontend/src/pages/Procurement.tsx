@@ -32,7 +32,15 @@ import {
   Truck,
   Percent,
   Check,
-  Package
+  Package,
+  Globe,
+  Mail,
+  Languages,
+  Info,
+  Download,
+  RefreshCw,
+  MoreVertical,
+  Database
 } from 'lucide-react';
 import IntelligenceLoading from '../components/procurement/IntelligenceLoading';
 import SupplierIntelligenceDashboard from '../components/procurement/SupplierIntelligenceDashboard';
@@ -109,6 +117,8 @@ const Procurement = () => {
   const [quantity, setQuantity] = useState(1);
   const [budget, setBudget] = useState(1000);
   const [shippingRegion, setShippingRegion] = useState('Global');
+  const [customRequirements, setCustomRequirements] = useState('');
+  const [leadTime, setLeadTime] = useState('30 Days');
 
   // Policy Engine State
   const [enablePolicy, setEnablePolicy] = useState(false);
@@ -118,7 +128,7 @@ const Procurement = () => {
   const [requireOnChain, setRequireOnChain] = useState(false);
 
   // State Persistence Logic ( survives page reloads )
-  const [step, setStep] = useState<'form' | 'intelligence_loading' | 'intelligence_dashboard' | 'escrow_locked' | 'payment'>(() => {
+  const [step, setStep] = useState<'form' | 'intelligence_loading' | 'intelligence_dashboard' | 'communication' | 'escrow_locked' | 'payment'>(() => {
     return (sessionStorage.getItem('procureai_step') as any) || 'form';
   });
   const [intelligenceResult, setIntelligenceResult] = useState<IntelligenceResult | null>(() => {
@@ -160,9 +170,14 @@ const Procurement = () => {
   const [proofUrl, setProofUrl] = useState<string | null>(null);
   const [isSubmittingProof, setIsSubmittingProof] = useState(false);
   const [isVerifying, setIsVerifying] = useState(false);
-  const [escrowStatus, setEscrowStatus] = useState<string>('funded');
   const [isVerified, setIsVerified] = useState(false);
   const [showSupplierDetails, setShowSupplierDetails] = useState<Supplier | null>(null);
+
+  // Communication State
+  const [inquiryData, setInquiryData] = useState<any>(null);
+  const [isSendingInquiry, setIsSendingInquiry] = useState(false);
+  const [inquirySent, setInquirySent] = useState(false);
+  const [selectedSupplierForComm, setSelectedSupplierForComm] = useState<any>(null);
 
   // Sync state to session storage
   useEffect(() => {
@@ -274,7 +289,8 @@ const Procurement = () => {
       "Preparing procurement commitment..."
     ];
     
-    await streamLogs(approvalLogs);
+    // Non-blocking logs
+    streamLogs(approvalLogs);
 
     try {
       // Call backend to select supplier
@@ -315,8 +331,37 @@ const Procurement = () => {
       ]
     });
 
-    // Directly move to escrow phase after selection
-    handleExecuteDealFromSelection(selected);
+    setSelectedSupplierForComm(supplier);
+    setStep('communication');
+  };
+
+  const handleSendInquiry = async () => {
+    if (!selectedSupplierForComm) return;
+    setIsSendingInquiry(true);
+    try {
+      const response = await axios.post(`${API_BASE_URL}/api/procurement/send-inquiry`, {
+        supplier_name: selectedSupplierForComm.name,
+        supplier_email: selectedSupplierForComm.email || "supplier@example.com",
+        supplier_region: selectedSupplierForComm.country || selectedSupplierForComm.region || shippingRegion,
+        original_message: `Procurement inquiry for ${quantity} units of ${productName}. Budget: $${budget}. Lead time: ${leadTime}.`,
+        procurement_context: {
+          product: productName,
+          quantity,
+          budget,
+          lead_time: leadTime,
+          requirements: customRequirements
+        }
+      });
+      
+      setInquiryData(response.data);
+      setInquirySent(true);
+      toast.success('Procurement inquiry transmitted successfully.');
+    } catch (err: any) {
+      console.error("[ProcureAI] Send Inquiry Error:", err);
+      toast.error("Failed to send procurement inquiry.");
+    } finally {
+      setIsSendingInquiry(false);
+    }
   };
 
   const handleExecuteDealFromSelection = async (selected: any) => {
@@ -796,6 +841,29 @@ const Procurement = () => {
                   Procure AI
                 </Button>
               </form>
+              
+              <div className="mt-4 pt-4 border-t border-slate-100 grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div className="flex items-center gap-2 bg-slate-50 border border-slate-200 rounded-xl px-4 h-12">
+                  <Clock className="w-4 h-4 text-slate-400" />
+                  <input
+                    type="text"
+                    className="bg-transparent border-none outline-none text-slate-900 w-full text-sm font-medium placeholder-slate-400"
+                    placeholder="Lead Time (e.g. 30 Days)"
+                    value={leadTime}
+                    onChange={(e) => setLeadTime(e.target.value)}
+                  />
+                </div>
+                <div className="flex items-center gap-2 bg-slate-50 border border-slate-200 rounded-xl px-4 h-12">
+                  <FileText className="w-4 h-4 text-slate-400" />
+                  <input
+                    type="text"
+                    className="bg-transparent border-none outline-none text-slate-900 w-full text-sm font-medium placeholder-slate-400"
+                    placeholder="Custom Requirements (e.g. 180 GSM cotton, branding)"
+                    value={customRequirements}
+                    onChange={(e) => setCustomRequirements(e.target.value)}
+                  />
+                </div>
+              </div>
             </div>
             {error && (
               <div className="mt-4 p-4 bg-[#EF4444]/10 border border-[#EF4444]/20 rounded-xl text-[#EF4444] text-sm font-medium flex items-center gap-2">
@@ -826,17 +894,217 @@ const Procurement = () => {
             className="max-w-7xl mx-auto space-y-8"
           >
             <SupplierIntelligenceDashboard 
-              data={intelligenceResult}
+              data={intelligenceResult!}
               onSelectSupplier={handleSelectIntelligenceSupplier}
               requestDetails={{
                 product_name: productName,
-                quantity: quantity,
-                budget: budget,
-                shipping_region: "Global"
+                quantity,
+                budget,
+                shipping_region: shippingRegion,
+                lead_time: leadTime,
+                custom_requirements: customRequirements
               }}
             />
           </motion.div>
         )}
+
+
+    {step === 'communication' && selectedSupplierForComm && (
+      <motion.div
+        key="communication"
+        initial={{ opacity: 0, y: 20 }}
+        animate={{ opacity: 1, y: 0 }}
+        exit={{ opacity: 0, y: -20 }}
+        className="max-w-7xl mx-auto space-y-8"
+      >
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-3">
+            <div className="w-12 h-12 bg-primary/10 rounded-2xl flex items-center justify-center">
+              <Globe className="w-6 h-6 text-primary" />
+            </div>
+            <div>
+              <h2 className="text-2xl font-display font-bold text-slate-900">Cross-Border Procurement Communication</h2>
+              <p className="text-slate-500 font-medium text-xs">Autonomous negotiation intelligence & localization active.</p>
+            </div>
+          </div>
+          <Button variant="outline" onClick={() => setStep('intelligence_dashboard')} className="rounded-xl border-slate-200">
+            Back to Dashboard
+          </Button>
+        </div>
+
+        <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
+          {/* LEFT PANEL: Buyer Inquiry */}
+          <div className="lg:col-span-4 space-y-6">
+            <Card className="border-slate-100 shadow-sm rounded-2xl overflow-hidden">
+              <CardHeader className="bg-slate-50/50 border-bottom border-slate-100">
+                <CardTitle className="text-sm font-bold flex items-center gap-2">
+                  <Mail className="w-4 h-4 text-slate-400" /> Buyer Procurement Inquiry
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="p-6 space-y-6">
+                <div className="space-y-4">
+                  <div className="p-4 bg-slate-50 rounded-xl border border-slate-100">
+                    <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2">Target Supplier</p>
+                    <p className="text-sm font-bold text-slate-900">{selectedSupplierForComm.name}</p>
+                    <p className="text-[10px] text-slate-500 mt-1">{selectedSupplierForComm.region} • {selectedSupplierForComm.email || "supplier@example.com"}</p>
+                  </div>
+                  
+                  <div className="space-y-2">
+                    <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Original Message</p>
+                    <div className="p-4 bg-white border border-slate-100 rounded-xl text-xs font-medium text-slate-600 leading-relaxed italic">
+                      "Procurement inquiry for {quantity} units of {productName}. Budget: ${budget}. Lead time: {leadTime}. {customRequirements}"
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-3">
+                    <div className="p-3 bg-slate-50 rounded-xl border border-slate-100">
+                      <p className="text-[9px] font-bold text-slate-400 uppercase mb-1">Budget</p>
+                      <p className="text-xs font-bold text-slate-900">${budget}</p>
+                    </div>
+                    <div className="p-3 bg-slate-50 rounded-xl border border-slate-100">
+                      <p className="text-[9px] font-bold text-slate-400 uppercase mb-1">Quantity</p>
+                      <p className="text-xs font-bold text-slate-900">{quantity} Units</p>
+                    </div>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+          </div>
+
+          {/* CENTER PANEL: Supplier Translation Layer */}
+          <div className="lg:col-span-5 space-y-6">
+            <Card className="border-slate-100 shadow-sm rounded-2xl overflow-hidden min-h-[400px] flex flex-col">
+              <CardHeader className="bg-slate-50/50 border-bottom border-slate-100 flex flex-row items-center justify-between">
+                <CardTitle className="text-sm font-bold flex items-center gap-2">
+                  <Languages className="w-4 h-4 text-primary" /> Supplier Translation Layer
+                </CardTitle>
+                {inquiryData && (
+                  <Badge className="bg-emerald-50 text-emerald-600 border-none text-[8px] font-black uppercase tracking-widest">
+                    Localized for {selectedSupplierForComm.region}
+                  </Badge>
+                )}
+              </CardHeader>
+              <CardContent className="p-6 flex-1 flex flex-col">
+                <AnimatePresence mode="wait">
+                  {!inquirySent ? (
+                    <motion.div 
+                      key="preview"
+                      initial={{ opacity: 0 }}
+                      animate={{ opacity: 1 }}
+                      className="flex-1 flex flex-col justify-center items-center text-center space-y-6 py-10"
+                    >
+                      <div className="w-16 h-16 bg-slate-50 rounded-full flex items-center justify-center">
+                        <Mail className="w-8 h-8 text-slate-300" />
+                      </div>
+                      <div className="space-y-2">
+                        <h3 className="text-lg font-bold text-slate-900">Ready to Initiate Communication?</h3>
+                        <p className="text-xs text-slate-500 max-w-xs mx-auto">AI will translate your inquiry and send a professional procurement message to the supplier.</p>
+                      </div>
+                      <div className="flex gap-3">
+                        <Button onClick={handleSendInquiry} disabled={isSendingInquiry} className="bg-slate-900 hover:bg-black text-white rounded-xl px-8 font-bold">
+                          {isSendingInquiry ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : <Zap className="w-4 h-4 mr-2" />}
+                          Initiate Supplier Communication
+                        </Button>
+                      </div>
+                    </motion.div>
+                  ) : (
+                    <motion.div 
+                      key="results"
+                      initial={{ opacity: 0 }}
+                      animate={{ opacity: 1 }}
+                      className="space-y-6"
+                    >
+                      <div className="space-y-3">
+                        <div className="flex items-center justify-between">
+                          <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Translated Inquiry ({inquiryData.translation_details.detected_language})</p>
+                          <Badge variant="outline" className="text-[8px] font-bold text-slate-400">{inquiryData.translation_details.confidence * 100}% Confidence</Badge>
+                        </div>
+                        <div className="p-4 bg-primary/5 border border-primary/10 rounded-xl text-xs font-medium text-slate-700 leading-relaxed whitespace-pre-wrap">
+                          {inquiryData.translation_details.translated_message}
+                        </div>
+                      </div>
+
+                      <div className="pt-6 border-t border-slate-100 space-y-4">
+                        <div className="flex items-center justify-between">
+                          <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Supplier Native Reply</p>
+                          <Badge className="bg-blue-50 text-blue-600 border-none text-[8px] font-black">Received</Badge>
+                        </div>
+                        <div className="p-4 bg-slate-50 border border-slate-100 rounded-xl text-xs font-bold text-slate-900 leading-relaxed">
+                          {inquiryData.supplier_reply_simulation.native_reply}
+                        </div>
+                        <div className="p-4 bg-white border border-slate-100 rounded-xl text-xs font-medium text-slate-600 leading-relaxed italic">
+                          "{inquiryData.supplier_reply_simulation.translated_reply}"
+                        </div>
+                      </div>
+                      
+                      <div className="flex gap-3 pt-4">
+                        <Button variant="outline" className="flex-1 rounded-xl border-slate-200 text-xs font-bold gap-2">
+                          <RefreshCw className="w-3 h-3" /> Regenerate
+                        </Button>
+                        <Button variant="outline" className="flex-1 rounded-xl border-slate-200 text-xs font-bold gap-2">
+                          <Download className="w-3 h-3" /> RFQ PDF
+                        </Button>
+                      </div>
+                    </motion.div>
+                  )}
+                </AnimatePresence>
+              </CardContent>
+            </Card>
+          </div>
+
+          {/* RIGHT PANEL: Negotiation Intelligence */}
+          <div className="lg:col-span-3 space-y-6">
+            <Card className="border-slate-100 shadow-sm rounded-2xl overflow-hidden">
+              <CardHeader className="bg-slate-50/50 border-bottom border-slate-100">
+                <CardTitle className="text-sm font-bold flex items-center gap-2">
+                  <Activity className="w-4 h-4 text-primary" /> Negotiation Intelligence
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="p-6 space-y-6">
+                {!inquirySent ? (
+                  <div className="text-center py-10 space-y-4">
+                    <div className="w-12 h-12 bg-slate-50 rounded-full flex items-center justify-center mx-auto opacity-50">
+                      <Lock className="w-6 h-6 text-slate-300" />
+                    </div>
+                    <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Waiting for response...</p>
+                  </div>
+                ) : (
+                  <div className="space-y-4">
+                    {[
+                      { signal: "MOQ Flexibility", status: inquiryData.supplier_reply_simulation.analysis.moq_flexibility, color: inquiryData.supplier_reply_simulation.analysis.moq_flexibility === "HIGH" ? "text-emerald-600" : "text-amber-600" },
+                      { signal: "Lead Time Risk", status: inquiryData.supplier_reply_simulation.analysis.lead_time_risk, color: inquiryData.supplier_reply_simulation.analysis.lead_time_risk === "LOW" ? "text-emerald-600" : "text-rose-600" },
+                      { signal: "Pricing Openness", status: inquiryData.supplier_reply_simulation.analysis.pricing_flexibility, color: "text-primary" },
+                      { signal: "Long-Term Interest", status: inquiryData.supplier_reply_simulation.analysis.partnership_intent, color: "text-cyan-600" }
+                    ].map((card, i) => (
+                      <div key={i} className="p-4 bg-slate-50 border border-slate-100 rounded-xl flex items-center justify-between">
+                        <span className="text-[10px] font-bold text-slate-500 uppercase tracking-tight">{card.signal}</span>
+                        <span className={cn("text-xs font-black uppercase tracking-widest", card.color)}>{card.status}</span>
+                      </div>
+                    ))}
+
+                    <div className="p-4 bg-primary/5 border border-primary/10 rounded-xl space-y-2">
+                      <p className="text-[9px] font-black text-primary uppercase tracking-widest flex items-center gap-1">
+                        <Info className="w-3 h-3" /> AI Interpretation
+                      </p>
+                      <p className="text-[11px] font-medium text-slate-700 leading-relaxed">
+                        {inquiryData.supplier_reply_simulation.analysis.extracted_insight}
+                      </p>
+                    </div>
+
+                    <Button 
+                      onClick={() => handleExecuteDealFromSelection(result!.selectedSupplier)}
+                      className="w-full h-12 bg-emerald-500 hover:bg-emerald-600 text-white rounded-xl font-bold shadow-lg shadow-emerald-500/20"
+                    >
+                      Commit to Procurement
+                    </Button>
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+          </div>
+        </div>
+      </motion.div>
+    )}
 
 
         {step === 'escrow_locked' && txId && (

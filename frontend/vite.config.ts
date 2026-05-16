@@ -9,7 +9,10 @@ export default defineConfig(({mode}) => {
     plugins: [react(), tailwindcss()],
     define: {
       'process.env.GROQ_API_KEY': JSON.stringify(env.GROQ_API_KEY),
-      global: 'window',
+      global: 'globalThis',
+    },
+    optimizeDeps: {
+      include: ['buffer'],
     },
     resolve: {
       alias: {

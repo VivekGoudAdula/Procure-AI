@@ -17,11 +17,18 @@ from blockchain import create_transaction, simulate_escrow
 from escrow_service import deploy_escrow
 from services.alibaba_procurement_service import AlibabaProcurementService
 from services.multilingual_negotiation_service import MultilingualNegotiationService
+from services.procurement_message_engine import ProcurementMessageEngine
+from services.translation_service import TranslationService
+from services.email_service import EmailService
 
 app = FastAPI(title="ProcureAI Backend - Autonomous Agentic Commerce Platform")
 
+# Services initialization
 procurement_engine = AlibabaProcurementService()
 negotiation_engine = MultilingualNegotiationService()
+message_engine = ProcurementMessageEngine()
+translation_service = TranslationService()
+email_service = EmailService()
 
 # CORS setup for frontend connection
 app.add_middleware(
@@ -133,6 +140,37 @@ class FullNegotiationRequest(BaseModel):
     buyer_message: str
     supplier_language: str
     product: str
+
+from typing import List, Optional, Any
+
+class ProcurementInquiryRequest(BaseModel):
+    product: str
+    quantity: Any
+    budget: Any
+    lead_time: Any
+    requirements: Any
+    destination_country: Optional[str] = "Global"
+    shipping_preference: Optional[str] = "EXW / FOB"
+
+class SendInquiryRequest(BaseModel):
+    supplier_name: str
+    supplier_email: str
+    supplier_region: str
+    original_message: str
+    translated_message: Optional[str] = None
+    procurement_context: Optional[dict] = None
+
+class SendInquiryResponse(BaseModel):
+    status: str
+    message: str
+    email_status: dict
+    translation_details: dict
+    supplier_reply_simulation: Optional[dict] = None
+
+class ProcurementInquiryResponse(BaseModel):
+    message: str
+    metadata: dict
+    logs: list[str]
 
 ESCROW_DB_PATH = os.path.join(os.path.dirname(__file__), "escrow_records.json")
 
@@ -665,6 +703,63 @@ async def full_multilingual_negotiation(req: FullNegotiationRequest):
 async def get_supported_languages():
     """Return the list of supported supplier languages for multilingual negotiation."""
     return negotiation_engine.get_supported_languages()
+
+
+@app.post("/api/procurement/generate-inquiry", response_model=ProcurementInquiryResponse)
+async def generate_procurement_inquiry(req: ProcurementInquiryRequest):
+    """
+    AI Procurement Message Engine endpoint.
+    Transforms raw buyer intent into a professional inquiry.
+    """
+    try:
+        result = message_engine.generate_inquiry(req.dict())
+        return result
+    except Exception as e:
+        print(f"[ProcureAI] Inquiry Generation Error: {str(e)}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.post("/api/procurement/send-inquiry", response_model=SendInquiryResponse)
+async def send_procurement_inquiry(req: SendInquiryRequest):
+    """
+    Sends a translated procurement inquiry to a supplier and simulates their response.
+    """
+    try:
+        # 1. Detect language if not provided
+        target_lang = translation_service.detect_language(req.supplier_region)
+        
+        # 2. Translate message if not provided
+        translated_msg = req.translated_message or translation_service.translate_message(req.original_message, target_lang)
+        
+        # 3. Generate HTML template
+        html_body = email_service.generate_html_template(req.supplier_name, translated_msg)
+        
+        # 4. Send Email (REAL SMTP if configured)
+        subject = f"Procurement Inquiry — ProcureAI Global Sourcing Network"
+        email_result = email_service.send_procurement_inquiry(
+            req.supplier_name, 
+            req.supplier_email, 
+            subject, 
+            html_body
+        )
+        
+        # 5. Simulate Supplier Reply (MVP)
+        simulation = translation_service.simulate_supplier_reply(target_lang)
+        
+        return {
+            "status": "success",
+            "message": "Procurement inquiry transmitted successfully.",
+            "email_status": email_result,
+            "translation_details": {
+                "detected_language": target_lang,
+                "translated_message": translated_msg,
+                "confidence": 0.98
+            },
+            "supplier_reply_simulation": simulation
+        }
+    except Exception as e:
+        print(f"[ProcureAI] Send Inquiry Error: {str(e)}")
+        raise HTTPException(status_code=500, detail=str(e))
 
 
 if __name__ == "__main__":

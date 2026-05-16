@@ -78,77 +78,68 @@ const RecommendationPanel: React.FC<RecommendationPanelProps> = ({
                 <Badge className="bg-emerald-50 text-emerald-600 border-none text-[7px] font-black uppercase tracking-widest px-1.5 py-0.5">MATCHED</Badge>
               </div>
               
-              <CardContent className="p-5 pt-10 flex flex-col flex-1">
+              <CardContent className="p-4 pt-10 flex flex-col flex-1">
                 <div className="space-y-4 flex-1">
-                  {/* Supplier Info */}
-                  <div className="text-center space-y-2">
-                    <div className="w-12 h-12 rounded-xl bg-slate-50 border border-slate-100 flex items-center justify-center mx-auto shadow-inner overflow-hidden">
+                  {/* 1. Header: Image, Name & Price */}
+                  <div className="flex items-center gap-3">
+                    <div className="w-12 h-12 rounded-xl bg-slate-50 border border-slate-100 flex items-center justify-center shrink-0 shadow-inner overflow-hidden">
                       {rec.product_image ? (
                         <img src={rec.product_image} alt={rec.name} className="w-full h-full object-cover" />
                       ) : (
                         <Package className="w-6 h-6 text-slate-300" />
                       )}
                     </div>
-                    <div>
-                      <h3 className="text-[13px] font-display font-bold text-slate-950 tracking-tight line-clamp-1">{rec.name}</h3>
-                      <div className="flex items-center justify-center gap-1.5 text-[9px] font-bold text-slate-500">
+                    <div className="min-w-0 flex-1">
+                      <h3 className="text-[13px] font-display font-bold text-slate-950 tracking-tight truncate leading-tight">{rec.name}</h3>
+                      <div className="flex items-center gap-1 text-[9px] font-bold text-slate-400 uppercase tracking-widest mt-0.5">
                         <Globe className="w-2.5 h-2.5" /> {rec.country}
                       </div>
                     </div>
-                  </div>
-
-                  {/* Pricing */}
-                  <div className="p-3 bg-slate-50 rounded-xl text-center border border-slate-100/50">
-                    <p className="text-[8px] font-black text-slate-400 uppercase tracking-widest mb-0.5">Negotiated Price</p>
-                    <div className="flex items-baseline justify-center gap-1">
-                      <span className="text-2xl font-display font-black text-slate-950">${rec.negotiated_price}</span>
-                      <span className="text-[8px] font-black text-emerald-600 uppercase tracking-tighter">/ Unit</span>
-                    </div>
-                  </div>
-
-                  {/* Stats Grid */}
-                  <div className="grid grid-cols-2 gap-3 border-y border-slate-50 py-3">
-                    <div className="space-y-0.5">
-                      <p className="text-[7px] font-black text-slate-400 uppercase tracking-widest">Trust Index</p>
-                      <p className="text-xs font-black text-slate-900">{rec.trust_score}%</p>
-                    </div>
-                    <div className="space-y-0.5 text-right">
-                      <p className="text-[7px] font-black text-slate-400 uppercase tracking-widest">Lead Time</p>
-                      <p className="text-xs font-black text-slate-900">{rec.lead_time_days}d</p>
-                    </div>
-                    <div className="space-y-0.5">
-                      <p className="text-[7px] font-black text-slate-400 uppercase tracking-widest">Capacity</p>
-                      <p className="text-xs font-black text-slate-900">VERIFIED</p>
-                    </div>
-                    <div className="space-y-0.5 text-right">
-                      <p className="text-[7px] font-black text-slate-400 uppercase tracking-widest">Success</p>
-                      <p className="text-xs font-black text-emerald-600">{rec.success_rate}%</p>
-                    </div>
-                  </div>
-
-                  {/* AI Reasoning (Vertical List) */}
-                  <div className="space-y-1.5">
-                    {(rec.reasons || ["Optimal logistics risk", "Verified capacity"]).slice(0, 2).map((reason: string, i: number) => (
-                      <div key={i} className="flex items-center gap-1.5 px-2 py-1 bg-white border border-slate-100 rounded-md">
-                        <Check className="w-2 h-2 text-emerald-500" />
-                        <span className="text-[8px] font-bold text-slate-500 truncate">{reason}</span>
+                    <div className="text-right shrink-0">
+                      <div className="flex items-baseline justify-end gap-0.5">
+                        <span className="text-xl font-display font-black tracking-tighter bg-gradient-to-r from-blue-600 to-emerald-500 bg-clip-text text-transparent">
+                          ${rec.negotiated_price}
+                        </span>
+                        <span className="text-[8px] font-black text-slate-400 uppercase tracking-tighter">/U</span>
                       </div>
-                    ))}
+                      <p className="text-[7px] font-black text-emerald-500/70 uppercase tracking-widest -mt-1">Best Quote</p>
+                    </div>
                   </div>
 
-                  {/* Policy Match Small */}
-                  <div className="flex items-center justify-between p-2 bg-emerald-50/50 rounded-lg border border-emerald-100/50">
-                    <span className="text-[8px] font-black text-emerald-700 uppercase">Policy Compliance</span>
-                    <span className="text-[8px] font-black text-emerald-600 flex items-center gap-0.5">
-                      <Check className="w-2.5 h-2.5" /> 100%
-                    </span>
+                  {/* 2. Compact Stats Grid */}
+                  <div className="grid grid-cols-2 gap-2">
+                    <div className="p-2 bg-slate-50 rounded-lg border border-slate-100 flex items-center justify-between">
+                      <span className="text-[7px] font-black text-slate-400 uppercase tracking-widest">Trust Index</span>
+                      <span className="text-[11px] font-black text-slate-900">{rec.trust_score}%</span>
+                    </div>
+                    <div className="p-2 bg-slate-50 rounded-lg border border-slate-100 flex items-center justify-between">
+                      <span className="text-[7px] font-black text-slate-400 uppercase tracking-widest">Lead Time</span>
+                      <span className="text-[11px] font-black text-slate-900">{rec.lead_time_days}d</span>
+                    </div>
+                  </div>
+
+                  {/* 3. Secondary Stats Row */}
+                  <div className="flex items-center justify-between px-1 py-0.5 border-t border-slate-50 pt-2">
+                    <div className="flex items-center gap-3">
+                      <div className="flex items-center gap-1">
+                        <CheckCircle2 className="w-2.5 h-2.5 text-blue-500" />
+                        <span className="text-[8px] font-bold text-slate-500">Verified</span>
+                      </div>
+                      <div className="flex items-center gap-1">
+                        <Zap className="w-2.5 h-2.5 text-amber-500 fill-amber-500" />
+                        <span className="text-[8px] font-bold text-slate-500">{rec.success_rate}% Success</span>
+                      </div>
+                    </div>
+                    <Badge variant="outline" className="text-[7px] font-black bg-emerald-50 text-emerald-600 border-emerald-100 py-0 h-4">
+                      POLICY MATCH
+                    </Badge>
                   </div>
                 </div>
 
-                <div className="mt-5 space-y-2">
+                <div className="mt-4">
                   <Button 
                     onClick={() => onSelect(rec)}
-                    className="w-full h-9 rounded-lg font-black text-[9px] uppercase tracking-widest transition-all bg-slate-950 text-white shadow-lg shadow-slate-200 hover:scale-[1.02]"
+                    className="w-full h-9 rounded-xl font-black text-[9px] uppercase tracking-widest transition-all bg-primary text-white shadow-lg shadow-primary/10 hover:bg-primary/90 hover:scale-[1.02]"
                   >
                     Select Option <ArrowRight className="ml-1.5 w-3 h-3" />
                   </Button>

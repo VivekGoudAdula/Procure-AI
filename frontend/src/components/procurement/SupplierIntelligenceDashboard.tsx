@@ -12,12 +12,14 @@ import {
   Database,
   Cpu,
   ArrowRight,
-  Shield
+  Shield,
+  Zap
 } from 'lucide-react';
 import { Badge } from '../ui/badge';
 import SupplierComparisonTable from './SupplierComparisonTable';
 import RecommendationPanel from './RecommendationPanel';
 import MultilingualNegotiationTerminal from './MultilingualNegotiationTerminal';
+import ProcurementMessageEngine from './ProcurementMessageEngine';
 
 interface SupplierIntelligenceDashboardProps {
   data: {
@@ -32,6 +34,8 @@ interface SupplierIntelligenceDashboardProps {
     quantity: number;
     budget: number;
     shipping_region: string;
+    lead_time: string;
+    custom_requirements: string;
   };
 }
 
@@ -59,7 +63,39 @@ const SupplierIntelligenceDashboard: React.FC<SupplierIntelligenceDashboardProps
         onSelect={(supplier) => onSelectSupplier(supplier)}
       />
 
-      {/* 2. SUPPLIER COMPARISON TABLE */}
+      {/* 2. AI SOURCING STRATEGY OVERVIEW */}
+      <div className="bg-slate-900 rounded-[2rem] p-8 text-white relative overflow-hidden shadow-2xl shadow-slate-200">
+        <div className="absolute top-0 right-0 p-8 opacity-10">
+          <Cpu className="w-32 h-32 text-emerald-400" />
+        </div>
+        <div className="relative z-10 space-y-6">
+          <div className="flex items-center gap-3">
+            <div className="p-2 bg-emerald-500/20 rounded-xl border border-emerald-500/30">
+              <Zap className="w-5 h-5 text-emerald-400" />
+            </div>
+            <div>
+              <h3 className="text-lg font-bold">AI Sourcing Strategy Activated</h3>
+              <p className="text-emerald-400/70 text-[10px] font-black uppercase tracking-widest">Autonomous Negotiation & Localization Layer Ready</p>
+            </div>
+          </div>
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+            <div className="space-y-2">
+              <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Protocol</p>
+              <p className="text-sm font-medium">Multi-Region Sourcing Optimization</p>
+            </div>
+            <div className="space-y-2">
+              <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Inquiry Status</p>
+              <p className="text-sm font-medium">Structured & Ready for Transmission</p>
+            </div>
+            <div className="space-y-2">
+              <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Recommended Action</p>
+              <p className="text-sm font-medium text-emerald-400">Select a supplier below to initiate localized communication</p>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* 3. SUPPLIER COMPARISON TABLE */}
       <div className="space-y-3 pt-4 border-t border-slate-200">
         <div className="flex items-center justify-between px-1">
           <div className="flex items-center gap-2">

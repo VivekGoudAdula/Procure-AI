@@ -431,12 +431,12 @@ class MultilingualNegotiationService:
                 "average_confidence": avg_confidence,
                 "overall_flexibility": "Very High",
                 "procurement_recommendation": (
-                    f"Supplier demonstrates elite negotiation adaptability across all {len(rounds)} rounds. "
-                    f"AI intent analysis confirms high fulfillment confidence ({avg_confidence}%) "
-                    f"with favorable long-term pricing potential. Recommend advancing to formal procurement agreement."
+                    f"Supplier demonstrates high negotiation adaptability across all {len(rounds)} rounds. "
+                    f"AI intent analysis confirms strong fulfillment confidence ({avg_confidence}%) "
+                    f"with favorable logistics alignment. Recommended for supplier shortlist evaluation."
                 ),
                 "risk_rating": "Low",
-                "suggested_action": "Proceed to Procurement Authorization"
+                "suggested_action": "Add to Supplier Shortlist"
             },
             "cultural_intelligence": {
                 "communication_style": cultural["communication_style"],
