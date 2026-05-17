@@ -1,29 +1,28 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { useApp } from '../context/AppContext';
 import { 
-  TrendingUp, 
-  Package, 
-  ShieldCheck, 
-  Zap,
   ArrowRight,
-  Cpu,
-  Activity,
-  ArrowUpRight,
-  Clock,
-  MoreHorizontal,
-  ChevronRight,
-  Target,
-  Users
+  ShieldCheck,
+  Globe,
+  Radio,
+  Sparkles,
+  MessageSquare,
+  ClipboardCheck,
+  Lock,
+  AlertCircle,
+  MapPin,
+  CheckCircle2,
+  BarChart3,
+  ChevronRight
 } from 'lucide-react';
 import { Link } from 'react-router-dom';
-import { cn } from '../lib/utils';
 import { motion } from 'motion/react';
-import { Card, CardContent, CardHeader, CardTitle } from '../components/ui/card';
 import { Button } from '../components/ui/button';
 import { Badge } from '../components/ui/badge';
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '../components/ui/card';
 import { 
-  AreaChart, 
-  Area, 
+  BarChart, 
+  Bar, 
   XAxis, 
   YAxis, 
   CartesianGrid, 
@@ -31,317 +30,376 @@ import {
   ResponsiveContainer 
 } from 'recharts';
 
-const chartData = [
-  { name: 'Jan', value: 4000 },
-  { name: 'Feb', value: 3000 },
-  { name: 'Mar', value: 5000 },
-  { name: 'Apr', value: 2780 },
-  { name: 'May', value: 1890 },
-  { name: 'Jun', value: 2390 },
-  { name: 'Jul', value: 3490 },
+const cn = (...inputs: any[]) => inputs.filter(Boolean).join(' ');
+
+// Live operational data for the regional operations bar graph
+const regionalOperationsData = [
+  { name: "China", negotiations: 4, escrows: 2 },
+  { name: "Vietnam", negotiations: 3, escrows: 1 },
+  { name: "India", negotiations: 2, escrows: 2 },
+  { name: "Turkey", negotiations: 1, escrows: 1 },
+  { name: "Bangladesh", negotiations: 1, escrows: 1 }
+];
+
+const mockOperationalAlerts = [
+  {
+    id: "AL-109",
+    type: "risk",
+    title: "Geopolitical Delivery Delay Risk",
+    desc: "Customs clearance duration in Istanbul, Turkey has increased to 8 days. Local logistics rerouting recommended.",
+    time: "2 mins ago"
+  },
+  {
+    id: "AL-110",
+    type: "success",
+    title: "Escrow Securing Confirmed On-Chain",
+    desc: "Smart escrow program 'ALGO-ESC-094' successfully funded for Dhaka Apparel Alliance (Bangladesh).",
+    time: "14 mins ago"
+  },
+  {
+    id: "AL-111",
+    type: "info",
+    title: "MOQ Flex Threshold Achieved",
+    desc: "Shenzhen Precision Moldings agreed to lower MOQ target from 1,000 units to 500 units for this sourcing cycle.",
+    time: "42 mins ago"
+  }
+];
+
+const mockGeopoliticalHotspots = [
+  { region: "China (Shenzhen)", activeSessions: 2, status: "Active Negotiations", state: "price_drop" },
+  { region: "Vietnam (Hanoi)", activeSessions: 1, status: "Fulfillment Pending", state: "approval_pending" },
+  { region: "Turkey (Istanbul)", activeSessions: 1, status: "Customs Delay Alert", state: "risk" },
+  { region: "Bangladesh (Dhaka)", activeSessions: 1, status: "Escrow Funded", state: "success" }
 ];
 
 const Dashboard = () => {
-  const { user, transactions } = useApp();
-
-  const stats = [
-    { name: 'Total Procured', value: '$42,500', icon: TrendingUp, color: 'text-emerald-600', bg: 'bg-emerald-50', trend: '+12.5%' },
-    { name: 'Active Orders', value: '3', icon: Package, color: 'text-primary', bg: 'bg-primary/5', trend: 'Stable' },
-    { name: 'Settled On-chain', value: '12', icon: ShieldCheck, color: 'text-secondary', bg: 'bg-secondary/5', trend: '+2' },
-    { name: 'AI Efficiency', value: '+24%', icon: Zap, color: 'text-amber-600', bg: 'bg-amber-50', trend: '+4.2%' },
-  ];
-
-  const container = {
-    hidden: { opacity: 0 },
-    show: {
-      opacity: 1,
-      transition: {
-        staggerChildren: 0.1
-      }
-    }
-  };
-
-  const item = {
-    hidden: { opacity: 0, y: 20 },
-    show: { opacity: 1, y: 0 }
-  };
+  const { user } = useApp();
+  const [operationalAlerts, setOperationalAlerts] = useState(mockOperationalAlerts);
+  const [activeSessionCount, setActiveSessionCount] = useState(3);
 
   return (
-    <div className="space-y-10 pb-16 pt-4">
-      {/* Header Section */}
-      <div className="flex flex-col md:flex-row md:items-end justify-between gap-6 px-1">
-        <div className="space-y-1">
-          <div className="flex items-center gap-2 mb-2">
-            <div className="w-2 h-2 rounded-full bg-primary animate-pulse" />
-            <span className="text-[10px] uppercase font-black tracking-[0.2em] text-primary/70">System Health: Operational</span>
+    <div className="space-y-8 pb-16 pt-4 px-1">
+      {/* 🚀 COMMAND CENTER HEADER */}
+      <div className="flex flex-col xl:flex-row xl:items-start justify-between gap-6">
+        <div className="space-y-2">
+          {/* Status Indicator Chips */}
+          <div className="flex flex-wrap items-center gap-2 mb-1">
+            <div className="flex items-center gap-1.5 px-3 py-1 rounded-full bg-blue-50 border border-blue-100 text-blue-600 text-[9px] font-black uppercase tracking-wider shadow-sm">
+              <span className="w-1.5 h-1.5 rounded-full bg-blue-500 animate-pulse" />
+              Live Sourcing Activity
+            </div>
+            <div className="flex items-center gap-1.5 px-3 py-1 rounded-full bg-violet-50 border border-violet-100 text-violet-600 text-[9px] font-black uppercase tracking-wider shadow-sm">
+              <ShieldCheck className="w-3 h-3 text-violet-500 animate-pulse" />
+              x402 Authorization Active
+            </div>
+            <div className="flex items-center gap-1.5 px-3 py-1 rounded-full bg-slate-50 border border-slate-200 text-slate-600 text-[9px] font-black uppercase tracking-wider shadow-sm">
+              <Radio className="w-3 h-3 text-primary animate-pulse" />
+              Algorand Settlement Layer
+            </div>
+            <div className="flex items-center gap-1.5 px-3 py-1 rounded-full bg-emerald-50 border border-emerald-100 text-emerald-600 text-[9px] font-black uppercase tracking-wider shadow-sm">
+              <Globe className="w-3 h-3 text-emerald-500" />
+              Ecosystem Connected
+            </div>
           </div>
           <h1 className="text-4xl font-display font-medium tracking-tight text-slate-950">
-            Command Center
+            Procurement Command Center
           </h1>
-          <p className="text-slate-500 max-w-lg font-medium text-sm">
-            Welcome back, <span className="text-slate-950 font-black">{user?.name || user?.email.split('@')[0]}</span>. Protocols are running at peak efficiency.
+          <p className="text-slate-500 max-w-2xl font-medium text-sm leading-relaxed">
+            Live AI-orchestrated procurement operations. Securely monitoring cross-border multilingual negotiations, tracking delivery risks, and overseeing active on-chain escrow allocations.
           </p>
         </div>
-        <div className="flex items-center gap-3">
-          <Button variant="outline" className="bg-white border-slate-200 text-slate-900 font-black text-xs uppercase tracking-widest h-12 px-6 rounded-2xl hover:bg-slate-50 transition-all shadow-sm">
-            Audit Logs
-          </Button>
+        <div className="flex items-center gap-3 self-start xl:self-end">
           <Link to="/procurement">
-            <Button className="bg-slate-950 hover:bg-black text-white font-black text-xs uppercase tracking-widest h-12 px-8 rounded-2xl shadow-2xl shadow-slate-200 transition-all hover:scale-[1.02]">
-              New Protocol <ArrowRight className="ml-2 w-4 h-4" />
+            <Button className="bg-slate-950 hover:bg-black text-white font-black text-xs uppercase tracking-widest h-12 px-8 rounded-2xl shadow-xl shadow-slate-200 transition-all hover:scale-[1.02]">
+              Launch Sourcing Engine <ArrowRight className="ml-2 w-4 h-4" />
             </Button>
           </Link>
         </div>
       </div>
 
-      {/* Stats Grid */}
-      <motion.div 
-        variants={container}
-        initial="hidden"
-        animate="show"
-        className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6"
-      >
-        {stats.map((stat) => (
-          <motion.div key={stat.name} variants={item}>
-            <Card className="bg-white border-slate-100/60 hover:border-primary/30 transition-all group shadow-sm hover:shadow-2xl hover:shadow-slate-200/50 rounded-[2rem] overflow-hidden">
-              <CardContent className="p-8">
-                <div className="flex items-center justify-between mb-6">
-                  <div className={cn(stat.bg, "w-14 h-14 rounded-2xl flex items-center justify-center group-hover:scale-110 transition-transform shadow-inner")}>
-                    <stat.icon className={cn(stat.color, "w-7 h-7")} />
-                  </div>
-                  <div className="flex flex-col items-end">
-                    <span className="text-[10px] font-black text-emerald-600 bg-emerald-50 px-3 py-1 rounded-full uppercase tracking-widest">
-                      {stat.trend}
-                    </span>
-                  </div>
-                </div>
-                <div className="space-y-1">
-                  <h3 className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] mb-1">{stat.name}</h3>
-                  <div className="text-3xl font-display font-black tracking-tight text-slate-950">{stat.value}</div>
-                </div>
-              </CardContent>
-            </Card>
-          </motion.div>
-        ))}
-      </motion.div>
+      {/* ✅ LIVE OPERATIONAL METRICS (Card structure focused on RIGHT NOW) */}
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+        {/* CARD 1: Active Sourcing Sessions */}
+        <Card className="bg-white border-slate-200 shadow-[0_4px_20px_rgba(0,0,0,0.02)] rounded-[1.5rem] overflow-hidden group hover:border-slate-400 transition-all duration-300">
+          <CardContent className="p-6">
+            <div className="flex items-center justify-between mb-4">
+              <div className="w-12 h-12 rounded-xl flex items-center justify-center border border-blue-100 bg-blue-50/50 group-hover:scale-105 transition-transform duration-300">
+                <MessageSquare className="text-blue-600 w-5 h-5 animate-pulse" />
+              </div>
+              <span className="text-[10px] font-black text-blue-600 bg-blue-50 border border-blue-100 px-2.5 py-1 rounded-full uppercase tracking-wider">
+                Active Stream
+              </span>
+            </div>
+            <div className="space-y-1">
+              <h3 className="text-[10px] font-bold text-slate-400 uppercase tracking-[0.15em]">AI Sourcing Sessions</h3>
+              <div className="text-3xl font-display font-black tracking-tight text-slate-950">{activeSessionCount} Active</div>
+              <p className="text-xs font-semibold text-slate-500 leading-tight">Live cross-border supplier negotiations in progress</p>
+            </div>
+          </CardContent>
+        </Card>
 
-      {/* Main Content Grid (Bento) */}
+        {/* CARD 2: Supplier Approvals Awaiting */}
+        <Card className="bg-white border-slate-200 shadow-[0_4px_20px_rgba(0,0,0,0.02)] rounded-[1.5rem] overflow-hidden group hover:border-slate-400 transition-all duration-300">
+          <CardContent className="p-6">
+            <div className="flex items-center justify-between mb-4">
+              <div className="w-12 h-12 rounded-xl flex items-center justify-center border border-amber-100 bg-amber-50/50 group-hover:scale-105 transition-transform duration-300">
+                <ClipboardCheck className="text-amber-600 w-5 h-5" />
+              </div>
+              <span className="text-[10px] font-black text-amber-600 bg-amber-50 border border-amber-100 px-2.5 py-1 rounded-full uppercase tracking-wider">
+                Action Required
+              </span>
+            </div>
+            <div className="space-y-1">
+              <h3 className="text-[10px] font-bold text-slate-400 uppercase tracking-[0.15em]">Pending Approvals</h3>
+              <div className="text-3xl font-display font-black tracking-tight text-slate-950">2 Awaiting</div>
+              <p className="text-xs font-semibold text-slate-500 leading-tight">Pending authorization to deploy on-chain escrow</p>
+            </div>
+          </CardContent>
+        </Card>
+
+        {/* CARD 3: Active Escrow Deployments */}
+        <Card className="bg-white border-slate-200 shadow-[0_4px_20px_rgba(0,0,0,0.02)] rounded-[1.5rem] overflow-hidden group hover:border-slate-400 transition-all duration-300">
+          <CardContent className="p-6">
+            <div className="flex items-center justify-between mb-4">
+              <div className="w-12 h-12 rounded-xl flex items-center justify-center border border-violet-100 bg-violet-50/50 group-hover:scale-105 transition-transform duration-300">
+                <Lock className="text-violet-600 w-5 h-5" />
+              </div>
+              <span className="text-[10px] font-black text-violet-600 bg-violet-50 border border-violet-100 px-2.5 py-1 rounded-full uppercase tracking-wider">
+                Algorand Locked
+              </span>
+            </div>
+            <div className="space-y-1">
+              <h3 className="text-[10px] font-bold text-slate-400 uppercase tracking-[0.15em]">On-Chain Commitments</h3>
+              <div className="text-3xl font-display font-black tracking-tight text-slate-950">4 Secured</div>
+              <p className="text-xs font-semibold text-slate-500 leading-tight">Active smart contracts locking supplier settlements</p>
+            </div>
+          </CardContent>
+        </Card>
+
+        {/* CARD 4: Active Alerts & Operations */}
+        <Card className="bg-white border-slate-200 shadow-[0_4px_20px_rgba(0,0,0,0.02)] rounded-[1.5rem] overflow-hidden group hover:border-slate-400 transition-all duration-300">
+          <CardContent className="p-6">
+            <div className="flex items-center justify-between mb-4">
+              <div className="w-12 h-12 rounded-xl flex items-center justify-center border border-rose-100 bg-rose-50/50 group-hover:scale-105 transition-transform duration-300">
+                <AlertCircle className="text-rose-600 w-5 h-5 animate-pulse" />
+              </div>
+              <span className="text-[10px] font-black text-rose-600 bg-rose-50 border border-rose-100 px-2.5 py-1 rounded-full uppercase tracking-wider">
+                System Watch
+              </span>
+            </div>
+            <div className="space-y-1">
+              <h3 className="text-[10px] font-bold text-slate-400 uppercase tracking-[0.15em]">Fulfillment Risks</h3>
+              <div className="text-3xl font-display font-black tracking-tight text-slate-950">1 Alert</div>
+              <p className="text-xs font-semibold text-slate-500 leading-tight">Logistics bottlenecks or customs delays flagged</p>
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+
+      {/* 💻 MAIN COMMAND CENTER OPERATIONAL GRID */}
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
         
-        {/* Chart Section */}
-        <motion.div 
-          initial={{ opacity: 0, scale: 0.98 }}
-          animate={{ opacity: 1, scale: 1 }}
-          transition={{ delay: 0.4 }}
-          className="lg:col-span-8"
-        >
-          <Card className="bg-white border-slate-100 shadow-sm h-full overflow-hidden rounded-[2.5rem]">
-            <CardHeader className="flex flex-row items-center justify-between bg-slate-50/50 py-7 px-10 border-b border-slate-100/50">
+        {/* LEFT COLUMN: ACTIVE OPERATIONS BAR CHART & ALERTS (8 cols) */}
+        <div className="lg:col-span-8 space-y-8">
+          
+          {/* Active Operations by Region - Simple Bar Chart */}
+          <Card className="bg-white border-slate-200 shadow-[0_4px_20px_rgba(0,0,0,0.02)] rounded-[2.5rem] overflow-hidden">
+            <CardHeader className="flex flex-col sm:flex-row sm:items-center sm:justify-between bg-slate-50/50 py-6 px-10 border-b border-slate-100/50 gap-4">
               <div>
-                <CardTitle className="text-xl font-display font-medium text-slate-950">Procurement Dynamics</CardTitle>
-                <p className="text-[10px] text-slate-400 font-black uppercase tracking-[0.1em] mt-1.5">Aggregate performance metrics across intelligence nodes</p>
+                <div className="flex items-center gap-2">
+                  <BarChart3 className="w-4 h-4 text-slate-950" />
+                  <CardTitle className="text-lg font-display font-semibold text-slate-950">
+                    Active Operations by Region
+                  </CardTitle>
+                </div>
+                <CardDescription className="text-[10px] text-slate-400 font-bold uppercase tracking-[0.15em] mt-1">
+                  Live snapshot of active AI negotiations & secured escrow allocations
+                </CardDescription>
               </div>
-              <div className="flex items-center gap-3">
-                <Badge variant="outline" className="bg-white border-slate-200 text-slate-500 font-black text-[9px] uppercase tracking-widest px-4 py-1.5 rounded-xl shadow-sm">6-Month Audit</Badge>
-              </div>
+              <Badge className="bg-slate-950 text-white font-black text-[9px] uppercase tracking-widest border-none px-2.5 shadow-sm">
+                OPERATIONAL SUMMARY
+              </Badge>
             </CardHeader>
             <CardContent className="p-10">
-              <div className="h-[320px] w-full min-w-0">
-                <ResponsiveContainer width="100%" height="100%" minWidth={0}>
-                  <AreaChart data={chartData}>
-                    <defs>
-                      <linearGradient id="colorValue" x1="0" y1="0" x2="0" y2="1">
-                        <stop offset="5%" stopColor="#000" stopOpacity={0.05}/>
-                        <stop offset="95%" stopColor="#000" stopOpacity={0}/>
-                      </linearGradient>
-                    </defs>
+              <div className="h-[280px] w-full min-w-0">
+                <ResponsiveContainer width="100%" height={280} minWidth={0}>
+                  <BarChart data={regionalOperationsData} barGap={6}>
                     <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
                     <XAxis 
                       dataKey="name" 
                       axisLine={false} 
                       tickLine={false} 
                       tick={{ fill: '#94a3b8', fontSize: 10, fontWeight: 900 }}
-                      dy={15}
+                      dy={10}
                     />
                     <YAxis 
                       axisLine={false} 
                       tickLine={false} 
                       tick={{ fill: '#94a3b8', fontSize: 10, fontWeight: 900 }}
+                      allowDecimals={false}
                     />
                     <Tooltip 
                       contentStyle={{ 
                         backgroundColor: '#fff', 
-                        borderRadius: '20px', 
-                        border: '1px solid #f1f5f9',
-                        boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.15)',
+                        borderRadius: '16px', 
+                        border: '1px solid #e2e8f0',
+                        boxShadow: '0 10px 25px -5px rgba(0, 0, 0, 0.05)',
                         padding: '12px'
                       }}
                       itemStyle={{ fontWeight: 900, fontSize: '12px' }}
+                      labelStyle={{ fontWeight: 900, fontSize: '10px', color: '#94a3b8', textTransform: 'uppercase', letterSpacing: '0.05em' }}
                     />
-                    <Area 
-                      type="monotone" 
-                      dataKey="value" 
-                      stroke="#0f172a" 
-                      strokeWidth={4}
-                      fillOpacity={1} 
-                      fill="url(#colorValue)" 
+                    <Bar 
+                      dataKey="negotiations" 
+                      name="Active Negotiations" 
+                      fill="#0284c7" 
+                      radius={[4, 4, 0, 0]} 
                     />
-                  </AreaChart>
+                    <Bar 
+                      dataKey="escrows" 
+                      name="Secured Escrows" 
+                      fill="#8b5cf6" 
+                      radius={[4, 4, 0, 0]} 
+                    />
+                  </BarChart>
                 </ResponsiveContainer>
               </div>
             </CardContent>
           </Card>
-        </motion.div>
 
-        {/* Right Sidebar Widgets */}
-        <div className="lg:col-span-4 space-y-8">
-          {/* Active Agents Widget */}
-          <Card className="bg-slate-950 border-none relative overflow-hidden group rounded-[2.5rem] shadow-2xl shadow-slate-200">
-            <div className="absolute top-0 right-0 w-64 h-64 bg-primary/10 rounded-full -mr-32 -mt-32 blur-[100px] group-hover:scale-150 transition-transform duration-1000" />
-            <CardContent className="p-10 relative z-10">
-              <div className="flex items-center justify-between mb-8">
-                <div className="w-14 h-14 rounded-2xl bg-white/5 flex items-center justify-center backdrop-blur-2xl border border-white/10 shadow-2xl">
-                  <Activity className="text-white w-7 h-7" />
+          {/* Live Operational Alerts Feed */}
+          <Card className="bg-white border-slate-200 shadow-[0_4px_20px_rgba(0,0,0,0.02)] rounded-[2.5rem] overflow-hidden">
+            <CardHeader className="py-6 px-10 bg-slate-50/30 border-b border-slate-100">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <span className="w-2 h-2 rounded-full bg-slate-900 animate-pulse" />
+                  <CardTitle className="text-base font-display font-semibold text-slate-950">Live Operational Alerts</CardTitle>
                 </div>
-                <div className="flex items-center gap-2 px-3 py-1.5 rounded-full bg-emerald-500/10 border border-emerald-500/20">
-                  <div className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
-                  <span className="text-[9px] font-black text-emerald-400 uppercase tracking-widest">Live Protocol</span>
-                </div>
+                <Badge className="bg-slate-100 text-slate-600 font-black text-[9px] uppercase tracking-wider border-none">
+                  OPERATIONAL EVENTS
+                </Badge>
               </div>
-              <h3 className="text-2xl font-display font-medium text-white mb-3">Intelligence Hub</h3>
-              <p className="text-white/50 text-sm mb-10 leading-relaxed font-medium">98.2% Efficiency across 5 active intelligence nodes currently negotiating on-chain.</p>
-              
-              <div className="space-y-6">
-                <div className="space-y-3">
-                  <div className="flex items-center justify-between text-[10px]">
-                    <span className="text-white/30 font-black uppercase tracking-[0.2em]">Deployment Load</span>
-                    <span className="text-white font-black">94.8%</span>
-                  </div>
-                  <div className="w-full h-1.5 bg-white/5 rounded-full overflow-hidden">
-                    <motion.div 
-                      initial={{ width: 0 }}
-                      animate={{ width: '94.8%' }}
-                      transition={{ duration: 1.5, delay: 0.5 }}
-                      className="h-full bg-primary"
-                    />
-                  </div>
-                </div>
-              </div>
-
-              <Link to="/procurement" className="block mt-12">
-                <Button className="w-full bg-white text-slate-950 hover:bg-slate-100 font-black text-xs uppercase tracking-widest h-12 rounded-2xl transition-all shadow-xl">
-                  Deploy Agents <ChevronRight className="ml-2 w-4 h-4" />
-                </Button>
-              </Link>
-            </CardContent>
-          </Card>
-
-          {/* Goals Widget */}
-          <Card className="bg-white border-slate-100 shadow-sm rounded-[2.5rem]">
-            <CardHeader className="py-7 px-9 border-b border-slate-50">
-              <CardTitle className="text-xs font-black text-slate-400 flex items-center gap-2 uppercase tracking-[0.2em]">
-                <Target className="w-4 h-4 text-primary" />
-                Optimization Goals
-              </CardTitle>
             </CardHeader>
-            <CardContent className="p-9 space-y-8">
-              <div className="space-y-3">
-                <div className="flex items-center justify-between text-[10px]">
-                  <span className="text-slate-500 font-black uppercase tracking-widest">Cost Hard-Cap</span>
-                  <span className="text-slate-950 font-black">$12k / 15k</span>
+            <CardContent className="p-8 space-y-4">
+              {operationalAlerts.map((alert) => (
+                <div 
+                  key={alert.id} 
+                  className={cn(
+                    "flex gap-4 p-4 rounded-xl border transition-all duration-200",
+                    alert.type === 'risk' ? "bg-rose-50/50 border-rose-100 hover:bg-rose-50" :
+                    alert.type === 'success' ? "bg-emerald-50/50 border-emerald-100 hover:bg-emerald-50" :
+                    "bg-slate-50 border-slate-100 hover:bg-slate-100/80"
+                  )}
+                >
+                  <div className={cn(
+                    "w-8 h-8 rounded-lg flex items-center justify-center shrink-0 shadow-sm border",
+                    alert.type === 'risk' ? "bg-rose-50 border-rose-200 text-rose-600" :
+                    alert.type === 'success' ? "bg-emerald-50 border-emerald-200 text-emerald-600" :
+                    "bg-white border-slate-200 text-slate-600"
+                  )}>
+                    {alert.type === 'risk' ? <AlertCircle className="w-4 h-4" /> :
+                     alert.type === 'success' ? <CheckCircle2 className="w-4 h-4" /> :
+                     <Sparkles className="w-4 h-4 text-primary" />}
+                  </div>
+                  <div className="space-y-1">
+                    <div className="flex items-center justify-between gap-4">
+                      <h5 className="text-xs font-black text-slate-950">{alert.title}</h5>
+                      <span className="text-[9px] text-slate-400 font-bold uppercase shrink-0">{alert.time}</span>
+                    </div>
+                    <p className="text-[11px] font-semibold text-slate-600 leading-relaxed">{alert.desc}</p>
+                  </div>
                 </div>
-                <div className="w-full h-2.5 bg-slate-50 rounded-full overflow-hidden shadow-inner">
-                  <div className="h-full bg-slate-950 w-[82%] rounded-full shadow-lg" />
-                </div>
-              </div>
-              <div className="space-y-3">
-                <div className="flex items-center justify-between text-[10px]">
-                  <span className="text-slate-500 font-black uppercase tracking-widest">Latency Floor</span>
-                  <span className="text-slate-950 font-black">1.2s Floor</span>
-                </div>
-                <div className="w-full h-2.5 bg-slate-50 rounded-full overflow-hidden shadow-inner">
-                  <div className="h-full bg-primary w-[95%] rounded-full shadow-lg" />
-                </div>
-              </div>
+              ))}
             </CardContent>
           </Card>
+
         </div>
 
-        {/* Recent Transactions Section */}
-        <motion.div 
-          initial={{ opacity: 0, y: 30 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.6 }}
-          className="lg:col-span-12"
-        >
-          <Card className="bg-white border-slate-100 shadow-sm overflow-hidden rounded-[2.5rem] mb-12">
-            <CardHeader className="flex flex-row items-center justify-between bg-slate-50/50 py-8 px-10 border-b border-slate-100/50">
-              <div>
-                <CardTitle className="text-xl font-display font-medium text-slate-950">Settlement Logs</CardTitle>
-                <p className="text-[10px] text-slate-400 font-black uppercase tracking-[0.1em] mt-1.5">Sequential ledger entries from autonomous on-chain settlements</p>
+        {/* RIGHT COLUMN: SOURCING HOTSPOTS & AI INSIGHTS (4 cols) */}
+        <div className="lg:col-span-4 space-y-8">
+          
+          {/* Sourcing Geopolitical Hotspots */}
+          <Card className="bg-white border-slate-200 shadow-[0_4px_20px_rgba(0,0,0,0.02)] rounded-[2.5rem] overflow-hidden">
+            <CardHeader className="py-6 px-8 bg-slate-50/50 border-b border-slate-100/50">
+              <div className="flex items-center justify-between">
+                <div>
+                  <CardTitle className="text-base font-display font-semibold text-slate-950">Sourcing Hotspots</CardTitle>
+                  <p className="text-[9px] text-slate-400 font-bold uppercase tracking-[0.1em] mt-0.5">
+                    Real-time global manufacturing hubs active
+                  </p>
+                </div>
+                <Badge className="bg-slate-100 text-slate-600 font-black text-[9px] uppercase tracking-wider border-none">
+                  MAP CHIPS
+                </Badge>
               </div>
-              <Link to="/transactions">
-                <Button variant="outline" className="text-slate-950 border-slate-200 hover:bg-slate-50 font-black text-[10px] uppercase tracking-widest px-6 h-10 rounded-xl shadow-sm">
-                  Full Analytics <ArrowRight className="ml-2 w-3.5 h-3.5" />
-                </Button>
-              </Link>
             </CardHeader>
-            <div className="overflow-x-auto">
-              <table className="w-full text-left">
-                <thead>
-                  <tr className="bg-slate-50/30 text-slate-400 text-[10px] uppercase tracking-[0.2em]">
-                    <th className="px-10 py-5 font-black">Counterparty</th>
-                    <th className="px-10 py-5 font-black">Settle Value</th>
-                    <th className="px-10 py-5 font-black">State</th>
-                    <th className="px-10 py-5 font-black">Protocol Date</th>
-                    <th className="px-10 py-5 font-black text-right">Verification</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-slate-50">
-                  {transactions.slice(0, 5).map((tx) => (
-                    <tr key={tx.id} className="hover:bg-slate-50/40 transition-all group cursor-pointer">
-                      <td className="px-10 py-6">
-                        <div className="flex items-center gap-4">
-                          <div className="w-12 h-12 rounded-2xl bg-white border border-slate-100 flex items-center justify-center text-xs font-black text-slate-950 group-hover:bg-slate-950 group-hover:text-white group-hover:border-slate-950 transition-all shadow-sm">
-                            {tx.supplier.charAt(0)}
-                          </div>
-                          <div className="flex flex-col">
-                            <span className="text-sm font-black text-slate-950">{tx.supplier}</span>
-                            <span className="text-[10px] font-bold text-slate-400 font-mono">TX-{tx.id.substring(0, 8)}</span>
-                          </div>
-                        </div>
-                      </td>
-                      <td className="px-10 py-6">
-                        <span className="text-sm font-black text-slate-950 font-display">${tx.amount.toLocaleString()}</span>
-                      </td>
-                      <td className="px-10 py-6">
-                        <Badge className={cn(
-                          "text-[9px] font-black uppercase tracking-widest px-3 py-1 rounded-lg border shadow-none",
-                          tx.status === 'Completed' 
-                            ? "bg-emerald-50 text-emerald-600 border-emerald-100" 
-                            : "bg-amber-50 text-amber-600 border-amber-100"
-                        )}>
-                          {tx.status}
-                        </Badge>
-                      </td>
-                      <td className="px-10 py-6">
-                        <div className="flex items-center gap-2.5 text-xs text-slate-400 font-bold uppercase tracking-tighter">
-                          <Clock className="w-3.5 h-3.5" />
-                          {tx.date}
-                        </div>
-                      </td>
-                      <td className="px-10 py-6 text-right">
-                        <Button variant="ghost" size="icon" className="w-10 h-10 rounded-xl text-slate-400 hover:text-slate-950 hover:bg-slate-100 transition-all">
-                          <ArrowUpRight className="w-5 h-5" />
-                        </Button>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
+            <CardContent className="p-6 space-y-4">
+              {mockGeopoliticalHotspots.map((spot, idx) => (
+                <div key={idx} className="flex items-center justify-between p-3 rounded-xl border border-slate-50 hover:bg-slate-50/50 transition-colors">
+                  <div className="flex items-center gap-3">
+                    <div className="w-2.5 h-2.5 rounded-full bg-slate-950 relative flex items-center justify-center shrink-0">
+                      <span className="w-2.5 h-2.5 rounded-full bg-slate-950 animate-ping absolute" />
+                    </div>
+                    <div>
+                      <span className="text-xs font-black text-slate-950 block leading-tight">{spot.region}</span>
+                      <span className="text-[9px] font-bold text-slate-400 uppercase tracking-wider block mt-0.5">{spot.status}</span>
+                    </div>
+                  </div>
+
+                  <Badge 
+                    className={cn(
+                      "text-[8px] font-black uppercase tracking-widest px-2 py-0.5 border-none",
+                      spot.state === 'risk' ? "bg-rose-50 text-rose-600" :
+                      spot.state === 'success' ? "bg-emerald-50 text-emerald-600" :
+                      "bg-blue-50 text-blue-600"
+                    )}
+                  >
+                    {spot.activeSessions} Session{spot.activeSessions > 1 ? "s" : ""}
+                  </Badge>
+                </div>
+              ))}
+            </CardContent>
           </Card>
-        </motion.div>
+
+          {/* AI Qualitative Sourcing Insights */}
+          <Card className="bg-white border-slate-200 shadow-[0_4px_20px_rgba(0,0,0,0.02)] rounded-[2.5rem] overflow-hidden">
+            <CardHeader className="py-6 px-8 bg-slate-50/50 border-b border-slate-100/50">
+              <div className="flex items-center justify-between">
+                <div>
+                  <div className="flex items-center gap-2">
+                    <Sparkles className="w-4 h-4 text-slate-950" />
+                    <CardTitle className="text-base font-display font-semibold text-slate-950">AI Operational Signals</CardTitle>
+                  </div>
+                  <p className="text-[9px] text-slate-400 font-bold uppercase tracking-[0.1em] mt-0.5">
+                    Live qualitative sourcing recommendation alerts
+                  </p>
+                </div>
+              </div>
+            </CardHeader>
+            <CardContent className="p-6 space-y-4">
+              <div className="p-4 rounded-xl bg-slate-50 border border-slate-100 space-y-2">
+                <div className="flex items-center gap-2">
+                  <span className="w-1.5 h-1.5 rounded-full bg-violet-600 shrink-0" />
+                  <h6 className="text-[10px] font-black uppercase tracking-wider text-slate-900">Currency Hedge Warning</h6>
+                </div>
+                <p className="text-[11px] font-semibold text-slate-600 leading-relaxed">
+                  Significant fluctuation detected in Renminbi exchange rates. Locking on-chain smart escrow values early is recommended to mitigate pricing volatility.
+                </p>
+              </div>
+
+              <div className="p-4 rounded-xl bg-slate-50 border border-slate-100 space-y-2">
+                <div className="flex items-center gap-2">
+                  <span className="w-1.5 h-1.5 rounded-full bg-emerald-600 shrink-0" />
+                  <h6 className="text-[10px] font-black uppercase tracking-wider text-slate-900">Language Alignment Signal</h6>
+                </div>
+                <p className="text-[11px] font-semibold text-slate-600 leading-relaxed">
+                  Shenzhen Precision Moldings agreed to a 12% price reduction immediately after switching communication channels to native Mandarin.
+                </p>
+              </div>
+            </CardContent>
+          </Card>
+
+        </div>
       </div>
     </div>
   );

@@ -110,7 +110,7 @@ interface IntelligenceResult {
 }
 
 const Procurement = () => {
-  const { addTransaction, walletAddress, setWalletAddress } = useApp();
+  const { addTransaction, walletAddress, setWalletAddress, user } = useApp();
 
   // Form State
   const [productName, setProductName] = useState('');
@@ -172,6 +172,9 @@ const Procurement = () => {
   const [isVerifying, setIsVerifying] = useState(false);
   const [isVerified, setIsVerified] = useState(false);
   const [showSupplierDetails, setShowSupplierDetails] = useState<Supplier | null>(null);
+  const [escrowStatus, setEscrowStatus] = useState<string>(() => {
+    return sessionStorage.getItem('procureai_escrowstatus') || 'funded';
+  });
 
   // Communication State
   const [inquiryData, setInquiryData] = useState<any>(null);
@@ -188,6 +191,7 @@ const Procurement = () => {
     if (appId) sessionStorage.setItem('procureai_appid', appId.toString());
     if (appAddress) sessionStorage.setItem('procureai_appaddress', appAddress);
     if (x402Session) sessionStorage.setItem('procureai_x402_session', JSON.stringify(x402Session));
+    if (escrowStatus) sessionStorage.setItem('procureai_escrowstatus', escrowStatus);
 
     // Clear session if we go back to form
     if (step === 'form') {
@@ -196,8 +200,9 @@ const Procurement = () => {
       sessionStorage.removeItem('procureai_appid');
       sessionStorage.removeItem('procureai_appaddress');
       sessionStorage.removeItem('procureai_x402_session');
+      sessionStorage.removeItem('procureai_escrowstatus');
     }
-  }, [step, result, txId, x402Session]);
+  }, [step, result, txId, x402Session, escrowStatus]);
 
   const logsEndRef = useRef<HTMLDivElement>(null);
 
@@ -364,6 +369,280 @@ const Procurement = () => {
     }
   };
 
+  const handleDownloadRFQPDF = () => {
+    if (!selectedSupplierForComm || !inquiryData) {
+      toast.error("No active sourcing session data to export.");
+      return;
+    }
+
+    const printWindow = window.open('', '_blank', 'width=850,height=950');
+    if (!printWindow) {
+      toast.error("Popup blocked! Please allow popups to download the RFQ PDF.");
+      return;
+    }
+
+    const dateStr = new Date().toLocaleDateString('en-US', {
+      year: 'numeric',
+      month: 'long',
+      day: 'numeric'
+    });
+
+    const buyerEmail = user?.email || "adulavivekgoud@gmail.com";
+
+    const htmlContent = `
+      <!DOCTYPE html>
+      <html>
+      <head>
+        <title>Request for Quote (RFQ) - Procure-AI</title>
+        <style>
+          @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;800;900&display=swap');
+          body {
+            font-family: 'Inter', sans-serif;
+            color: #0f172a;
+            margin: 0;
+            padding: 40px;
+            line-height: 1.5;
+            background-color: #ffffff;
+          }
+          .header {
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-start;
+            border-bottom: 2px solid #f1f5f9;
+            padding-bottom: 24px;
+            margin-bottom: 30px;
+          }
+          .logo-section h1 {
+            font-size: 26px;
+            font-weight: 900;
+            margin: 0;
+            letter-spacing: -0.03em;
+            color: #0f172a;
+          }
+          .logo-section p {
+            font-size: 11px;
+            color: #64748b;
+            margin: 4px 0 0 0;
+            text-transform: uppercase;
+            font-weight: 700;
+            letter-spacing: 0.1em;
+          }
+          .doc-title {
+            text-align: right;
+          }
+          .doc-title h2 {
+            font-size: 20px;
+            font-weight: 800;
+            margin: 0;
+            color: #0f172a;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+          }
+          .doc-title p {
+            font-size: 12px;
+            color: #64748b;
+            margin: 6px 0 0 0;
+          }
+          .meta-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 30px;
+            margin-bottom: 40px;
+          }
+          .meta-card {
+            background-color: #f8fafc;
+            border: 1px solid #f1f5f9;
+            border-radius: 12px;
+            padding: 20px;
+          }
+          .meta-card h3 {
+            font-size: 11px;
+            text-transform: uppercase;
+            letter-spacing: 0.1em;
+            color: #64748b;
+            margin: 0 0 12px 0;
+            font-weight: 800;
+          }
+          .meta-card p {
+            margin: 4px 0;
+            font-size: 13px;
+            font-weight: 600;
+          }
+          .meta-card .val {
+            font-weight: 800;
+            color: #0f172a;
+          }
+          .table-section {
+            margin-bottom: 40px;
+          }
+          table {
+            width: 100%;
+            border-collapse: collapse;
+            text-align: left;
+          }
+          th {
+            background-color: #f1f5f9;
+            font-size: 10px;
+            text-transform: uppercase;
+            letter-spacing: 0.1em;
+            font-weight: 800;
+            color: #475569;
+            padding: 12px 16px;
+            border-bottom: 2px solid #e2e8f0;
+          }
+          td {
+            padding: 16px;
+            font-size: 13px;
+            border-bottom: 1px solid #f1f5f9;
+            font-weight: 600;
+          }
+          .total-row td {
+            font-weight: 800;
+            font-size: 15px;
+            border-top: 2px solid #e2e8f0;
+            border-bottom: none;
+            background-color: #f8fafc;
+          }
+          .badge {
+            display: inline-block;
+            font-size: 9px;
+            font-weight: 900;
+            padding: 4px 8px;
+            border-radius: 6px;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+          }
+          .badge-verified {
+            background-color: #ecfdf5;
+            color: #059669;
+          }
+          .badge-sec {
+            background-color: #f0fdf4;
+            color: #16a34a;
+          }
+          .insight-section {
+            background-color: #f5f3ff;
+            border: 1px solid #ede9fe;
+            border-radius: 12px;
+            padding: 20px;
+            margin-bottom: 40px;
+          }
+          .insight-section h4 {
+            font-size: 11px;
+            text-transform: uppercase;
+            letter-spacing: 0.1em;
+            color: #6d28d9;
+            margin: 0 0 8px 0;
+            font-weight: 800;
+          }
+          .insight-section p {
+            font-size: 12px;
+            color: #5b21b6;
+            margin: 0;
+            font-weight: 600;
+            line-height: 1.6;
+          }
+          .footer {
+            margin-top: 60px;
+            border-top: 2px solid #f1f5f9;
+            padding-top: 20px;
+            text-align: center;
+            font-size: 10px;
+            color: #94a3b8;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 0.1em;
+          }
+          @media print {
+            body {
+              padding: 0;
+            }
+          }
+        </style>
+      </head>
+      <body>
+        <div class="header">
+          <div class="logo-section">
+            <h1>PROCURE-AI</h1>
+            <p>Autonomous Sourcing Platform</p>
+          </div>
+          <div class="doc-title">
+            <h2>Request For Quote</h2>
+            <p>Reference: RFQ-${selectedSupplierForComm.id}</p>
+            <p>Date: ${dateStr}</p>
+          </div>
+        </div>
+
+        <div class="meta-grid">
+          <div class="meta-card">
+            <h3>Sourcing From (Buyer)</h3>
+            <p class="val">${buyerEmail}</p>
+            <p>Auth Status: <span class="badge badge-sec">x402 Authorized</span></p>
+            <p>Payment Mode: <span class="badge badge-verified">Algorand Secured Escrow</span></p>
+          </div>
+          <div class="meta-card">
+            <h3>Supplier Details</h3>
+            <p class="val">${selectedSupplierForComm.name}</p>
+            <p>Region: ${selectedSupplierForComm.country || selectedSupplierForComm.region || 'Global'}</p>
+            <p>Email: ${selectedSupplierForComm.email || "partner@global-sourcing.com"}</p>
+          </div>
+        </div>
+
+        <div class="table-section">
+          <table>
+            <thead>
+              <tr>
+                <th>Description / Target Terms</th>
+                <th>Required Qty</th>
+                <th>Target Budget</th>
+                <th>Expected Lead Time</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td>
+                  <strong>${productName}</strong><br/>
+                  <span style="font-size: 11px; color: #64748b;">Custom Requirement: ${customRequirements || 'None specified'}</span>
+                </td>
+                <td>${quantity} Units</td>
+                <td>$${budget.toLocaleString()}</td>
+                <td>${leadTime}</td>
+              </tr>
+              <tr class="total-row">
+                <td>Estimated Unit Price Sourcing Limit</td>
+                <td colspan="3" style="text-align: right;">$${(budget / quantity).toFixed(2)} / Unit</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+
+        <div class="insight-section">
+          <h4>AI Sourcing Interpretation Seal</h4>
+          <p>${inquiryData.supplier_reply_simulation.analysis.extracted_insight}</p>
+        </div>
+
+        <div style="font-size: 11px; color: #64748b; line-height: 1.6; margin-bottom: 40px; border-left: 3px solid #cbd5e1; padding-left: 15px;">
+          <strong>Cryptographic Verification Notice:</strong> This request for quotation has been dynamically verified and registered via the Procure-AI smart negotiation pipeline. Upon vendor confirmation, the escrow agreement is authorized to deploy on the Algorand mainnet ledger under protocol x402.
+        </div>
+
+        <div class="footer">
+          Procure-AI Global Sourcing Ecosystem • Confidential Document
+        </div>
+
+        <script>
+          window.onload = function() {
+            window.print();
+            setTimeout(function() { window.close(); }, 500);
+          };
+        </script>
+      </body>
+      </html>
+    `;
+
+    printWindow.document.write(htmlContent);
+    printWindow.document.close();
+  };
+
   const handleExecuteDealFromSelection = async (selected: any) => {
     // This is essentially handleExecuteDeal but using the passed supplier
     if (isExecuting) return; 
@@ -438,6 +717,7 @@ const Procurement = () => {
 
       const fundResult = await composer.execute(algodClient, 4);
       setTxId(fundResult.txIDs[0]);
+      setEscrowStatus('funded');
       
       setStep('escrow_locked');
       toast.success('Escrow settlement initiated and funds locked!');
@@ -570,6 +850,7 @@ const Procurement = () => {
       const fundResult = await composer.execute(algodClient, 4);
       
       setTxId(fundResult.txIDs[0]);
+      setEscrowStatus('funded');
       
       // Update status to awaiting_delivery in backend
       try {
@@ -764,6 +1045,59 @@ const Procurement = () => {
               Connect Wallet
             </Button>
           )}
+        </div>
+      </div>
+
+      {/* TIMELINE PROGRESSION BAR */}
+      <div className="max-w-7xl mx-auto bg-white border border-slate-200 rounded-[1.5rem] p-5 shadow-sm">
+        <div className="flex items-center justify-between">
+          {[
+            { label: 'Discovery', desc: 'AI Global Sourcing' },
+            { label: 'Negotiation', desc: 'Multi-Lingual Engine' },
+            { label: 'Approval', desc: 'Shortlist Partnership' },
+            { label: 'Commitment', desc: 'Algorand Escrow Lock' },
+            { label: 'Verification', desc: 'On-Chain Delivery Proof' },
+            { label: 'Settlement', desc: 'Fund Release' }
+          ].map((tStep, idx) => {
+            const currentIdx = 
+              (step === 'form' || step === 'intelligence_loading') ? 0 :
+              (step === 'intelligence_dashboard') ? 1 :
+              (step === 'communication') ? 2 :
+              (step === 'escrow_locked' && !isVerified) ? 3 :
+              (step === 'escrow_locked' && isVerified) ? 4 :
+              (step === 'payment') ? 5 : 0;
+
+            const isCompleted = idx < currentIdx;
+            const isActive = idx === currentIdx;
+
+            return (
+              <React.Fragment key={idx}>
+                <div className="flex flex-col items-center flex-1 relative">
+                  <div className={cn(
+                    "w-8 h-8 rounded-full flex items-center justify-center font-bold text-xs transition-all duration-500",
+                    isCompleted ? "bg-emerald-500 text-white shadow-lg shadow-emerald-100" :
+                    isActive ? "bg-primary text-white ring-4 ring-primary/20 scale-110 shadow-lg shadow-primary/10" :
+                    "bg-slate-100 text-slate-400 border border-slate-200"
+                  )}>
+                    {isCompleted ? <Check className="w-4 h-4" /> : idx + 1}
+                  </div>
+                  <span className={cn(
+                    "text-[10px] font-black uppercase tracking-wider mt-3",
+                    isActive ? "text-primary" : "text-slate-800"
+                  )}>{tStep.label}</span>
+                  <span className="text-[8px] text-slate-400 font-bold text-center mt-1 hidden md:block max-w-[120px]">{tStep.desc}</span>
+                </div>
+                {idx < 5 && (
+                  <div className="flex-1 h-0.5 max-w-[60px] self-start mt-4 bg-slate-100 relative overflow-hidden">
+                    <div className={cn(
+                      "absolute inset-y-0 left-0 transition-all duration-700 bg-gradient-to-r from-violet-600 to-indigo-500",
+                      isCompleted ? "w-full" : "w-0"
+                    )} />
+                  </div>
+                )}
+              </React.Fragment>
+            );
+          })}
         </div>
       </div>
 
@@ -1041,7 +1375,11 @@ const Procurement = () => {
                         <Button variant="outline" className="flex-1 rounded-xl border-slate-200 text-xs font-bold gap-2">
                           <RefreshCw className="w-3 h-3" /> Regenerate
                         </Button>
-                        <Button variant="outline" className="flex-1 rounded-xl border-slate-200 text-xs font-bold gap-2">
+                        <Button 
+                          onClick={handleDownloadRFQPDF}
+                          variant="outline" 
+                          className="flex-1 rounded-xl border-slate-200 text-xs font-bold gap-2"
+                        >
                           <Download className="w-3 h-3" /> RFQ PDF
                         </Button>
                       </div>

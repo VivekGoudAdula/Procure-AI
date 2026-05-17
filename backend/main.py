@@ -2,6 +2,7 @@ from fastapi import FastAPI, HTTPException, File, UploadFile, Form
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
+from typing import List, Optional, Any
 import json
 import os
 import hashlib
@@ -20,6 +21,11 @@ from services.multilingual_negotiation_service import MultilingualNegotiationSer
 from services.procurement_message_engine import ProcurementMessageEngine
 from services.translation_service import TranslationService
 from services.email_service import EmailService
+from services.negotiation_intelligence import NegotiationIntelligenceEngine
+from services.dashboard_analytics import DashboardAnalyticsService
+from services.procurement_insights import ProcurementInsightsService
+from services.settlement_analytics import SettlementAnalyticsService
+from services.procurement_analytics_engine import ProcurementAnalyticsEngine
 
 app = FastAPI(title="ProcureAI Backend - Autonomous Agentic Commerce Platform")
 
@@ -29,6 +35,11 @@ negotiation_engine = MultilingualNegotiationService()
 message_engine = ProcurementMessageEngine()
 translation_service = TranslationService()
 email_service = EmailService()
+negotiation_intelligence = NegotiationIntelligenceEngine()
+dashboard_analytics = DashboardAnalyticsService()
+procurement_insights = ProcurementInsightsService()
+settlement_analytics = SettlementAnalyticsService()
+procurement_analytics_engine = ProcurementAnalyticsEngine()
 
 # CORS setup for frontend connection
 app.add_middleware(
@@ -141,7 +152,13 @@ class FullNegotiationRequest(BaseModel):
     supplier_language: str
     product: str
 
-from typing import List, Optional, Any
+class NegotiationIntelligenceRequest(BaseModel):
+    """Negotiation Intelligence extraction request."""
+    supplier_message: str
+    supplier_metadata: Optional[dict] = None
+    procurement_context: Optional[dict] = None
+
+
 
 class ProcurementInquiryRequest(BaseModel):
     product: str
@@ -226,6 +243,62 @@ def update_supplier_reputation(supplier_id: int, delivered_on_time: bool):
     print(f"Updated reputation for supplier {supplier_id}")
 
 # --- Endpoints ---
+
+@app.get("/api/procurement/analytics")
+async def get_procurement_analytics():
+    try:
+        return procurement_analytics_engine.calculate_procurement_intelligence()
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.get("/api/dashboard/analytics")
+async def get_dashboard_analytics():
+    try:
+        return dashboard_analytics.calculate_analytics()
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.get("/api/dashboard/insights")
+async def get_dashboard_insights():
+    try:
+        res = procurement_insights.generate_insights()
+        return {
+            "insights": res["insights"],
+            "signals": res["signals"],
+            "scorecard": res["scorecard"]
+        }
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.get("/api/dashboard/procurement-feed")
+async def get_dashboard_feed():
+    try:
+        res = procurement_insights.generate_insights()
+        return res["procurement_feed"]
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.get("/api/dashboard/regions")
+async def get_dashboard_regions():
+    try:
+        res = dashboard_analytics.calculate_analytics()
+        return res["regions_detail"]
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.get("/api/settlements/analytics")
+async def get_settlements_analytics():
+    try:
+        return settlement_analytics.calculate_settlements_telemetry()
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.get("/api/settlements/ledger")
+async def get_settlements_ledger():
+    try:
+        return settlement_analytics.compile_settlement_ledger()
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
 
 @app.post("/api/x402/initiate-session", response_model=X402SessionResponse)
 async def initiate_x402_session(req: X402SessionRequest):
@@ -703,6 +776,23 @@ async def full_multilingual_negotiation(req: FullNegotiationRequest):
 async def get_supported_languages():
     """Return the list of supported supplier languages for multilingual negotiation."""
     return negotiation_engine.get_supported_languages()
+
+
+@app.post("/api/negotiation/intelligence")
+async def get_negotiation_intelligence(req: NegotiationIntelligenceRequest):
+    """
+    Extracts structured procurement intelligence from supplier communication.
+    """
+    try:
+        result = negotiation_intelligence.extract_negotiation_intelligence(
+            supplier_message=req.supplier_message,
+            supplier_metadata=req.supplier_metadata,
+            procurement_context=req.procurement_context
+        )
+        return result
+    except Exception as e:
+        print(f"[ProcureAI] Negotiation Intelligence Error: {str(e)}")
+        raise HTTPException(status_code=500, detail=str(e))
 
 
 @app.post("/api/procurement/generate-inquiry", response_model=ProcurementInquiryResponse)

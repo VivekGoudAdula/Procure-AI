@@ -1,6 +1,6 @@
 import React from 'react';
 import { Outlet, Navigate } from 'react-router-dom';
-import Sidebar from './Sidebar';
+import FloatingDockMenu from './FloatingDockMenu';
 import Topbar from './Topbar';
 import { useApp } from '../context/AppContext';
 import { motion, AnimatePresence } from 'motion/react';
@@ -19,13 +19,11 @@ const Layout = () => {
         <div className="absolute top-[-10%] right-[-10%] w-[40%] h-[40%] rounded-full bg-primary/10 blur-[120px]" />
         <div className="absolute bottom-[-10%] left-[-10%] w-[30%] h-[30%] rounded-full bg-secondary/10 blur-[100px]" />
       </div>
-
-      <Sidebar />
       
-      <div className="flex-1 ml-64 flex flex-col min-w-0">
+      <div className="flex-1 flex flex-col min-w-0">
         <Topbar />
         
-        <main className="flex-1 overflow-y-auto p-4 md:p-8">
+        <main className="flex-1 overflow-y-auto p-4 md:p-8 pb-28">
           <div className="max-w-[1400px] mx-auto">
             <AnimatePresence mode="wait">
               <motion.div
@@ -41,6 +39,8 @@ const Layout = () => {
           </div>
         </main>
       </div>
+
+      <FloatingDockMenu />
     </div>
   );
 };

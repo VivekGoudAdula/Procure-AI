@@ -1,5 +1,6 @@
 import React from 'react';
 import { useApp } from '../context/AppContext';
+import { useNavigate } from 'react-router-dom';
 import { cn } from '../lib/utils';
 import { 
   Bell, 
@@ -15,6 +16,7 @@ import { toast } from 'sonner';
 
 const Topbar = () => {
   const { user, walletAddress, setWalletAddress } = useApp();
+  const navigate = useNavigate();
 
   const handleConnectWallet = async () => {
     if (walletAddress) {
@@ -39,14 +41,30 @@ const Topbar = () => {
   };
 
   return (
-    <header className="h-20 border-b border-slate-100/60 bg-white/60 backdrop-blur-2xl sticky top-0 z-30 flex items-center justify-between px-10">
-      <div className="flex items-center gap-6 flex-1">
-         <div className="relative max-w-md w-full hidden md:block group">
-           <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-400 group-focus-within:text-primary transition-colors" />
+    <header className="h-20 border-b border-slate-300 bg-white/70 backdrop-blur-2xl sticky top-0 z-30 flex items-center justify-between px-10 shadow-[0_4px_20px_rgba(0,0,0,0.02)] transition-all duration-300 relative">
+      {/* Left: Brand Logo & Text */}
+      <div className="flex items-center gap-3 z-10">
+         <div 
+           onClick={() => navigate('/dashboard')}
+           className="flex items-center gap-3 cursor-pointer group"
+         >
+           <img 
+             src="/logo.png" 
+             alt="ProcureAI Logo" 
+             className="h-10 w-auto group-hover:rotate-6 transition-transform duration-500 shadow-md rounded-xl" 
+           />
+           <span className="text-xl font-display font-black tracking-tight text-slate-950">ProcureAI</span>
+         </div>
+      </div>
+
+      {/* Center: Search bar styled like a floating dock (Mathematically Centered) */}
+      <div className="hidden md:flex absolute left-1/2 -translate-x-1/2 w-full max-w-md justify-center z-10">
+         <div className="relative w-full group">
+           <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-400 group-focus-within:text-primary transition-colors z-20" />
            <input 
              type="text" 
              placeholder="Search agents, transactions..." 
-             className="w-full bg-slate-100/50 border border-slate-100 rounded-[1.25rem] py-3 pl-12 pr-4 text-sm font-bold text-slate-900 focus:outline-none focus:border-primary/50 focus:bg-white focus:shadow-2xl focus:shadow-primary/5 transition-all"
+             className="w-full bg-white/70 backdrop-blur-2xl border border-slate-300 rounded-2xl py-3 pl-12 pr-4 text-sm font-bold text-slate-900 shadow-[0_8px_30px_rgb(0,0,0,0.06)] focus:outline-none focus:border-primary focus:bg-white focus:shadow-[0_12px_40px_rgba(139,92,246,0.15)] hover:border-slate-400 transition-all duration-300"
            />
          </div>
       </div>

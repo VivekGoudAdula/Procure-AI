@@ -1,6 +1,6 @@
 import {StrictMode} from 'react';
 import {createRoot} from 'react-dom/client';
-import { Buffer } from 'buffer';
+import { Buffer } from 'buffer/';
 
 // @ts-ignore
 window.Buffer = Buffer;
