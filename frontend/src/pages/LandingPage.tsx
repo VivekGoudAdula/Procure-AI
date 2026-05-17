@@ -537,9 +537,9 @@ const FinalCTA = () => {
 
 
 const Footer = () => (
-  <footer className="py-20 bg-slate-50 border-t border-slate-100">
-    <div className="container mx-auto px-6">
-      <div className="grid md:grid-cols-4 gap-12 mb-20">
+  <footer className="pt-20 bg-slate-50 border-t border-slate-100 overflow-hidden relative flex flex-col justify-between">
+    <div className="container mx-auto px-6 relative z-10">
+      <div className="grid md:grid-cols-4 gap-12">
         <div className="col-span-2 space-y-6">
           <div className="flex items-center gap-3 group cursor-pointer">
             <img src="/logo.png" alt="ProcureAI Logo" className="h-10 w-auto group-hover:scale-110 transition-all duration-500" />
@@ -568,13 +568,14 @@ const Footer = () => (
           </ul>
         </div>
       </div>
-      <div className="pt-12 border-t border-slate-200 flex flex-col md:flex-row items-center justify-between gap-6">
-        <p className="text-sm text-slate-400 font-bold">© 2026 ProcureAI Inc. All rights reserved.</p>
-        <div className="flex gap-10">
-          <a href="#" className="text-sm text-slate-400 hover:text-indigo-600 font-bold transition-all">Privacy Policy</a>
-          <a href="#" className="text-sm text-slate-400 hover:text-indigo-600 font-bold transition-all">Terms of Service</a>
-        </div>
-      </div>
+
+    </div>
+    
+    {/* Giant Background Text */}
+    <div className="w-full relative flex items-end justify-center overflow-hidden pointer-events-none mt-0">
+      <h1 className="text-[14vw] md:text-[18vw] font-black tracking-tighter text-transparent bg-clip-text bg-gradient-to-b from-slate-800 to-slate-50 select-none leading-none mb-[-2%] md:mb-[-4%] w-full text-center whitespace-nowrap">
+        PROCURE AI
+      </h1>
     </div>
   </footer>
 );
