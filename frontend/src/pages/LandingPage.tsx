@@ -201,22 +201,32 @@ const Features = () => {
           {features.map((f, i) => (
             <motion.div
               key={i}
-              initial={{ opacity: 0, y: 30 }}
+              initial={{ opacity: 0, y: 40 }}
               whileInView={{ opacity: 1, y: 0 }}
               viewport={{ once: true }}
-              transition={{ delay: f.delay, duration: 0.8 }}
-              whileHover={{ y: -10 }}
-              className="group relative p-10 rounded-[2.5rem] bg-white/60 backdrop-blur-2xl border border-white/50 shadow-[0_8px_30px_rgb(0,0,0,0.04)] transition-all hover:bg-white/90 hover:shadow-2xl hover:shadow-indigo-100 hover:border-white"
+              transition={{ delay: f.delay, type: "spring", stiffness: 80, damping: 20 }}
+              whileHover={{ y: -15, scale: 1.02 }}
+              className="group relative p-12 rounded-[3rem] bg-white/70 backdrop-blur-3xl border border-white/80 shadow-[0_15px_40px_rgb(0,0,0,0.06)] transition-all duration-500 hover:bg-white overflow-hidden flex flex-col justify-between h-full"
             >
-              <div className={`w-16 h-16 rounded-2xl bg-gradient-to-br ${f.color} flex items-center justify-center mb-8 shadow-lg group-hover:scale-110 transition-transform`}>
-                <f.icon className="text-white w-8 h-8" />
+              {/* Animated Inner Glows */}
+              <div className="absolute inset-0 opacity-0 group-hover:opacity-100 transition-opacity duration-500 pointer-events-none">
+                <div className={`absolute -top-10 -right-10 w-64 h-64 bg-gradient-to-br ${f.color} opacity-[0.08] blur-[50px] rounded-full group-hover:scale-[1.8] transition-transform duration-700 ease-out`} />
+                <div className={`absolute -bottom-10 -left-10 w-64 h-64 bg-gradient-to-tr ${f.color} opacity-[0.08] blur-[50px] rounded-full group-hover:scale-[1.8] transition-transform duration-700 ease-out`} />
               </div>
-              <h3 className="text-2xl font-bold mb-4 text-slate-900">{f.title}</h3>
-              <p className="text-slate-500 leading-relaxed mb-6 font-medium">{f.description}</p>
 
-              <div className="flex items-center text-indigo-600 font-bold text-sm uppercase tracking-widest gap-2 group/btn cursor-pointer">
-                Explore Feature
-                <ChevronRight className="w-4 h-4 group-hover/btn:translate-x-1 transition-transform" />
+              <div className="relative z-10">
+                <div className={`w-16 h-16 rounded-[1.25rem] bg-gradient-to-br ${f.color} flex items-center justify-center mb-8 shadow-xl shadow-slate-200 group-hover:scale-110 group-hover:-rotate-3 transition-all duration-500`}>
+                  <f.icon className="text-white w-8 h-8" />
+                </div>
+                <h3 className="text-[1.75rem] font-black mb-5 text-slate-900 leading-[1.15] tracking-tight">{f.title}</h3>
+                <p className="text-slate-500 text-lg leading-relaxed mb-10 font-medium">{f.description}</p>
+              </div>
+
+              <div className="relative z-10 mt-auto">
+                <div className="inline-flex items-center text-indigo-600 font-bold text-sm uppercase tracking-widest gap-2 group-hover:text-indigo-500 transition-colors cursor-pointer">
+                  Explore Feature
+                  <ChevronRight className="w-5 h-5 group-hover:translate-x-1.5 transition-transform duration-300" />
+                </div>
               </div>
             </motion.div>
           ))}
@@ -287,7 +297,7 @@ const HowItWorks = () => {
 
           {/* Right Side: Step Info */}
           <div className="pl-0 lg:pl-10">
-            <h2 className="text-4xl md:text-6xl font-bold mb-12 text-slate-900 tracking-tight">The 3-Step Alpha</h2>
+            <h2 className="text-3xl md:text-5xl lg:text-[3.5rem] xl:text-6xl font-black mb-12 text-slate-900 tracking-tighter whitespace-nowrap">The 3-Step Alpha</h2>
             <div className="space-y-12">
               {steps.map((s, i) => (
                 <motion.div
@@ -317,71 +327,65 @@ const HowItWorks = () => {
 
 const Comparison = () => {
   return (
-    <section id="comparison" className="py-32 bg-white relative overflow-hidden">
+    <section id="comparison" className="pt-32 pb-10 bg-white relative overflow-hidden">
       <div className="container mx-auto px-6">
         <div className="text-center mb-24">
-          <h2 className="text-4xl md:text-6xl font-bold mb-6 text-slate-900 tracking-tighter">
-            ProcureAI vs <span className="text-slate-300">Traditional</span>
+          <h2 className="text-5xl md:text-7xl lg:text-[5.5rem] font-black mb-6 text-slate-900 tracking-tighter">
+            ProcureAI vs <span className="text-transparent bg-clip-text bg-gradient-to-b from-slate-300 to-slate-400">Traditional</span>
           </h2>
           <p className="text-xl text-slate-500 font-medium">Why industry leaders are switching to autonomous procurement.</p>
         </div>
 
-        <div className="grid lg:grid-cols-2 gap-12 max-w-6xl mx-auto">
-          {/* Traditional Card */}
-          <motion.div
-            initial={{ opacity: 0, x: -30 }}
-            whileInView={{ opacity: 1, x: 0 }}
-            viewport={{ once: true }}
-            className="group p-12 rounded-[3.5rem] bg-slate-50 border border-slate-100 flex flex-col transition-all hover:bg-white hover:shadow-xl"
-          >
-            <div className="space-y-10">
-              <div className="flex items-center gap-4 text-slate-400">
-                <div className="w-14 h-14 rounded-2xl bg-white border border-slate-200 flex items-center justify-center text-slate-400 shadow-sm">
-                  <Activity className="w-7 h-7" />
-                </div>
-                <h3 className="text-2xl font-bold">Traditional Methods</h3>
-              </div>
+        <div className="relative max-w-6xl mx-auto rounded-[3.5rem] p-2 bg-slate-200/50 backdrop-blur-2xl border border-white/60 flex flex-col lg:flex-row shadow-[0_20px_80px_-15px_rgba(0,0,0,0.05)]">
+          
+          {/* VS Badge */}
+          <div className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 z-20 w-16 h-16 bg-white rounded-full items-center justify-center font-black text-xl text-slate-800 shadow-[0_10px_40px_rgba(0,0,0,0.15)] border border-slate-100 hidden lg:flex">
+            VS
+          </div>
 
-              <ul className="space-y-8">
-                {[
-                  { text: 'Manual sourcing calls', desc: 'Days of searching and vetting' },
-                  { text: 'Slow email negotiations', desc: 'Endless back-and-forth' },
-                  { text: 'Weeks of payment delay', desc: 'Manual wire transfers and processing' },
-                  { text: 'Manual escrow handling', desc: 'Complex legal paperwork' }
-                ].map((item, i) => (
-                  <li key={i} className="flex gap-5 items-start">
-                    <div className="w-6 h-6 rounded-full bg-slate-200 flex-shrink-0 flex items-center justify-center mt-1.5 font-bold text-[10px] text-slate-500">
-                      ✕
-                    </div>
-                    <div>
-                      <div className="text-lg font-bold text-slate-400 line-through decoration-slate-300">{item.text}</div>
-                      <div className="text-sm text-slate-400/70 font-medium">{item.desc}</div>
-                    </div>
-                  </li>
-                ))}
-              </ul>
+          {/* Traditional Card */}
+          <div className="flex-1 bg-white/90 rounded-[3rem] p-10 lg:pr-20 relative overflow-hidden transition-all">
+            <div className="flex items-center gap-5 mb-10">
+              <div className="w-14 h-14 rounded-2xl bg-slate-50 border border-slate-200 flex items-center justify-center text-slate-400 shadow-inner">
+                <Activity className="w-7 h-7" />
+              </div>
+              <h3 className="text-3xl md:text-4xl font-black text-slate-800 tracking-tighter">Traditional Methods</h3>
             </div>
-          </motion.div>
+
+            <ul className="space-y-8">
+              {[
+                { text: 'Manual sourcing calls', desc: 'Days of searching and vetting' },
+                { text: 'Slow email negotiations', desc: 'Endless back-and-forth' },
+                { text: 'Weeks of payment delay', desc: 'Manual wire transfers and processing' },
+                { text: 'Manual escrow handling', desc: 'Complex legal paperwork' }
+              ].map((item, i) => (
+                <li key={i} className="flex gap-6 items-start opacity-70 hover:opacity-100 transition-opacity duration-300 group">
+                  <div className="w-7 h-7 rounded-full bg-rose-50 flex-shrink-0 flex items-center justify-center mt-0.5 text-rose-400 border border-rose-100 group-hover:bg-rose-100 group-hover:text-rose-500 transition-colors">
+                    <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}><path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" /></svg>
+                  </div>
+                  <div>
+                    <div className="text-lg font-bold text-slate-600 line-through decoration-slate-300 group-hover:decoration-rose-300 transition-colors">{item.text}</div>
+                    <div className="text-sm text-slate-400 font-medium mt-1.5">{item.desc}</div>
+                  </div>
+                </li>
+              ))}
+            </ul>
+          </div>
 
           {/* ProcureAI Card */}
-          <motion.div
-            initial={{ opacity: 0, x: 30 }}
-            whileInView={{ opacity: 1, x: 0 }}
-            viewport={{ once: true }}
-            className="group relative p-12 rounded-[3.5rem] bg-slate-900 overflow-hidden shadow-[0_40px_80px_-15px_rgba(79,70,229,0.2)] flex flex-col justify-between"
-          >
-            {/* Animated Glow */}
-            <div className="absolute top-0 right-0 w-80 h-80 bg-indigo-600/30 blur-[100px] -mr-40 -mt-40 group-hover:bg-indigo-500/40 transition-colors" />
-            <div className="absolute bottom-0 left-0 w-80 h-80 bg-purple-600/20 blur-[100px] -ml-40 -mb-40 group-hover:bg-purple-500/30 transition-colors" />
+          <div className="flex-1 bg-slate-900 rounded-[3rem] p-10 lg:pl-20 relative overflow-hidden shadow-2xl z-10 border border-slate-800">
+            {/* Animated Glows */}
+            <div className="absolute top-0 right-0 w-[500px] h-[500px] bg-indigo-600/20 blur-[120px] -mr-40 -mt-40 pointer-events-none" />
+            <div className="absolute bottom-0 left-0 w-[500px] h-[500px] bg-cyan-500/10 blur-[120px] -ml-40 -mb-40 pointer-events-none" />
 
             <div className="relative z-10 space-y-10">
-              <div className="flex items-center gap-4">
-                <div className="w-14 h-14 rounded-2xl bg-indigo-600 flex items-center justify-center text-white shadow-xl shadow-indigo-500/40">
+              <div className="flex items-center gap-5">
+                <div className="w-14 h-14 rounded-2xl bg-gradient-to-br from-indigo-500 to-purple-600 flex items-center justify-center text-white shadow-[0_0_30px_rgba(99,102,241,0.4)]">
                   <Zap className="w-7 h-7" />
                 </div>
                 <div className="flex flex-col">
-                  <h3 className="text-2xl font-bold text-white">ProcureAI</h3>
-                  <div className="text-[10px] font-extrabold text-indigo-400 uppercase tracking-[0.2em]">Autonomous Agentic</div>
+                  <h3 className="text-3xl md:text-4xl font-black text-white tracking-tighter">ProcureAI</h3>
+                  <div className="text-[10px] font-black text-cyan-400 uppercase tracking-[0.2em] mt-1">Autonomous Agentic</div>
                 </div>
               </div>
 
@@ -394,34 +398,35 @@ const Comparison = () => {
                 ].map((item, i) => (
                   <motion.li
                     key={i}
-                    initial={{ opacity: 0, y: 10 }}
-                    whileInView={{ opacity: 1, y: 0 }}
+                    initial={{ opacity: 0, x: 20 }}
+                    whileInView={{ opacity: 1, x: 0 }}
                     transition={{ delay: i * 0.1 }}
-                    className="flex gap-5 items-start"
+                    viewport={{ once: true }}
+                    className="flex gap-6 items-start group cursor-default"
                   >
-                    <div className="w-6 h-6 rounded-full bg-indigo-500/20 flex-shrink-0 flex items-center justify-center mt-1.5 border border-indigo-500/30">
-                      <div className="w-2 h-2 rounded-full bg-cyan-400 shadow-[0_0_12px_#22d3ee]" />
+                    <div className="w-7 h-7 rounded-full bg-indigo-500/10 flex-shrink-0 flex items-center justify-center mt-0.5 border border-indigo-500/30 group-hover:bg-indigo-500/30 transition-all duration-300 group-hover:border-indigo-400/50 shadow-[0_0_15px_rgba(99,102,241,0)] group-hover:shadow-[0_0_15px_rgba(99,102,241,0.3)]">
+                      <div className="w-2.5 h-2.5 rounded-full bg-cyan-400 shadow-[0_0_12px_#22d3ee] group-hover:scale-[1.6] group-hover:bg-white transition-all duration-300" />
                     </div>
                     <div>
-                      <div className="text-lg font-bold text-white group-hover:text-cyan-400 transition-colors">{item.text}</div>
-                      <div className="text-sm text-indigo-300/50 font-medium">{item.desc}</div>
+                      <div className="text-lg font-bold text-white group-hover:text-cyan-300 transition-colors duration-300">{item.text}</div>
+                      <div className="text-sm text-indigo-200/60 font-medium mt-1.5">{item.desc}</div>
                     </div>
                   </motion.li>
                 ))}
               </ul>
 
               {/* Efficiency Metric */}
-              <div className="mt-12 pt-10 border-t border-white/5 flex items-end justify-between">
+              <div className="mt-12 pt-8 border-t border-slate-700/50 flex items-end justify-between">
                 <div>
-                  <div className="text-indigo-400 font-extrabold text-[10px] uppercase tracking-widest mb-1">Total Efficiency</div>
+                  <div className="text-indigo-400 font-black text-[10px] uppercase tracking-[0.2em] mb-2">Total Efficiency</div>
                   <div className="text-white font-bold text-xl">Operational Gain</div>
                 </div>
-                <div className="text-6xl font-black text-transparent bg-clip-text bg-gradient-to-r from-cyan-400 to-indigo-400 tracking-tighter">
+                <div className="text-7xl font-black text-transparent bg-clip-text bg-gradient-to-r from-cyan-400 to-indigo-400 tracking-tighter drop-shadow-[0_0_20px_rgba(34,211,238,0.2)]">
                   92%
                 </div>
               </div>
             </div>
-          </motion.div>
+          </div>
         </div>
       </div>
     </section>
@@ -440,7 +445,7 @@ const FinalCTA = () => {
   const opacity = useTransform(scrollYProgress, [0, 0.5, 1], [0.15, 0.25, 0.15]);
 
   return (
-    <section ref={ref} className="py-60 bg-white relative overflow-hidden flex items-center justify-center">
+    <section ref={ref} className="pt-20 pb-40 bg-white relative overflow-hidden flex items-center justify-center">
       {/* Background Dashboard Animation - Re-tuned for Light Theme */}
       {/* Neon Glow behind Dashboard */}
       <div className="absolute inset-0 z-0 flex items-center justify-center pointer-events-none">
@@ -476,7 +481,13 @@ const FinalCTA = () => {
                 <div className="h-80 bg-white rounded-3xl border border-indigo-50 p-10 flex items-end gap-4 shadow-sm relative overflow-hidden">
                   <div className="absolute inset-0 bg-gradient-to-t from-indigo-50/50 to-transparent" />
                   {[80, 40, 60, 90, 50, 70, 45, 85].map((h, i) => (
-                    <div key={i} className="flex-1 bg-gradient-to-t from-indigo-500 to-cyan-400 rounded-t-xl shadow-[0_0_15px_rgba(99,102,241,0.4)] relative z-10" style={{ height: `${h}%` }} />
+                    <motion.div 
+                      key={i} 
+                      className="flex-1 bg-gradient-to-t from-blue-400 to-indigo-300 rounded-t-xl shadow-[0_0_15px_rgba(99,102,241,0.2)] relative z-10 opacity-70"
+                      initial={{ height: `${h}%` }}
+                      animate={{ height: [`${h}%`, `${Math.max(30, h - 30)}%`, `${h}%`] }}
+                      transition={{ duration: 4 + (i % 4) * 0.5, repeat: Infinity, ease: "easeInOut" }}
+                    />
                   ))}
                 </div>
               </div>
@@ -508,22 +519,24 @@ const FinalCTA = () => {
             viewport={{ once: true }}
             transition={{ duration: 1 }}
           >
-            <h2 className="text-5xl md:text-8xl font-bold mb-10 text-slate-900 tracking-tighter leading-tight">
+            <h2 className="text-5xl md:text-[6rem] lg:text-[7rem] font-extrabold mb-8 text-slate-900 tracking-tighter leading-[1.05]">
               Let AI Run Your <br />
-              <span className="bg-gradient-to-r from-indigo-600 via-purple-600 to-indigo-500 bg-clip-text text-transparent italic">Procurement</span>
+              <span className="bg-gradient-to-r from-blue-600 via-indigo-500 to-purple-500 bg-clip-text text-transparent italic font-black pr-4 pb-2 inline-block">Procurement</span>
             </h2>
             <p className="text-xl md:text-2xl text-slate-500 mb-16 font-medium max-w-3xl mx-auto leading-relaxed">
               Join the elite network of companies automating their supply chains with agentic intelligence on Algorand.
             </p>
             <div className="flex flex-col sm:flex-row items-center justify-center gap-8">
-              <Link to="/signup" className="w-full sm:w-auto">
-                <button className="w-full px-14 py-7 bg-slate-900 text-white rounded-[2.5rem] font-bold text-2xl hover:scale-105 active:scale-95 transition-all shadow-2xl shadow-indigo-200">
+              <Link to="/login" className="w-full sm:w-auto">
+                <button className="w-full px-12 py-6 bg-slate-900 text-white rounded-[2.5rem] font-bold text-xl hover:scale-105 active:scale-95 transition-all shadow-[0_10px_40px_rgba(15,23,42,0.3)] border border-slate-700">
                   Get Started Now
                 </button>
               </Link>
-              <button className="w-full sm:w-auto px-14 py-7 bg-white border border-slate-200 text-slate-900 rounded-[2.5rem] font-bold text-2xl hover:bg-slate-50 transition-all shadow-sm">
-                Contact Sales
-              </button>
+              <Link to="/login" className="w-full sm:w-auto">
+                <button className="w-full px-12 py-6 bg-white border-2 border-slate-100 text-slate-900 rounded-[2.5rem] font-bold text-xl hover:bg-slate-50 hover:border-indigo-100 hover:shadow-xl hover:shadow-indigo-500/10 hover:-translate-y-1 transition-all">
+                  Contact Sales
+                </button>
+              </Link>
             </div>
           </motion.div>
         </div>
@@ -537,43 +550,83 @@ const FinalCTA = () => {
 
 
 const Footer = () => (
-  <footer className="pt-20 bg-slate-50 border-t border-slate-100 overflow-hidden relative flex flex-col justify-between">
-    <div className="container mx-auto px-6 relative z-10">
-      <div className="grid md:grid-cols-4 gap-12">
-        <div className="col-span-2 space-y-6">
-          <div className="flex items-center gap-3 group cursor-pointer">
-            <img src="/logo.png" alt="ProcureAI Logo" className="h-10 w-auto group-hover:scale-110 transition-all duration-500" />
+  <footer className="pt-24 bg-slate-50 border-t border-slate-200 overflow-hidden relative flex flex-col justify-between z-10">
+    {/* Animated Background Element */}
+    <motion.div
+      animate={{ y: [0, -30, 0], opacity: [0.3, 0.6, 0.3] }}
+      transition={{ duration: 8, repeat: Infinity, ease: "easeInOut" }}
+      className="absolute top-0 right-0 w-[600px] h-[600px] bg-gradient-to-br from-indigo-200/40 to-purple-200/40 rounded-full blur-[100px] pointer-events-none -z-10"
+    />
 
-            <span className="text-2xl font-bold tracking-tight text-slate-900">ProcureAI</span>
+    <div className="container mx-auto px-6 relative z-10">
+      <div className="grid md:grid-cols-4 gap-12 pb-16">
+        <motion.div 
+          initial={{ opacity: 0, y: 20 }}
+          whileInView={{ opacity: 1, y: 0 }}
+          viewport={{ once: true }}
+          className="col-span-2 space-y-8"
+        >
+          <div className="flex items-center gap-3 group cursor-pointer w-fit">
+            <div className="relative">
+              <div className="absolute inset-0 bg-indigo-400 blur-lg opacity-0 group-hover:opacity-40 transition-opacity duration-500" />
+              <img src="/logo.png" alt="ProcureAI Logo" className="h-10 w-auto group-hover:scale-110 transition-transform duration-500 relative z-10" />
+            </div>
+            <span className="text-2xl font-black tracking-tighter text-slate-900">ProcureAI</span>
           </div>
-          <p className="text-lg text-slate-500 font-medium max-w-sm">
+          <p className="text-lg text-slate-500 font-medium max-w-sm leading-relaxed">
             The world's first autonomous agentic commerce platform built on Algorand.
           </p>
-        </div>
-        <div>
-          <h4 className="font-bold mb-6 text-slate-900 uppercase text-xs tracking-widest">Product</h4>
-          <ul className="space-y-4 text-slate-500 font-bold text-sm">
-            <li><a href="#" className="hover:text-indigo-600 transition-colors">Features</a></li>
-            <li><a href="#" className="hover:text-indigo-600 transition-colors">Enterprise</a></li>
-            <li><a href="#" className="hover:text-indigo-600 transition-colors">Escrow</a></li>
+        </motion.div>
+        
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          whileInView={{ opacity: 1, y: 0 }}
+          viewport={{ once: true }}
+          transition={{ delay: 0.1 }}
+        >
+          <h4 className="font-black mb-8 text-slate-900 uppercase text-xs tracking-[0.2em]">Product</h4>
+          <ul className="space-y-5 text-slate-500 font-bold text-sm">
+            {['Features', 'Enterprise', 'Escrow'].map((item) => (
+              <li key={item}>
+                <a href="#" className="group flex items-center gap-2 hover:text-indigo-600 transition-colors w-fit">
+                  <span className="relative overflow-hidden">
+                    <span className="block transition-transform duration-300 group-hover:-translate-y-full">{item}</span>
+                    <span className="block absolute top-0 left-0 transition-transform duration-300 translate-y-full group-hover:translate-y-0 text-indigo-600">{item}</span>
+                  </span>
+                  <span className="opacity-0 -translate-x-4 group-hover:opacity-100 group-hover:translate-x-0 transition-all text-indigo-500">→</span>
+                </a>
+              </li>
+            ))}
           </ul>
-        </div>
-        <div>
-          <h4 className="font-bold mb-6 text-slate-900 uppercase text-xs tracking-widest">Connect</h4>
-          <ul className="space-y-4 text-slate-500 font-bold text-sm">
-            <li><a href="#" className="hover:text-indigo-600 transition-colors">Twitter</a></li>
-            <li><a href="#" className="hover:text-indigo-600 transition-colors">Discord</a></li>
-            <li><a href="#" className="hover:text-indigo-600 transition-colors">GitHub</a></li>
-            <li><a href="#" className="hover:text-indigo-600 transition-colors">LinkedIn</a></li>
-          </ul>
-        </div>
-      </div>
+        </motion.div>
 
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          whileInView={{ opacity: 1, y: 0 }}
+          viewport={{ once: true }}
+          transition={{ delay: 0.2 }}
+        >
+          <h4 className="font-black mb-8 text-slate-900 uppercase text-xs tracking-[0.2em]">Connect</h4>
+          <ul className="space-y-5 text-slate-500 font-bold text-sm">
+            {['Twitter', 'Discord', 'GitHub', 'LinkedIn'].map((item) => (
+              <li key={item}>
+                <a href="#" className="group flex items-center gap-2 hover:text-indigo-600 transition-colors w-fit">
+                  <span className="relative overflow-hidden">
+                    <span className="block transition-transform duration-300 group-hover:-translate-y-full">{item}</span>
+                    <span className="block absolute top-0 left-0 transition-transform duration-300 translate-y-full group-hover:translate-y-0 text-indigo-600">{item}</span>
+                  </span>
+                  <span className="opacity-0 -translate-x-4 group-hover:opacity-100 group-hover:translate-x-0 transition-all text-indigo-500">→</span>
+                </a>
+              </li>
+            ))}
+          </ul>
+        </motion.div>
+      </div>
     </div>
     
     {/* Giant Background Text */}
-    <div className="w-full relative flex items-end justify-center overflow-hidden pointer-events-none mt-0">
-      <h1 className="text-[14vw] md:text-[18vw] font-black tracking-tighter text-transparent bg-clip-text bg-gradient-to-b from-slate-800 to-slate-50 select-none leading-none mb-[-2%] md:mb-[-4%] w-full text-center whitespace-nowrap">
+    <div className="w-full relative flex items-end justify-center overflow-hidden pointer-events-none mt-0 z-0">
+      <h1 className="text-[14vw] md:text-[18vw] font-black tracking-tighter text-transparent bg-clip-text bg-gradient-to-b from-slate-950 via-slate-600 to-slate-200 select-none leading-none mb-[-2%] md:mb-[-4%] w-full text-center whitespace-nowrap">
         PROCURE AI
       </h1>
     </div>
