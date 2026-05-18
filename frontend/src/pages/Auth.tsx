@@ -95,58 +95,65 @@ const Auth = ({ initialMode = 'login' }: AuthProps) => {
         className="max-w-[900px] w-full bg-white rounded-[2rem] shadow-[0_20px_60px_-15px_rgba(0,0,0,0.1)] border border-slate-100 flex overflow-hidden min-h-[540px] relative z-10"
       >
         
-        {/* Sliding Overlay Panel (The "Magic" Part) */}
-        <motion.div 
+        {/* Sliding Overlay Panel — Procurement Image */}
+        <motion.div
           initial={false}
           animate={{ x: isLogin ? '100%' : '0%' }}
           transition={{ type: "spring", stiffness: 220, damping: 28 }}
-          className="absolute top-0 left-0 w-1/2 h-full z-30 hidden md:flex flex-col items-center justify-center p-10 text-white text-center overflow-hidden"
+          className="absolute top-0 left-0 w-1/2 h-full z-30 hidden md:flex flex-col overflow-hidden"
         >
-          {/* Animated Gradient Background */}
-          <motion.div 
-            animate={{ 
-              background: isLogin 
-                ? 'linear-gradient(135deg, #8B5CF6 0%, #EC4899 100%)' 
-                : 'linear-gradient(135deg, #EC4899 0%, #8B5CF6 100%)' 
-            }}
-            className="absolute inset-0"
+          {/* Full-bleed procurement image */}
+          <img
+            src="/auth-panel.png"
+            alt="Procurement Intelligence"
+            className="absolute inset-0 w-full h-full object-cover"
           />
 
-          <div className="relative z-10 space-y-8 flex flex-col items-center">
-            <motion.div 
-              whileHover={{ rotate: 5, scale: 1.05 }}
-              className="w-24 h-24 rounded-3xl flex items-center justify-center mb-2 shadow-2xl overflow-hidden bg-white/10 backdrop-blur-md border border-white/20 p-4"
-            >
-              <img src="/logo.png" alt="Logo" className="w-full h-full object-contain drop-shadow-[0_0_15px_rgba(255,255,255,0.3)]" />
-            </motion.div>
-            
+          {/* Bottom vignette — top of image stays fully visible */}
+          <div className="absolute inset-0 bg-gradient-to-t from-slate-950 via-slate-900/40 to-transparent" />
+
+          {/* All UI content pinned to the bottom */}
+          <div className="relative z-10 mt-auto px-7 pb-8 text-white flex flex-col items-center text-center gap-3">
+
+            {/* Logo */}
+            <div className="w-12 h-12 rounded-xl flex items-center justify-center bg-white/10 backdrop-blur-md border border-white/20 p-2">
+              <img src="/logo.png" alt="Logo" className="w-full h-full object-contain" />
+            </div>
+
+            {/* Animated title + subtitle */}
             <AnimatePresence mode="wait">
               <motion.div
                 key={isLogin ? 'login-text' : 'signup-text'}
-                initial={{ opacity: 0, y: 10 }}
+                initial={{ opacity: 0, y: 8 }}
                 animate={{ opacity: 1, y: 0 }}
-                exit={{ opacity: 0, y: -10 }}
-                transition={{ duration: 0.3 }}
-                className="space-y-4"
+                exit={{ opacity: 0, y: -8 }}
+                transition={{ duration: 0.25 }}
+                className="space-y-1"
               >
-                <h2 className="text-4xl font-bold tracking-tight">
+                <h2 className="text-xl font-black tracking-tight">
                   {isLogin ? "Join the Future" : "Welcome Back"}
                 </h2>
-                <p className="text-white/90 text-lg font-medium leading-relaxed max-w-[16rem] mx-auto">
-                  {isLogin 
-                    ? "Start your journey with the world's most advanced AI procurement network." 
-                    : "Access your dashboard and manage your autonomous workforce seamlessly."}
+                <p className="text-white/55 text-[11px] font-medium leading-relaxed max-w-[12rem] mx-auto">
+                  {isLogin
+                    ? "AI agents negotiate deals globally — secured on Algorand."
+                    : "Access your procurement dashboard and AI negotiation engine."}
                 </p>
               </motion.div>
             </AnimatePresence>
 
-            <Button 
-              onClick={() => setIsLogin(!isLogin)}
-              variant="outline" 
-              className="mt-6 border-2 border-white/50 bg-white/10 backdrop-blur-md text-white hover:bg-white hover:text-indigo-600 h-12 px-8 rounded-xl font-bold text-base transition-all shadow-xl hover:shadow-white/20"
-            >
-              {isLogin ? "Create Account" : "Sign In Now"}
-            </Button>
+            {/* KPI stats row */}
+            <div className="flex gap-4 py-2 border-t border-b border-white/10 w-full justify-center">
+              {[
+                { label: 'Deals', value: '1,240+' },
+                { label: 'Saved', value: '$2.4M' },
+                { label: 'Success', value: '92%' },
+              ].map((stat) => (
+                <div key={stat.label} className="text-center">
+                  <div className="text-sm font-black text-white">{stat.value}</div>
+                  <div className="text-[7px] font-bold text-white/35 uppercase tracking-widest">{stat.label}</div>
+                </div>
+              ))}
+            </div>
           </div>
         </motion.div>
 

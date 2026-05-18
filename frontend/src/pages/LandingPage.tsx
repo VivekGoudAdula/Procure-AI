@@ -1,5 +1,5 @@
-import React, { Suspense, useRef, useMemo, useEffect } from 'react';
-import { motion, useScroll, useTransform, useSpring, useInView } from 'motion/react';
+import React, { useEffect } from 'react';
+import { motion, useScroll } from 'motion/react';
 import { Link } from 'react-router-dom';
 import {
   ArrowRight,
@@ -38,8 +38,8 @@ const COLORS = {
 const SmoothScroll = ({ children }: { children: React.ReactNode }) => {
   useEffect(() => {
     const lenis = new Lenis({
-      duration: 1.2,
-      easing: (t) => Math.min(1, 1.001 - Math.pow(2, -10 * t)),
+      duration: 0.8,
+      easing: (t: number) => 1 - Math.pow(1 - t, 3),
     });
 
     function raf(time: number) {
@@ -62,7 +62,7 @@ const SmoothScroll = ({ children }: { children: React.ReactNode }) => {
 
 const Navbar = () => (
   <nav className="fixed top-0 left-0 w-full z-50 px-6 py-6">
-    <div className="max-w-7xl mx-auto flex items-center justify-between bg-white/40 backdrop-blur-xl border border-white/20 px-8 py-4 rounded-3xl shadow-2xl shadow-slate-200/20">
+    <div className="max-w-7xl mx-auto flex items-center justify-between bg-white/40 backdrop-blur-xl border border-slate-200 px-8 py-4 rounded-3xl shadow-2xl shadow-slate-200/20">
       <div className="flex items-center gap-3 group px-2 cursor-pointer">
         <img src="/logo.png" alt="ProcureAI Logo" className="h-10 w-auto group-hover:scale-110 transition-all duration-500" />
         <span className="text-xl font-bold tracking-tight text-slate-900">ProcureAI</span>
@@ -415,16 +415,7 @@ const Comparison = () => {
                 ))}
               </ul>
 
-              {/* Efficiency Metric */}
-              <div className="mt-12 pt-8 border-t border-slate-700/50 flex items-end justify-between">
-                <div>
-                  <div className="text-indigo-400 font-black text-[10px] uppercase tracking-[0.2em] mb-2">Total Efficiency</div>
-                  <div className="text-white font-bold text-xl">Operational Gain</div>
-                </div>
-                <div className="text-7xl font-black text-transparent bg-clip-text bg-gradient-to-r from-cyan-400 to-indigo-400 tracking-tighter drop-shadow-[0_0_20px_rgba(34,211,238,0.2)]">
-                  92%
-                </div>
-              </div>
+
             </div>
           </div>
         </div>
@@ -434,80 +425,14 @@ const Comparison = () => {
 };
 
 const FinalCTA = () => {
-  const ref = useRef(null);
-  const { scrollYProgress } = useScroll({
-    target: ref,
-    offset: ["start end", "end start"]
-  });
-
-  const rotateX = useTransform(scrollYProgress, [0, 1], [15, -15]);
-  const scale = useTransform(scrollYProgress, [0, 0.5, 1], [0.8, 1, 0.8]);
-  const opacity = useTransform(scrollYProgress, [0, 0.5, 1], [0.15, 0.25, 0.15]);
 
   return (
-    <section ref={ref} className="pt-20 pb-40 bg-white relative overflow-hidden flex items-center justify-center">
-      {/* Background Dashboard Animation - Re-tuned for Light Theme */}
-      {/* Neon Glow behind Dashboard */}
-      <div className="absolute inset-0 z-0 flex items-center justify-center pointer-events-none">
-        <motion.div
-          style={{ opacity }}
-          className="absolute w-full max-w-6xl h-[500px] bg-gradient-to-r from-cyan-400 via-indigo-500 to-purple-500 blur-[120px] rounded-[100%] opacity-30 mix-blend-multiply"
-        />
-        <motion.div
-          style={{ rotateX, scale, perspective: 1000, opacity }}
-          className="max-w-7xl w-full mx-auto rounded-[3rem] bg-white/60 backdrop-blur-2xl border border-white p-4 relative shadow-[0_0_80px_rgba(99,102,241,0.2)]"
-        >
-          <div className="rounded-[2.5rem] overflow-hidden bg-slate-50 border border-slate-200 shadow-xl">
-            {/* Dashboard Mockup - Colorful and Visible */}
-            <div className="bg-white border-b border-slate-200 p-6 flex items-center justify-between shadow-sm relative z-10">
-              <div className="flex gap-2">
-                <div className="w-3 h-3 rounded-full bg-rose-400 shadow-[0_0_10px_rgba(251,113,133,0.5)]" />
-                <div className="w-3 h-3 rounded-full bg-amber-400 shadow-[0_0_10px_rgba(251,191,36,0.5)]" />
-                <div className="w-3 h-3 rounded-full bg-emerald-400 shadow-[0_0_10px_rgba(52,211,153,0.5)]" />
-              </div>
-            </div>
-            <div className="flex bg-slate-50 relative z-0">
-              <div className="w-64 border-r border-slate-200 p-8 space-y-6 bg-white/50">
-                {[...Array(5)].map((_, i) => <div key={i} className="h-4 w-full bg-indigo-100/50 rounded-lg" />)}
-              </div>
-              <div className="flex-1 p-12 space-y-12">
-                <div className="grid grid-cols-3 gap-8">
-                  {[...Array(3)].map((_, i) => (
-                    <div key={i} className="h-32 bg-white rounded-3xl border border-indigo-50 shadow-sm relative overflow-hidden">
-                      <div className={`absolute inset-0 bg-gradient-to-br opacity-5 ${i === 0 ? 'from-cyan-500 to-blue-500' : i === 1 ? 'from-indigo-500 to-purple-500' : 'from-fuchsia-500 to-pink-500'}`} />
-                    </div>
-                  ))}
-                </div>
-                <div className="h-80 bg-white rounded-3xl border border-indigo-50 p-10 flex items-end gap-4 shadow-sm relative overflow-hidden">
-                  <div className="absolute inset-0 bg-gradient-to-t from-indigo-50/50 to-transparent" />
-                  {[80, 40, 60, 90, 50, 70, 45, 85].map((h, i) => (
-                    <motion.div 
-                      key={i} 
-                      className="flex-1 bg-gradient-to-t from-blue-400 to-indigo-300 rounded-t-xl shadow-[0_0_15px_rgba(99,102,241,0.2)] relative z-10 opacity-70"
-                      initial={{ height: `${h}%` }}
-                      animate={{ height: [`${h}%`, `${Math.max(30, h - 30)}%`, `${h}%`] }}
-                      transition={{ duration: 4 + (i % 4) * 0.5, repeat: Infinity, ease: "easeInOut" }}
-                    />
-                  ))}
-                </div>
-              </div>
-            </div>
-          </div>
-        </motion.div>
-      </div>
-
-      {/* Decorative blobs for Light Theme */}
-      <div className="absolute inset-0 z-[1] pointer-events-none overflow-hidden">
-        <motion.div
-          animate={{ y: [0, -20, 0], x: [0, 10, 0] }}
-          transition={{ duration: 8, repeat: Infinity }}
-          className="absolute top-1/4 left-1/4 w-64 h-64 bg-indigo-600/10 blur-[100px] rounded-full"
-        />
-        <motion.div
-          animate={{ y: [0, 20, 0], x: [0, -10, 0] }}
-          transition={{ duration: 10, repeat: Infinity }}
-          className="absolute bottom-1/4 right-1/4 w-purple-600/5 blur-[120px] rounded-full text-white"
-        />
+    <section className="pt-20 pb-40 bg-white relative overflow-hidden flex items-center justify-center">
+      {/* Soft ambient glow */}
+      <div className="absolute inset-0 z-0 pointer-events-none">
+        <div className="absolute w-[600px] h-[400px] left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 bg-gradient-to-r from-cyan-400 via-indigo-500 to-purple-500 blur-3xl rounded-full opacity-[0.07]" />
+        <div className="absolute top-1/4 left-1/4 w-48 h-48 bg-indigo-600/10 blur-3xl rounded-full" />
+        <div className="absolute bottom-1/4 right-1/4 w-48 h-48 bg-purple-600/8 blur-3xl rounded-full" />
       </div>
 
       {/* CTA Content - High Contrast Slates */}
@@ -626,12 +551,23 @@ const Footer = () => (
     
     {/* Giant Background Text */}
     <div className="w-full relative flex items-end justify-center overflow-hidden pointer-events-none mt-0 z-0">
-      <h1 className="text-[14vw] md:text-[18vw] font-black tracking-tighter text-transparent bg-clip-text bg-gradient-to-b from-slate-950 via-slate-600 to-slate-200 select-none leading-none mb-[-2%] md:mb-[-4%] w-full text-center whitespace-nowrap">
+      <h1 className="text-[14vw] md:text-[18vw] font-semibold tracking-tighter text-transparent bg-clip-text bg-gradient-to-b from-slate-950 via-slate-600 to-slate-200 select-none leading-none mb-[-2%] md:mb-[-4%] w-full text-center whitespace-nowrap">
         PROCURE AI
       </h1>
     </div>
   </footer>
 );
+
+// Scroll progress bar as its own component to avoid hook-in-JSX anti-pattern
+const ScrollProgressBar = () => {
+  const { scrollYProgress } = useScroll();
+  return (
+    <motion.div
+      className="fixed top-0 left-0 right-0 h-1 bg-indigo-600 origin-left z-[100]"
+      style={{ scaleX: scrollYProgress }}
+    />
+  );
+};
 
 // --- Main Page Component ---
 
@@ -649,12 +585,7 @@ const LandingPage = () => {
           <FinalCTA />
         </main>
         <Footer />
-
-        {/* Scroll Progress Bar */}
-        <motion.div
-          className="fixed top-0 left-0 right-0 h-1 bg-indigo-600 origin-left z-[100]"
-          style={{ scaleX: useScroll().scrollYProgress }}
-        />
+        <ScrollProgressBar />
       </div>
     </SmoothScroll>
   );
