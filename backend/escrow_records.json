@@ -549,5 +549,38 @@
             "submitted_at": "2026-05-17 22:45:15.507048"
         },
         "verified": true
+    },
+    "X2EJGFABADINJYPIX7NVAROFFJT3BME756QVLU3S5TVXQQHYGHSA": {
+        "transaction_id": "X2EJGFABADINJYPIX7NVAROFFJT3BME756QVLU3S5TVXQQHYGHSA",
+        "app_id": 762849431,
+        "app_address": "CTBSQNUEACTLFHJO57GMYL4PQDOV6N6ENXTSYVJ5ONA3BTVTOBYRJGSAXE",
+        "sender_address": "FL7U7GHUZB2R6RACPGY5UFD2K47CP2IL4RQWX7LKYE5QSFGXVJCDGPRLBE",
+        "receiver_address": "2RIRIX5XK6GWK7LOXDAYIDTN4IYDVNRDJFXR4TJCLYIM72A3EF2UQPROQY",
+        "amount": 0.1,
+        "supplier_id": 1601495037676,
+        "promised_delivery_days": 10,
+        "escrow_status": "released",
+        "timestamp": 1779193420.7043695,
+        "delivery_proof": {
+            "type": "invoice_file",
+            "value": "762849431_1779193455.png",
+            "file_path": "/uploads/invoices/762849431_1779193455.png",
+            "submitted_at": "2026-05-19 17:54:15.947124"
+        },
+        "verified": true
+    },
+    "YEP5B523GIU3CD3VQEYXT7VIKLSQC3LML4J4TTOUSSEUHY3HOSYQ": {
+        "transaction_id": "YEP5B523GIU3CD3VQEYXT7VIKLSQC3LML4J4TTOUSSEUHY3HOSYQ",
+        "app_id": 762852326,
+        "app_address": "IJAVIL5ZVVNBU4DNJARB775JS2DECQWWJM2KKIWILVIHFGA2VVJWZ6MJ2A",
+        "sender_address": "FL7U7GHUZB2R6RACPGY5UFD2K47CP2IL4RQWX7LKYE5QSFGXVJCDGPRLBE",
+        "receiver_address": "2RIRIX5XK6GWK7LOXDAYIDTN4IYDVNRDJFXR4TJCLYIM72A3EF2UQPROQY",
+        "amount": 0.1,
+        "supplier_id": 1601200366909,
+        "promised_delivery_days": 10,
+        "escrow_status": "funded",
+        "timestamp": 1779196726.8901792,
+        "delivery_proof": null,
+        "verified": false
     }
 }
