@@ -2,9 +2,9 @@ import smtplib
 import os
 from email.mime.text import MIMEText
 from email.mime.multipart import MIMEMultipart
-from dotenv import load_dotenv
+from dotenv import load_dotenv, find_dotenv
 
-load_dotenv()
+load_dotenv(find_dotenv())
 
 class EmailService:
     """
@@ -17,7 +17,7 @@ class EmailService:
         self.smtp_port = 587
 
     def _load_credentials(self):
-        load_dotenv() # Force reload .env
+        load_dotenv(find_dotenv()) # Force reload .env
         self.smtp_email = os.getenv("SMTP_EMAIL")
         self.smtp_password = os.getenv("SMTP_PASSWORD")
 

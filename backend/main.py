@@ -9,10 +9,10 @@ import hashlib
 from datetime import datetime
 import time
 import random
-from dotenv import load_dotenv
+from dotenv import load_dotenv, find_dotenv
 
 # Load .env file
-load_dotenv()
+load_dotenv(find_dotenv())
 from ai_agent import select_best_supplier, run_agent_competition
 from blockchain import create_transaction, simulate_escrow
 from escrow_service import deploy_escrow

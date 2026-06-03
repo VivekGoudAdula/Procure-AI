@@ -3,10 +3,10 @@ import random
 import os
 import requests
 from groq import Groq
-from dotenv import load_dotenv
+from dotenv import load_dotenv, find_dotenv
 
 # Load .env file
-load_dotenv()
+load_dotenv(find_dotenv())
 
 # Initialize Groq client
 GROQ_API_KEY = os.environ.get("GROQ_API_KEY", "")

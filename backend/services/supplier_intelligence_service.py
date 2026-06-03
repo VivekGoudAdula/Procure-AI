@@ -3,9 +3,9 @@ import json
 import requests
 import random
 from datetime import datetime
-from dotenv import load_dotenv
+from dotenv import load_dotenv, find_dotenv
 
-load_dotenv()
+load_dotenv(find_dotenv())
 
 RAPIDAPI_KEY = os.environ.get("RAPIDAPI_KEY", "")
 RAPIDAPI_HOST = "alibaba-datahub.p.rapidapi.com"

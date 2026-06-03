@@ -5,9 +5,9 @@ import time
 import requests
 from typing import List, Dict, Any, Optional
 from datetime import datetime
-from dotenv import load_dotenv
+from dotenv import load_dotenv, find_dotenv
 
-load_dotenv()
+load_dotenv(find_dotenv())
 
 class GlobalProcurementEngine:
     def __init__(self):

@@ -58,7 +58,7 @@ const Topbar = () => {
       </div>
 
       {/* Center: Search bar styled like a floating dock (Mathematically Centered) */}
-      <div className="hidden md:flex absolute left-1/2 -translate-x-1/2 w-full max-w-md justify-center z-10">
+      <div className="hidden md:flex absolute left-[45%] -translate-x-1/2 w-full max-w-md justify-center z-10">
          <div className="relative w-full group">
            <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-400 group-focus-within:text-primary transition-colors z-20" />
            <input 
