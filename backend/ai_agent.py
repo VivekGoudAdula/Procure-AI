@@ -17,19 +17,81 @@ BASE_URL = os.environ.get("APP_URL", "http://localhost:8000")
 if BASE_URL == "MY_APP_URL":
     BASE_URL = "http://localhost:8000"
 
-DATABASE_PATH = os.path.join(os.path.dirname(__file__), "database.json")
+import hashlib
+from services.alibaba_procurement_service import AlibabaProcurementService
 
 def load_data():
-    if not os.path.exists(DATABASE_PATH):
-        return {"users": [], "suppliers": []}
-    with open(DATABASE_PATH, "r") as f:
-        return json.load(f)
+    from db import users_collection
+    users = list(users_collection.find({}, {"_id": 0}))
+    return {"users": users, "suppliers": []}
+
+def get_alibaba_suppliers(product_name: str, quantity: int = 1, budget: float = 1000.0):
+    service = AlibabaProcurementService()
+    intel = service.run_intelligence({"product_name": product_name, "quantity": quantity})
+    raw_suppliers = intel.get("suppliers", [])
+    
+    all_suppliers = []
+    for s in raw_suppliers:
+        s_id = s.get("id", str(random.randint(100000, 999999)))
+        mapped = {
+            "id": s_id,
+            "name": s["name"],
+            "category": s.get("category", "General"),
+            "product": s.get("product_title", product_name),
+            "reliability": s.get("trust_score", 85) / 100.0,
+            "address": "2RIRIX5XK6GWK7LOXDAYIDTN4IYDVNRDJFXR4TJCLYIM72A3EF2UQPROQY",
+            "endpoint": f"/supplier/{s_id}/respond",
+            "base_price": s.get("negotiated_price", 100.0),
+            "reliability_score": s.get("trust_score", 85),
+            "rating": round((s.get("trust_score", 85) / 20), 1),
+            "delivery_days": s.get("lead_time_days", 5),
+            "success_rate": s.get("success_rate", 95),
+            "total_deals": 10,
+            "successful_deals": 9,
+            "failed_deals": 1,
+            "on_time_deliveries": 8,
+            "late_deliveries": 2,
+            "reputation_hash": hashlib.sha256(f"{s_id}-10-95-80".encode()).hexdigest()
+        }
+        all_suppliers.append(mapped)
+
+    # Fallback to realistic mock Alibaba suppliers if external API call returns nothing
+    if not all_suppliers:
+        mock_companies = [
+            {"name": "Shenzhen Industrial Supply Ltd", "region": "China", "price_mult": 0.85},
+            {"name": "Guangzhou Textile Manufacturing Co.", "region": "China", "price_mult": 0.75},
+            {"name": "Vietnam Garment & Fabric Export", "region": "Vietnam", "price_mult": 0.80},
+            {"name": "Bosphorus Premium Hardware", "region": "Turkey", "price_mult": 0.95},
+            {"name": "Dhaka Bulk sourcing Enterprise", "region": "Bangladesh", "price_mult": 0.70}
+        ]
+        for i, comp in enumerate(mock_companies):
+            s_id = f"ALB-{1000 + i}"
+            all_suppliers.append({
+                "id": s_id,
+                "name": comp["name"],
+                "category": "General",
+                "product": product_name,
+                "reliability": 0.88,
+                "address": "2RIRIX5XK6GWK7LOXDAYIDTN4IYDVNRDJFXR4TJCLYIM72A3EF2UQPROQY",
+                "endpoint": f"/supplier/{s_id}/respond",
+                "base_price": round((budget / quantity) * comp["price_mult"], 2),
+                "reliability_score": 88,
+                "rating": 4.4,
+                "delivery_days": random.randint(3, 14),
+                "success_rate": 92,
+                "total_deals": 10,
+                "successful_deals": 9,
+                "failed_deals": 1,
+                "on_time_deliveries": 8,
+                "late_deliveries": 2,
+                "reputation_hash": hashlib.sha256(f"{s_id}-10-92-80".encode()).hexdigest()
+            })
+    return all_suppliers
 
 def run_agent_competition(product_name, quantity, budget, policy=None):
     print(f"\n[ProcureAI] Starting Dynamic Agent Competition for '{product_name}'...")
     
-    data = load_data()
-    all_suppliers = [s for s in data.get("suppliers", []) if product_name.lower() in s["product"].lower()]
+    all_suppliers = get_alibaba_suppliers(product_name, quantity, budget)
     
     if not all_suppliers:
         # Fallback to category if product not found

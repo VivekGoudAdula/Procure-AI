@@ -56,18 +56,19 @@ if not os.path.exists(UPLOAD_DIR):
     os.makedirs(UPLOAD_DIR)
 app.mount("/uploads", StaticFiles(directory=UPLOAD_DIR), name="uploads")
 
-DATABASE_PATH = os.path.join(os.path.dirname(__file__), "database.json")
+from db import users_collection, escrows_collection, get_alibaba_suppliers
 
 def load_db():
-    if not os.path.exists(DATABASE_PATH):
-        # Default mock database structure
-        return {"users": [], "suppliers": []}
-    with open(DATABASE_PATH, "r") as f:
-        return json.load(f)
+    users = list(users_collection.find({}, {"_id": 0}))
+    suppliers = get_alibaba_suppliers()
+    return {"users": users, "suppliers": suppliers}
 
 def save_db(data):
-    with open(DATABASE_PATH, "w") as f:
-        json.dump(data, f, indent=4)
+    if "users" in data:
+        users_collection.delete_many({})
+        if data["users"]:
+            users_collection.insert_many(data["users"])
+    # Local supplier DB removed; reputation updates will be kept in-memory or computed dynamically.
 
 # Models
 class User(BaseModel):
@@ -105,7 +106,7 @@ class EscrowRequest(BaseModel):
     sender: str
     receiver: str
     amount: float = 0.1
-    supplier_id: int
+    supplier_id: Any
     promised_delivery_days: int
 
 class ConfirmDeliveryRequest(BaseModel):
@@ -189,25 +190,19 @@ class ProcurementInquiryResponse(BaseModel):
     metadata: dict
     logs: list[str]
 
-ESCROW_DB_PATH = os.path.join(os.path.dirname(__file__), "escrow_records.json")
-
 def load_escrow_db():
-    if not os.path.exists(ESCROW_DB_PATH):
-        return {}
-    try:
-        with open(ESCROW_DB_PATH, "r") as f:
-            return json.load(f)
-    except:
-        return {}
+    escrows = list(escrows_collection.find({}, {"_id": 0}))
+    return {e["transaction_id"]: e for e in escrows if "transaction_id" in e}
 
 def save_escrow_db(data):
-    with open(ESCROW_DB_PATH, "w") as f:
-        json.dump(data, f, indent=4)
+    for tx_id, record in data.items():
+        record["transaction_id"] = tx_id
+        escrows_collection.replace_one({"transaction_id": tx_id}, record, upsert=True)
 
-def update_supplier_reputation(supplier_id: int, delivered_on_time: bool):
+def update_supplier_reputation(supplier_id: Any, delivered_on_time: bool):
     db = load_db()
     suppliers = db.get("suppliers", [])
-    supplier = next((s for s in suppliers if s["id"] == supplier_id), None)
+    supplier = next((s for s in suppliers if str(s["id"]) == str(supplier_id)), None)
     
     if not supplier:
         return

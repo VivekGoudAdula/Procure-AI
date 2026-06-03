@@ -3,8 +3,7 @@ import json
 import time
 from typing import Dict, Any, List
 
-ESCROW_PATH = os.path.join(os.path.dirname(os.path.dirname(__file__)), "escrow_records.json")
-DATABASE_PATH = os.path.join(os.path.dirname(os.path.dirname(__file__)), "database.json")
+from db import suppliers_collection, escrows_collection
 
 class SettlementAnalyticsService:
     """
@@ -26,9 +25,10 @@ class SettlementAnalyticsService:
             return default
 
     def calculate_settlements_telemetry(self) -> Dict[str, Any]:
-        escrows = self._load_json(ESCROW_PATH, {})
-        db = self._load_json(DATABASE_PATH, {"suppliers": []})
-        suppliers = db.get("suppliers", [])
+        escrows_list = list(escrows_collection.find({}, {"_id": 0}))
+        escrows = {e["transaction_id"]: e for e in escrows_list if "transaction_id" in e}
+        from db import get_alibaba_suppliers
+        suppliers = get_alibaba_suppliers()
 
         # 1. Scaled volumes and counts for enterprise simulation
         active_escrows_count = max(9, len([e for e in escrows.values() if e.get("escrow_status") in ["funded", "locked"]]))
@@ -90,8 +90,8 @@ class SettlementAnalyticsService:
         }
 
     def compile_settlement_ledger(self) -> List[Dict[str, Any]]:
-        db = self._load_json(DATABASE_PATH, {"suppliers": []})
-        suppliers = db.get("suppliers", [])
+        from db import get_alibaba_suppliers
+        suppliers = get_alibaba_suppliers()
         
         # Hardcoded high-density default ledger overlaid with live database/escrow records
         default_ledger = [
@@ -218,7 +218,8 @@ class SettlementAnalyticsService:
         ]
 
         # Overlay real-time escrows from chain database
-        escrows = self._load_json(ESCROW_PATH, {})
+        escrows_list = list(escrows_collection.find({}, {"_id": 0}))
+        escrows = {e["transaction_id"]: e for e in escrows_list if "transaction_id" in e}
         for idx, (tx_id, esc) in enumerate(escrows.items()):
             status_map = {
                 "funded": "Escrow Secured",

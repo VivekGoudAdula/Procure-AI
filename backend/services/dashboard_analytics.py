@@ -3,8 +3,7 @@ import json
 from datetime import datetime
 from typing import Dict, Any, List
 
-DATABASE_PATH = os.path.join(os.path.dirname(os.path.dirname(__file__)), "database.json")
-ESCROW_PATH = os.path.join(os.path.dirname(os.path.dirname(__file__)), "escrow_records.json")
+from db import suppliers_collection, escrows_collection
 SEARCH_CACHE_PATH = os.path.join(os.path.dirname(os.path.dirname(__file__)), "alibaba_search_cache.json")
 
 class DashboardAnalyticsService:
@@ -27,8 +26,8 @@ class DashboardAnalyticsService:
             return default
 
     def get_raw_suppliers(self) -> List[Dict[str, Any]]:
-        db = self._load_json(DATABASE_PATH, {"suppliers": []})
-        suppliers = db.get("suppliers", [])
+        from db import get_alibaba_suppliers
+        suppliers = get_alibaba_suppliers()
         
         # Load additional supplier records cached from live alibaba search
         cached_search = self._load_json(SEARCH_CACHE_PATH, [])
@@ -38,7 +37,8 @@ class DashboardAnalyticsService:
         return suppliers
 
     def get_escrow_records(self) -> Dict[str, Any]:
-        return self._load_json(ESCROW_PATH, {})
+        escrows = list(escrows_collection.find({}, {"_id": 0}))
+        return {e["transaction_id"]: e for e in escrows if "transaction_id" in e}
 
     def calculate_analytics(self) -> Dict[str, Any]:
         suppliers = self.get_raw_suppliers()
