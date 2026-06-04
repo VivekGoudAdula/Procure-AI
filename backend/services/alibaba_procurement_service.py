@@ -3,11 +3,14 @@ import json
 import random
 import time
 import requests
+import logging
 from typing import List, Dict, Any, Optional
 from datetime import datetime
 from dotenv import load_dotenv, find_dotenv
 
 load_dotenv(find_dotenv())
+
+logger = logging.getLogger(__name__)
 
 class AlibabaProcurementService:
     def __init__(self):
@@ -87,23 +90,23 @@ class AlibabaProcurementService:
                 data = response.json()
                 
                 # DEEP DEBUG LOGGING
-                print(f"[DEBUG] API Response Keys: {list(data.keys())}")
+                logger.debug(f"API Response Keys: {list(data.keys())}")
                 
                 items = []
                 
                 # Path 1: data -> result -> item (The one seen in terminal)
                 if "data" in data and isinstance(data["data"], dict):
-                    print(f"[DEBUG] Found 'data' dict with keys: {list(data['data'].keys())}")
+                    logger.debug(f"Found 'data' dict with keys: {list(data['data'].keys())}")
                     res = data["data"].get("result", {})
                     if isinstance(res, dict):
-                        print(f"[DEBUG] Found 'result' dict with keys: {list(res.keys())}")
+                        logger.debug(f"Found 'result' dict with keys: {list(res.keys())}")
                         items = res.get("item", [])
-                        print(f"[DEBUG] 'item' key found: {'item' in res}, type: {type(items)}")
+                        logger.debug(f"'item' key found: {'item' in res}, type: {type(items)}")
                 
                 # Path 2: result -> item
                 if not items and "result" in data and isinstance(data["result"], dict):
                     res = data["result"]
-                    print(f"[DEBUG] Trying 'result' -> 'item' path. Result keys: {list(res.keys())}")
+                    logger.debug(f"Trying 'result' -> 'item' path. Result keys: {list(res.keys())}")
                     items = res.get("item", [])
                     if not items:
                         items = res.get("items", [])
@@ -113,17 +116,17 @@ class AlibabaProcurementService:
 
                 # Path 3: data (as a list)
                 if not items and "data" in data and isinstance(data["data"], list):
-                    print("[DEBUG] Trying 'data' list path")
+                    logger.debug("Trying 'data' list path")
                     items = data["data"]
                 
                 # Path 4: item (root level)
                 if not items and "item" in data and isinstance(data["item"], list):
-                    print("[DEBUG] Trying 'item' list path")
+                    logger.debug("Trying 'item' list path")
                     items = data["item"]
 
                 # CATCH-ALL: Deep recursive search for any list containing item-like objects
                 if not items:
-                    print("[DEBUG] Initializing deep recursive search...")
+                    logger.debug("Initializing deep recursive search...")
                     def find_best_list(obj):
                         if isinstance(obj, list) and len(obj) > 0:
                             # Check if first element looks like an Alibaba item entry

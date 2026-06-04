@@ -12,3 +12,6 @@ algokit
 puya
 python-multipart
 pymongo
+bcrypt
+pyjwt
+slowapi

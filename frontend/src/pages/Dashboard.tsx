@@ -246,10 +246,7 @@ const Dashboard = () => {
               <span className="w-1.5 h-1.5 rounded-full bg-blue-500 animate-pulse" />
               Live Sourcing Activity
             </div>
-            <div className="flex items-center gap-1.5 px-3 py-1 rounded-full bg-violet-50 border border-violet-100 text-violet-600 text-[9px] font-black uppercase tracking-wider shadow-sm">
-              <ShieldCheck className="w-3 h-3 text-violet-500 animate-pulse" />
-              x402 Authorization Active
-            </div>
+
             <div className="flex items-center gap-1.5 px-3 py-1 rounded-full bg-slate-50 border border-slate-200 text-slate-600 text-[9px] font-black uppercase tracking-wider shadow-sm">
               <Radio className="w-3 h-3 text-primary animate-pulse" />
               Algorand Settlement Layer

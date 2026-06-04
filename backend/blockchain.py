@@ -2,8 +2,8 @@ from algosdk.v2client import algod
 from algosdk import transaction
 import os
 
-# TestNet Algorand Node (Example using Algonode)
-ALGOD_ADDRESS = os.getenv("ALGOD_ADDRESS", "https://testnet-api.algonode.cloud")
+# TestNet Algorand Node (Example using Nodely dev)
+ALGOD_ADDRESS = os.getenv("ALGOD_ADDRESS", "https://testnet-api.4160.nodely.dev")
 ALGOD_TOKEN = os.getenv("ALGOD_TOKEN", "")
 
 def get_algod_client():

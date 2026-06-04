@@ -56,7 +56,7 @@ import { toast } from 'sonner';
 import { API_BASE_URL } from '../config';
 const DEMO_VAULT_ADDRESS = "2RIRIX5XK6GWK7LOXDAYIDTN4IYDVNRDJFXR4TJCLYIM72A3EF2UQPROQY";
 const DEMO_TRANSACTION_AMOUNT = 0.1; 
-const algodClient = new algosdk.Algodv2('', 'https://testnet-api.algonode.network', '');
+const algodClient = new algosdk.Algodv2('', 'https://testnet-api.4160.nodely.dev', '');
 
 
 interface Supplier {
@@ -105,6 +105,7 @@ interface ProcurementResult {
 interface IntelligenceResult {
   suppliers: any[];
   recommended_supplier: any;
+  recommended_suppliers?: any[];
   procurement_analysis: any;
   rejected_suppliers: any[];
 }
@@ -151,10 +152,7 @@ const Procurement = () => {
   const [appAddress, setAppAddress] = useState<string | null>(() => {
     return sessionStorage.getItem('procureai_appaddress');
   });
-  const [x402Session, setX402Session] = useState<any>(() => {
-    const saved = sessionStorage.getItem('procureai_x402_session');
-    return saved ? JSON.parse(saved) : null;
-  });
+
 
   // UI State
   const [isSearching, setIsSearching] = useState(false);
@@ -190,7 +188,6 @@ const Procurement = () => {
     if (txId) sessionStorage.setItem('procureai_txid', txId);
     if (appId) sessionStorage.setItem('procureai_appid', appId.toString());
     if (appAddress) sessionStorage.setItem('procureai_appaddress', appAddress);
-    if (x402Session) sessionStorage.setItem('procureai_x402_session', JSON.stringify(x402Session));
     if (escrowStatus) sessionStorage.setItem('procureai_escrowstatus', escrowStatus);
 
     // Clear session if we go back to form
@@ -199,10 +196,9 @@ const Procurement = () => {
       sessionStorage.removeItem('procureai_txid');
       sessionStorage.removeItem('procureai_appid');
       sessionStorage.removeItem('procureai_appaddress');
-      sessionStorage.removeItem('procureai_x402_session');
       sessionStorage.removeItem('procureai_escrowstatus');
     }
-  }, [step, result, txId, x402Session, escrowStatus]);
+  }, [step, result, txId, escrowStatus]);
 
   const logsEndRef = useRef<HTMLDivElement>(null);
 
@@ -235,18 +231,7 @@ const Procurement = () => {
     setProcurementLogs([]);
 
     try {
-      // 1. Initialize x402 Procurement Session
-      const x402Res = await axios.post(`${API_BASE_URL}/api/x402/initiate-session`, {
-        product_name: productName,
-        quantity,
-        budget
-      });
-      setX402Session(x402Res.data);
-      
-      // 2. Stream x402 Protocol Logs
-      await streamLogs(x402Res.data.logs);
-
-      // 3. Run Global Intelligence Scan
+      // 1. Run Global Intelligence Scan
       const response = await axios.post(`${API_BASE_URL}/api/procurement/intelligence`, {
         product_name: productName,
         quantity,
@@ -262,7 +247,7 @@ const Procurement = () => {
 
       setIntelligenceResult(response.data);
       
-      // 4. Stream Intelligence Logs
+      // 2. Stream Intelligence Logs
       const intelLogs = response.data.logs || [];
       for (const log of intelLogs) {
         await new Promise(res => setTimeout(res, 400));
@@ -274,7 +259,7 @@ const Procurement = () => {
 
       setShowTerminal(true);
       setStep('intelligence_dashboard');
-      toast.success('x402 Secure Procurement Session Established!');
+      toast.success('Secure Procurement Session Established!');
     } catch (err: any) {
       console.error('[ProcureAI] Intelligence Error:', err);
       setError(`Failed to fetch intelligence: ${err.message || 'Check backend connection.'}`);
@@ -301,7 +286,7 @@ const Procurement = () => {
       // Call backend to select supplier
       const response = await axios.post(`${API_BASE_URL}/api/procurement/select-supplier`, {
         supplier_id: supplier.id,
-        session_id: x402Session?.session_id || "DEMO-SESSION"
+        session_id: "DEMO-SESSION"
       });
       console.log("[ProcureAI] Select Supplier Response:", response.data);
     } catch (err) {
@@ -657,10 +642,10 @@ const Procurement = () => {
     setPaymentPhase(0);
     setError(null);
 
-    // Cycle through 4 animation phases
+    // Cycle through 4 animation phases faster (100ms)
     const phaseInterval = setInterval(() => {
       setPaymentPhase(p => (p < 3 ? p + 1 : p));
-    }, 250);
+    }, 100);
 
     try {
       const response: any = await axios.post(`${API_BASE_URL}/api/procurement/initiate-commitment`, {
@@ -722,10 +707,10 @@ const Procurement = () => {
       setStep('escrow_locked');
       toast.success('Escrow settlement initiated and funds locked!');
     } catch (err: any) {
-      clearInterval(phaseInterval);
       setError(`Transaction failed: ${err.message || 'Check wallet connection.'}`);
       toast.error('Failed to initiate escrow settlement.');
     } finally {
+      clearInterval(phaseInterval);
       setIsExecuting(false);
       setPaymentPhase(0);
     }
@@ -757,7 +742,7 @@ const Procurement = () => {
     setPaymentPhase(0);
     setError(null);
 
-    // Cycle through 4 animation phases (250ms each = 1s total)
+    // Cycle through 4 animation phases faster (100ms)
     const phases = [0, 1, 2, 3];
     let phaseIndex = 0;
     const phaseInterval = setInterval(() => {
@@ -765,7 +750,7 @@ const Procurement = () => {
       if (phaseIndex < phases.length) {
         setPaymentPhase(phaseIndex);
       }
-    }, 250);
+    }, 100);
 
     try {
       // 1. Create Escrow on Backend (Deploys Contract)
@@ -865,11 +850,11 @@ const Procurement = () => {
       setStep('escrow_locked');
       toast.success('Funds successfully locked in the smart contract escrow!');
     } catch (err: any) {
-      clearInterval(phaseInterval);
       console.error('[ProcureAI] Execute Deal Error:', err);
       setError(`Transaction failed: ${err.message || 'Check wallet connection.'}`);
       toast.error('Failed to reserve funds on chain.');
     } finally {
+      clearInterval(phaseInterval);
       setIsExecuting(false);
       setPaymentPhase(0);
     }
@@ -1037,7 +1022,6 @@ const Procurement = () => {
           <p className="text-slate-500 mt-1.5 font-medium text-xs">Enterprise copilot for global sourcing.</p>
         </div>
         <div className="flex items-center gap-2">
-          <Badge className="bg-emerald-50 text-emerald-600 border-none text-[8px] font-black uppercase tracking-widest">x402 Authorized</Badge>
           <Badge className="bg-amber-50 text-amber-600 border-none text-[8px] font-black uppercase tracking-widest">Trade Assurance</Badge>
           <Badge className="bg-primary/10 text-primary border-none text-[8px] font-black uppercase tracking-widest">Algorand Secured</Badge>
           {!walletAddress && (
@@ -1228,7 +1212,11 @@ const Procurement = () => {
             className="max-w-7xl mx-auto space-y-8"
           >
             <SupplierIntelligenceDashboard 
-              data={intelligenceResult!}
+              data={{
+                ...intelligenceResult!,
+                recommended_suppliers: intelligenceResult!.recommended_suppliers || 
+                  (intelligenceResult!.recommended_supplier ? [intelligenceResult!.recommended_supplier] : [])
+              }}
               onSelectSupplier={handleSelectIntelligenceSupplier}
               requestDetails={{
                 product_name: productName,
@@ -1501,10 +1489,6 @@ const Procurement = () => {
                     <div>
                       <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-1">Policy Compliance</p>
                       <p className="text-sm font-bold text-emerald-600">VERIFIED</p>
-                    </div>
-                    <div className="md:col-span-2">
-                      <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-1">x402 Session Status</p>
-                      <p className="text-sm font-bold text-cyan-600 truncate">AUTHORIZED • {x402Session?.session_id}</p>
                     </div>
                   </div>
                 </div>
@@ -1918,7 +1902,7 @@ const Procurement = () => {
                     >
                       <h3 className="font-display font-bold text-2xl text-slate-900 mb-2 tracking-tight">
                         {[
-                          'Initializing x402 Protocol...',
+                          'Initializing Protocol...',
                           'Securing Commitment...',
                           'Anchoring Contract...',
                           'Finalizing Authorization...',
@@ -1926,7 +1910,7 @@ const Procurement = () => {
                       </h3>
                       <p className="text-slate-500 font-medium text-sm leading-relaxed max-w-[220px]">
                         {[
-                          'Establishing agentic authorization channel for the procurement cycle.',
+                          'Establishing agentic channel for the procurement cycle.',
                           'Securing procurement commitment on Algorand immutable ledger.',
                           'Anchoring digital contract terms to the blockchain network.',
                           'Finalizing machine-to-machine authorization for settlement.',

@@ -24,6 +24,26 @@ escrows_collection.create_index("transaction_id", unique=True)
 
 print(f"[MongoDB] Connected to database: '{DB_NAME}'")
 
+def migrate_plaintext_passwords():
+    """Migrates any legacy plaintext passwords in the database to secure bcrypt hashes."""
+    import bcrypt
+    try:
+        users = list(users_collection.find({}))
+        migrated_count = 0
+        for user in users:
+            pw_hash = user.get("password", "")
+            if pw_hash and not (pw_hash.startswith("$2b$") or pw_hash.startswith("$2a$")):
+                # Hash plaintext password
+                hashed = bcrypt.hashpw(pw_hash.encode("utf-8"), bcrypt.gensalt()).decode("utf-8")
+                users_collection.update_one({"email": user["email"]}, {"$set": {"password": hashed}})
+                migrated_count += 1
+        if migrated_count > 0:
+            print(f"[MongoDB Migration] Migrated {migrated_count} legacy plaintext password(s) to bcrypt.")
+    except Exception as e:
+        print(f"[MongoDB Migration] Error migrating plaintext passwords: {e}")
+
+migrate_plaintext_passwords()
+
 def get_alibaba_suppliers():
     import random
     import hashlib

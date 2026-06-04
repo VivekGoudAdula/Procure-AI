@@ -1,7 +1,5 @@
-import json
 import random
 import os
-import requests
 from groq import Groq
 from dotenv import load_dotenv, find_dotenv
 
@@ -20,10 +18,7 @@ if BASE_URL == "MY_APP_URL":
 import hashlib
 from services.alibaba_procurement_service import AlibabaProcurementService
 
-def load_data():
-    from db import users_collection
-    users = list(users_collection.find({}, {"_id": 0}))
-    return {"users": users, "suppliers": []}
+
 
 def get_alibaba_suppliers(product_name: str, quantity: int = 1, budget: float = 1000.0):
     service = AlibabaProcurementService()
@@ -98,9 +93,11 @@ def run_agent_competition(product_name, quantity, budget, policy=None):
         categories = ["industrial", "electronics", "agriculture", "food", "medical", "office", "construction", "automotive", "textiles", "energy"]
         found_category = next((cat for cat in categories if cat in product_name.lower()), None)
         if found_category:
-            all_suppliers = [s for s in data.get("suppliers", []) if s["category"] == found_category]
+            # No local supplier database; get_alibaba_suppliers already returned empty.
+            # Return empty list so the caller can handle no-supplier-found gracefully.
+            all_suppliers = []
         else:
-            all_suppliers = data.get("suppliers", [])[:10]
+            all_suppliers = []
 
     # POLICY ENFORCEMENT
     filtered_out_count = 0

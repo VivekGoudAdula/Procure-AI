@@ -19,6 +19,7 @@ import { Card, CardContent } from '../ui/card';
 import { Badge } from '../ui/badge';
 import axios from 'axios';
 import { API_BASE_URL } from '../../config';
+import { cn } from '../../lib/utils';
 
 interface IntelligenceData {
   moq_flexibility: { status: string; summary: string };

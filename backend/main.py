@@ -1,14 +1,19 @@
-from fastapi import FastAPI, HTTPException, File, UploadFile, Form
+from fastapi import FastAPI, HTTPException, File, UploadFile, Form, Depends, Request, status
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
+from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from pydantic import BaseModel
-from typing import List, Optional, Any
-import json
+from typing import Optional, Any
 import os
 import hashlib
-from datetime import datetime
+from datetime import datetime, timedelta, timezone
 import time
 import random
+import bcrypt
+import jwt
+from slowapi import Limiter, _rate_limit_exceeded_handler
+from slowapi.util import get_remote_address
+from slowapi.errors import RateLimitExceeded
 from dotenv import load_dotenv, find_dotenv
 
 # Load .env file
@@ -27,7 +32,13 @@ from services.procurement_insights import ProcurementInsightsService
 from services.settlement_analytics import SettlementAnalyticsService
 from services.procurement_analytics_engine import ProcurementAnalyticsEngine
 
+# Rate Limiting setup using slowapi
+is_testing = os.getenv("TESTING", "False").lower() == "true"
+limiter = Limiter(key_func=get_remote_address, enabled=not is_testing)
+
 app = FastAPI(title="ProcureAI Backend - Autonomous Agentic Commerce Platform")
+app.state.limiter = limiter
+app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
 
 # Services initialization
 procurement_engine = AlibabaProcurementService()
@@ -42,9 +53,15 @@ settlement_analytics = SettlementAnalyticsService()
 procurement_analytics_engine = ProcurementAnalyticsEngine()
 
 # CORS setup for frontend connection
+allowed_origins_env = os.getenv("ALLOWED_ORIGINS", "")
+allowed_origins = [origin.strip() for origin in allowed_origins_env.split(",") if origin.strip()]
+if not allowed_origins:
+    # Safe fallbacks for local development
+    allowed_origins = ["http://localhost:3000", "http://localhost:5173"]
+
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
+    allow_origins=allowed_origins,
     allow_credentials=False,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -55,6 +72,52 @@ UPLOAD_DIR = os.path.join(os.path.dirname(__file__), "uploads")
 if not os.path.exists(UPLOAD_DIR):
     os.makedirs(UPLOAD_DIR)
 app.mount("/uploads", StaticFiles(directory=UPLOAD_DIR), name="uploads")
+
+# JWT Configuration
+JWT_SECRET_KEY = os.getenv("JWT_SECRET_KEY")
+if not JWT_SECRET_KEY:
+    raise ValueError("JWT_SECRET_KEY environment variable is missing")
+JWT_ALGORITHM = os.getenv("JWT_ALGORITHM", "HS256")
+ACCESS_TOKEN_EXPIRE_MINUTES = int(os.getenv("ACCESS_TOKEN_EXPIRE_MINUTES", "30"))
+
+security = HTTPBearer()
+
+def create_access_token(data: dict, expires_delta: Optional[timedelta] = None) -> str:
+    """Generates a secure JWT access token."""
+    to_encode = data.copy()
+    if expires_delta:
+        expire = datetime.now(timezone.utc) + expires_delta
+    else:
+        expire = datetime.now(timezone.utc) + timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES)
+    to_encode.update({"exp": expire})
+    encoded_jwt = jwt.encode(to_encode, JWT_SECRET_KEY, algorithm=JWT_ALGORITHM)
+    return encoded_jwt
+
+def get_current_user(credentials: HTTPAuthorizationCredentials = Depends(security)) -> str:
+    """FastAPI security dependency to validate JWT access tokens."""
+    token = credentials.credentials
+    try:
+        payload = jwt.decode(token, JWT_SECRET_KEY, algorithms=[JWT_ALGORITHM])
+        email: str = payload.get("sub")
+        if email is None:
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="Invalid token: missing subject",
+                headers={"WWW-Authenticate": "Bearer"},
+            )
+        return email
+    except jwt.ExpiredSignatureError:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Token has expired",
+            headers={"WWW-Authenticate": "Bearer"},
+        )
+    except jwt.PyJWTError:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Could not validate credentials",
+            headers={"WWW-Authenticate": "Bearer"},
+        )
 
 from db import users_collection, escrows_collection, get_alibaba_suppliers
 
@@ -121,20 +184,7 @@ class SupplierNegotiationRequest(BaseModel):
 class VerifyDeliveryRequest(BaseModel):
     escrow_id: str
 
-class X402SessionRequest(BaseModel):
-    product_name: str
-    quantity: int
-    budget: float
 
-class X402SessionResponse(BaseModel):
-    session_id: str
-    status: str
-    authorization: str
-    credits_allocated: bool
-    secure_channel: bool
-    negotiation_enabled: bool
-    logs: list[str]
-    timestamps: dict
 
 class HumanSelectSupplierRequest(BaseModel):
     supplier_id: str | int
@@ -240,21 +290,21 @@ def update_supplier_reputation(supplier_id: Any, delivered_on_time: bool):
 # --- Endpoints ---
 
 @app.get("/api/procurement/analytics")
-async def get_procurement_analytics():
+async def get_procurement_analytics(current_user: str = Depends(get_current_user)):
     try:
         return procurement_analytics_engine.calculate_procurement_intelligence()
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
 @app.get("/api/dashboard/analytics")
-async def get_dashboard_analytics():
+async def get_dashboard_analytics(current_user: str = Depends(get_current_user)):
     try:
         return dashboard_analytics.calculate_analytics()
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
 @app.get("/api/dashboard/insights")
-async def get_dashboard_insights():
+async def get_dashboard_insights(current_user: str = Depends(get_current_user)):
     try:
         res = procurement_insights.generate_insights()
         return {
@@ -266,7 +316,7 @@ async def get_dashboard_insights():
         raise HTTPException(status_code=500, detail=str(e))
 
 @app.get("/api/dashboard/procurement-feed")
-async def get_dashboard_feed():
+async def get_dashboard_feed(current_user: str = Depends(get_current_user)):
     try:
         res = procurement_insights.generate_insights()
         return res["procurement_feed"]
@@ -274,7 +324,7 @@ async def get_dashboard_feed():
         raise HTTPException(status_code=500, detail=str(e))
 
 @app.get("/api/dashboard/regions")
-async def get_dashboard_regions():
+async def get_dashboard_regions(current_user: str = Depends(get_current_user)):
     try:
         res = dashboard_analytics.calculate_analytics()
         return res["regions_detail"]
@@ -282,49 +332,23 @@ async def get_dashboard_regions():
         raise HTTPException(status_code=500, detail=str(e))
 
 @app.get("/api/settlements/analytics")
-async def get_settlements_analytics():
+async def get_settlements_analytics(current_user: str = Depends(get_current_user)):
     try:
         return settlement_analytics.calculate_settlements_telemetry()
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
 @app.get("/api/settlements/ledger")
-async def get_settlements_ledger():
+async def get_settlements_ledger(current_user: str = Depends(get_current_user)):
     try:
         return settlement_analytics.compile_settlement_ledger()
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
-@app.post("/api/x402/initiate-session", response_model=X402SessionResponse)
-async def initiate_x402_session(req: X402SessionRequest):
-    session_id = f"X402-PROC-{random.randint(1000, 9999)}"
-    now = datetime.now()
-    
-    return {
-        "session_id": session_id,
-        "status": "ACTIVE",
-        "authorization": "APPROVED",
-        "credits_allocated": True,
-        "secure_channel": True,
-        "negotiation_enabled": True,
-        "logs": [
-            "Opening agentic procurement channel...",
-            "Establishing x402 authorization...",
-            "Negotiation credits allocated.",
-            "Supplier intelligence request approved.",
-            "Cross-border procurement channel secured.",
-            "Machine-to-machine procurement orchestration active.",
-            "AI negotiation cycle initiated..."
-        ],
-        "timestamps": {
-            "initialized": now.isoformat(),
-            "authorized": (now).isoformat(),
-            "negotiation_started": (now).isoformat()
-        }
-    }
+
 
 @app.post("/api/procurement/intelligence")
-async def get_procurement_intelligence(req: ProcurementIntelligenceRequest):
+async def get_procurement_intelligence(req: ProcurementIntelligenceRequest, current_user: str = Depends(get_current_user)):
     try:
         result = procurement_engine.run_intelligence(req.dict())
         return result
@@ -333,23 +357,44 @@ async def get_procurement_intelligence(req: ProcurementIntelligenceRequest):
         raise HTTPException(status_code=500, detail=str(e))
 
 @app.post("/api/login")
-async def login(user: User):
+@limiter.limit("5/minute")
+async def login(request: Request, user: User):
     db = load_db()
     users = db.get("users", [])
-    valid_user = any(u["email"] == user.email and u["password"] == user.password for u in users)
     
-    if valid_user:
-        return {"message": "Login successful", "email": user.email}
+    # Locate the user and verify their password
+    found_user = next((u for u in users if u["email"] == user.email), None)
+    if not found_user:
+        raise HTTPException(status_code=401, detail="Invalid credentials")
+        
+    pw_hash = found_user.get("password", "")
+    valid_password = False
+    
+    try:
+        valid_password = bcrypt.checkpw(user.password.encode("utf-8"), pw_hash.encode("utf-8"))
+    except Exception:
+        valid_password = False
+        
+    if valid_password:
+        access_token = create_access_token(data={"sub": user.email})
+        return {
+            "message": "Login successful",
+            "email": user.email,
+            "access_token": access_token,
+            "token_type": "bearer"
+        }
     raise HTTPException(status_code=401, detail="Invalid credentials")
 
 @app.post("/api/agent-competition")
-def agent_competition_api(req: SupplierRequest):
+@limiter.limit("30/minute")
+def agent_competition_api(request: Request, req: SupplierRequest, current_user: str = Depends(get_current_user)):
     policy_dict = req.policy.dict() if req.policy else None
     result = run_agent_competition(req.productName, req.quantity, req.budget, policy_dict)
     return result
 
 @app.post("/api/select-supplier")
-async def select_supplier_api(req: SupplierRequest):
+@limiter.limit("30/minute")
+async def select_supplier_api(request: Request, req: SupplierRequest, current_user: str = Depends(get_current_user)):
     try:
         policy_dict = req.policy.dict() if req.policy else None
         result = select_best_supplier(req.productName, req.quantity, req.budget, policy_dict)
@@ -365,33 +410,44 @@ async def select_supplier_api(req: SupplierRequest):
     if "error" in result:
         raise HTTPException(status_code=404, detail=result["error"])
     
-    # Map backend fields to frontend expectations
+    # Map backend fields to frontend expectations robustly (supports both snake_case and camelCase)
+    winner = result.get("winner") or result.get("selected_supplier") or result.get("selectedSupplier") or {}
+    winner_id = winner.get("id")
+    winner_name = winner.get("name")
+    
+    winner_unit_price = winner.get("unit_price") or winner.get("price") or winner.get("base_price", 0)
+    winner_final_price = result.get("final_price") or winner.get("finalPrice") or round(winner_unit_price * req.quantity, 2)
+    winner_reason = result.get("reasoning") or winner.get("reason") or winner.get("reasoning") or ""
+    
+    raw_suppliers = result.get("suppliers") or result.get("supplier_list") or result.get("scored_results") or []
+    mapped_suppliers = []
+    for s in raw_suppliers:
+        mapped_suppliers.append({
+            "id": s.get("id"),
+            "name": s.get("name"),
+            "price": s.get("price") or s.get("negotiated_price") or s.get("base_price", 0),
+            "rating": s.get("rating") or round((s.get("reliability_score", 85) / 20), 1),
+            "deliveryTime": f"{s.get('delivery_days') or s.get('delivery', 5)} days",
+            "reliability": s.get("reliability_score") or s.get("reliability", 90),
+            "success_rate": s.get("success_rate", 90),
+            "score": s.get("score", 0)
+        })
+        
     return {
         "deal": result.get("deal"),
         "rounds": result.get("rounds"),
-        "finalDecision": result.get("winner"),
-        "suppliers": [
-            {
-                "id": s["id"],
-                "name": s["name"],
-                "price": s.get("negotiated_price", s.get("base_price", 0)),
-                "rating": s.get("rating", 4.5),
-                "deliveryTime": f"{s['delivery_days']} days",
-                "reliability": s["reliability_score"],
-                "success_rate": s.get("success_rate", 90),
-                "score": s.get("score", 0)
-            } for s in result["supplier_list"]
-        ],
-        "negotiationLogs": result["negotiation_logs"],
+        "finalDecision": winner,
+        "suppliers": mapped_suppliers,
+        "negotiationLogs": result.get("negotiationLogs") or result.get("negotiation_logs") or [],
         "selectedSupplier": {
-            "id": result["selected_supplier"]["id"],
-            "name": result["selected_supplier"]["name"],
-            "finalPrice": result["final_price"],
-            "reasoning": result["reasoning"],
-            "wallet_address": result["selected_supplier"].get("address", "2RIRIX5XK6GWK7LOXDAYIDTN4IYDVNRDJFXR4TJCLYIM72A3EF2UQPROQY"),
-            "unit_price": result["selected_supplier"].get("unit_price", 0),
-            "reliability": result["selected_supplier"]["reliability_score"],
-            "deliveryTime": f"{result['selected_supplier']['delivery_days']} days"
+            "id": winner_id,
+            "name": winner_name,
+            "finalPrice": winner_final_price,
+            "reasoning": winner_reason,
+            "wallet_address": winner.get("address") or winner.get("wallet_address", "2RIRIX5XK6GWK7LOXDAYIDTN4IYDVNRDJFXR4TJCLYIM72A3EF2UQPROQY"),
+            "unit_price": winner_unit_price,
+            "reliability": winner.get("reliability_score") or winner.get("reliability", 90),
+            "deliveryTime": f"{(winner.get('delivery_days') or winner.get('delivery', 5))} days"
         },
         "policy_applied": result.get("policy_applied", False),
         "filtered_out_count": result.get("filtered_out_count", 0),
@@ -399,7 +455,8 @@ async def select_supplier_api(req: SupplierRequest):
     }
 
 @app.post("/api/procurement/select-supplier")
-async def human_select_supplier(req: HumanSelectSupplierRequest):
+@limiter.limit("30/minute")
+async def human_select_supplier(request: Request, req: HumanSelectSupplierRequest, current_user: str = Depends(get_current_user)):
     print(f"[PROCURE-AI] Human procurement approval received.")
     print(f"[PROCURE-AI] Supplier partnership authorized.")
     print(f"[PROCURE-AI] Negotiation lifecycle finalized.")
@@ -412,7 +469,7 @@ async def human_select_supplier(req: HumanSelectSupplierRequest):
     }
 
 @app.post("/api/prepare-transaction")
-async def prepare_transaction(req: TransactionRequest):
+async def prepare_transaction(req: TransactionRequest, current_user: str = Depends(get_current_user)):
     """
     Called by frontend when user confirms selection.
     Prepares an unsigned transaction for the wallet to sign.
@@ -420,14 +477,16 @@ async def prepare_transaction(req: TransactionRequest):
     return create_transaction(req.sender, req.receiver, req.amount)
 
 @app.get("/api/escrow/{action}")
-async def escrow_api(action: str):
+@limiter.limit("20/minute")
+async def escrow_api(request: Request, action: str, current_user: str = Depends(get_current_user)):
     """
     Simulation of escrow status: 'lock' or 'release'.
     """
     return simulate_escrow(action)
 
 @app.post("/api/procurement/initiate-commitment")
-async def create_escrow(req: EscrowRequest):
+@limiter.limit("20/minute")
+async def create_escrow(request: Request, req: EscrowRequest, current_user: str = Depends(get_current_user)):
     # 1. Deploy real smart contract on TestNet
     amount_microalgos = int(req.amount * 1_000_000)
     deployment = deploy_escrow(req.sender, req.receiver, amount_microalgos)
@@ -460,7 +519,8 @@ async def create_escrow(req: EscrowRequest):
     return escrow_record
     
 @app.post("/api/procurement/release-settlement")
-async def confirm_delivery(req: ConfirmDeliveryRequest):
+@limiter.limit("20/minute")
+async def confirm_delivery(request: Request, req: ConfirmDeliveryRequest, current_user: str = Depends(get_current_user)):
     db = load_escrow_db()
     # Search by transaction_id OR app_id (often used interchangeably in frontend)
     record = db.get(req.transaction_id)
@@ -481,6 +541,25 @@ async def confirm_delivery(req: ConfirmDeliveryRequest):
     print("[PROCURE-AI] Delivery verification confirmed.")
     print("[PROCURE-AI] Procurement commitment validated.")
     print("[PROCURE-AI] Executing Algorand settlement release...")
+    
+    # Wire the actual on-chain settlement call
+    app_id = record.get("app_id")
+    buyer_address = record.get("sender_address")
+    supplier_address = record.get("receiver_address")
+    if app_id and buyer_address:
+        from escrow_service import confirm_delivery_on_chain
+        try:
+            settlement_res = confirm_delivery_on_chain(int(app_id), buyer_address, supplier_address)
+            if "error" in settlement_res:
+                print(f"[PROCURE-AI] On-chain settlement release warning: {settlement_res['error']}")
+            else:
+                tx_id = settlement_res.get("transaction_id")
+                if tx_id:
+                    record["settlement_tx_id"] = tx_id
+                    print(f"[PROCURE-AI] On-chain settlement transaction confirmed: {tx_id}")
+        except Exception as e:
+            print(f"[PROCURE-AI] Error calling on-chain settlement: {e}")
+            
     print("[PROCURE-AI] Settlement lifecycle completed.")
     
     # Update Reputation
@@ -507,31 +586,17 @@ async def confirm_delivery(req: ConfirmDeliveryRequest):
     save_escrow_db(db)
     return record
 
-@app.post("/api/update-escrow-status")
-async def update_escrow_status(req: dict):
-    db = load_escrow_db()
-    tx_id = req.get("transaction_id")
-    status = req.get("status")
-    
-    record = db.get(tx_id)
-    if not record:
-        for r in db.values():
-            if str(r.get("app_id")) == tx_id:
-                record = r
-                break
-    
-    if record:
-        record["escrow_status"] = status
-        save_escrow_db(db)
-        return record
-    raise HTTPException(status_code=404, detail="Escrow not found")
+# NOTE: /api/update-escrow-status is defined below with a typed Pydantic model (UpdateStatusRequest).
 
 @app.post("/api/submit-delivery-proof")
+@limiter.limit("20/minute")
 async def submit_delivery_proof(
+    request: Request,
     escrow_id: str = Form(...),
     proof_type: str = Form(...), # "invoice_file" | "timestamp" | "tracking_id"
     file: UploadFile = File(None),
-    value: str = Form(None)
+    value: str = Form(None),
+    current_user: str = Depends(get_current_user)
 ):
     db = load_escrow_db()
     record = db.get(escrow_id)
@@ -548,6 +613,10 @@ async def submit_delivery_proof(
     if proof_type == "invoice_file":
         if not file:
             raise HTTPException(status_code=400, detail="Invoice file is required")
+        
+        # Validate MIME type
+        if file.content_type not in ["image/png", "image/jpeg", "application/pdf"]:
+            raise HTTPException(status_code=400, detail="Only PNG, JPEG, and PDF file types are allowed")
         
         # Validate extension
         ext = file.filename.split(".")[-1].lower()
@@ -566,13 +635,13 @@ async def submit_delivery_proof(
         file_url = f"/uploads/invoices/{filename}"
         proof_value = filename
     else:
-        proof_value = value if value else str(import_datetime().now())
+        proof_value = value if value else datetime.now(timezone.utc).isoformat()
 
     record["delivery_proof"] = {
         "type": proof_type,
         "value": proof_value,
         "file_path": file_url,
-        "submitted_at": str(import_datetime().now())
+        "submitted_at": datetime.now(timezone.utc).isoformat()
     }
     record["escrow_status"] = "proof_submitted"
     record["verified"] = False
@@ -580,12 +649,11 @@ async def submit_delivery_proof(
     save_escrow_db(db)
     return record
 
-def import_datetime():
-    import datetime
-    return datetime.datetime
+
 
 @app.post("/api/procurement/verify-delivery")
-async def verify_delivery(req: VerifyDeliveryRequest):
+@limiter.limit("20/minute")
+async def verify_delivery(request: Request, req: VerifyDeliveryRequest, current_user: str = Depends(get_current_user)):
     db = load_escrow_db()
     record = db.get(req.escrow_id)
     if not record:
@@ -621,7 +689,8 @@ class UpdateStatusRequest(BaseModel):
     status: str
 
 @app.post("/api/update-escrow-status")
-async def update_escrow_status(req: UpdateStatusRequest):
+@limiter.limit("20/minute")
+async def update_escrow_status(request: Request, req: UpdateStatusRequest, current_user: str = Depends(get_current_user)):
     db = load_escrow_db()
     record = db.get(req.transaction_id)
     if not record:
@@ -637,7 +706,8 @@ async def update_escrow_status(req: UpdateStatusRequest):
     return record
 
 @app.get("/api/get-transaction/{tx_id}")
-async def get_transaction(tx_id: str):
+@limiter.limit("20/minute")
+async def get_transaction(request: Request, tx_id: str, current_user: str = Depends(get_current_user)):
     db = load_escrow_db()
     tx = db.get(tx_id)
     if not tx:
@@ -645,46 +715,51 @@ async def get_transaction(tx_id: str):
     return tx
 
 @app.post("/api/signup")
-async def signup(user: User):
+@limiter.limit("5/minute")
+async def signup(request: Request, user: User):
     db = load_db()
     users = db.setdefault("users", [])
     if any(u["email"] == user.email for u in users):
         raise HTTPException(status_code=400, detail="User already exists")
     
-    users.append({"email": user.email, "password": user.password})
+    hashed_password = bcrypt.hashpw(user.password.encode('utf-8'), bcrypt.gensalt()).decode('utf-8')
+    users.append({"email": user.email, "password": hashed_password})
     save_db(db)
     return {"message": "User registered successfully"}
 
 @app.get("/api/suppliers")
-async def get_suppliers():
+@limiter.limit("30/minute")
+async def get_suppliers(request: Request, current_user: str = Depends(get_current_user)):
     db = load_db()
     return db.get("suppliers", [])
 
 @app.get("/api/suppliers/{supplier_id}")
-async def get_supplier(supplier_id: int):
+@limiter.limit("30/minute")
+async def get_supplier(request: Request, supplier_id: str, current_user: str = Depends(get_current_user)):
     db = load_db()
     suppliers = db.get("suppliers", [])
-    supplier = next((s for s in suppliers if s["id"] == supplier_id), None)
+    supplier = next((s for s in suppliers if str(s["id"]) == str(supplier_id)), None)
     if not supplier:
         raise HTTPException(status_code=404, detail="Supplier not found")
     return supplier
 
 class UpdateReputationRequest(BaseModel):
-    supplier_id: int
+    supplier_id: Any
     delivered_on_time: bool
 
 @app.post("/api/update-reputation")
-async def update_reputation_endpoint(req: UpdateReputationRequest):
+async def update_reputation_endpoint(req: UpdateReputationRequest, current_user: str = Depends(get_current_user)):
     update_supplier_reputation(req.supplier_id, req.delivered_on_time)
     return {"message": "Reputation updated"}
 
 # --- Supplier Agent Endpoint ---
 
 @app.post("/supplier/{supplier_id}/respond")
-async def supplier_respond(supplier_id: int, req: SupplierNegotiationRequest):
+@limiter.limit("30/minute")
+async def supplier_respond(request: Request, supplier_id: str, req: SupplierNegotiationRequest, current_user: str = Depends(get_current_user)):
     db = load_db()
     suppliers = db.get("suppliers", [])
-    supplier = next((s for s in suppliers if s["id"] == supplier_id), None)
+    supplier = next((s for s in suppliers if str(s["id"]) == str(supplier_id)), None)
     
     if not supplier:
         raise HTTPException(status_code=404, detail="Supplier not found")
@@ -731,7 +806,8 @@ async def supplier_respond(supplier_id: int, req: SupplierNegotiationRequest):
 # --- Multilingual AI Negotiation Endpoints ---
 
 @app.post("/api/negotiation/multilingual")
-async def multilingual_negotiation(req: MultilingualNegotiationRequest):
+@limiter.limit("30/minute")
+async def multilingual_negotiation(request: Request, req: MultilingualNegotiationRequest, current_user: str = Depends(get_current_user)):
     """
     Single-round multilingual procurement negotiation.
     Translates buyer message, simulates supplier response, and returns AI analysis.
@@ -750,7 +826,8 @@ async def multilingual_negotiation(req: MultilingualNegotiationRequest):
 
 
 @app.post("/api/negotiation/multilingual/full")
-async def full_multilingual_negotiation(req: FullNegotiationRequest):
+@limiter.limit("30/minute")
+async def full_multilingual_negotiation(request: Request, req: FullNegotiationRequest, current_user: str = Depends(get_current_user)):
     """
     Full 3-round multilingual procurement negotiation sequence.
     Returns all negotiation rounds with cumulative AI analysis and procurement recommendation.
@@ -768,13 +845,15 @@ async def full_multilingual_negotiation(req: FullNegotiationRequest):
 
 
 @app.get("/api/negotiation/languages")
-async def get_supported_languages():
+@limiter.limit("30/minute")
+async def get_supported_languages(request: Request, current_user: str = Depends(get_current_user)):
     """Return the list of supported supplier languages for multilingual negotiation."""
     return negotiation_engine.get_supported_languages()
 
 
 @app.post("/api/negotiation/intelligence")
-async def get_negotiation_intelligence(req: NegotiationIntelligenceRequest):
+@limiter.limit("30/minute")
+async def get_negotiation_intelligence(request: Request, req: NegotiationIntelligenceRequest, current_user: str = Depends(get_current_user)):
     """
     Extracts structured procurement intelligence from supplier communication.
     """
@@ -791,7 +870,8 @@ async def get_negotiation_intelligence(req: NegotiationIntelligenceRequest):
 
 
 @app.post("/api/procurement/generate-inquiry", response_model=ProcurementInquiryResponse)
-async def generate_procurement_inquiry(req: ProcurementInquiryRequest):
+@limiter.limit("30/minute")
+async def generate_procurement_inquiry(request: Request, req: ProcurementInquiryRequest, current_user: str = Depends(get_current_user)):
     """
     AI Procurement Message Engine endpoint.
     Transforms raw buyer intent into a professional inquiry.
@@ -805,7 +885,8 @@ async def generate_procurement_inquiry(req: ProcurementInquiryRequest):
 
 
 @app.post("/api/procurement/send-inquiry", response_model=SendInquiryResponse)
-async def send_procurement_inquiry(req: SendInquiryRequest):
+@limiter.limit("30/minute")
+async def send_procurement_inquiry(request: Request, req: SendInquiryRequest, current_user: str = Depends(get_current_user)):
     """
     Sends a translated procurement inquiry to a supplier and simulates their response.
     """
@@ -847,6 +928,22 @@ async def send_procurement_inquiry(req: SendInquiryRequest):
         raise HTTPException(status_code=500, detail=str(e))
 
 
+@app.get("/health", tags=["System"])
+async def health_check():
+    """Health check endpoint for deployment platforms and monitoring."""
+    return {
+        "status": "healthy",
+        "service": "ProcureAI",
+        "timestamp": datetime.now(timezone.utc).isoformat()
+    }
+
+
 if __name__ == "__main__":
     import uvicorn
-    uvicorn.run("main:app", host="0.0.0.0", port=8000, reload=True)
+    # Enable reload by default in dev mode, but disable it in production environments
+    app_env = os.getenv("APP_ENV", "development").lower()
+    if app_env == "production":
+        reload_mode = False
+    else:
+        reload_mode = os.getenv("RELOAD", "True").lower() == "true"
+    uvicorn.run("main:app", host="0.0.0.0", port=8000, reload=reload_mode)

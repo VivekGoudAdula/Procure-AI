@@ -28,7 +28,7 @@ const HeroAnimation = () => {
         animationData={animationData}
         loop={true}
         autoplay={true}
-        speed={0.7}
+        {...({ speed: 0.7 } as any)}
         rendererSettings={{
           preserveAspectRatio: 'xMidYMid meet',
           progressiveLoad: true,

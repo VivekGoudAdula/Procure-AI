@@ -64,7 +64,8 @@ const Auth = ({ initialMode = 'login' }: AuthProps) => {
       const response = await axios.post(endpoint, { email, password });
       
       if (isLogin) {
-        login(email);
+        const token = response.data.access_token;
+        login(email, token);
         navigate('/dashboard');
       } else {
         setIsLogin(true);

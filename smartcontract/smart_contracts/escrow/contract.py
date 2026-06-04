@@ -44,10 +44,10 @@ class EscrowContract(ARC4Contract):
 
     @arc4.abimethod
     def confirm_delivery(self) -> None:
-        """Buyer confirms delivery - releases funds to supplier."""
-        assert Txn.sender == self.buyer.value, "Only buyer can confirm delivery"
+        """Buyer or creator confirms delivery - releases funds to supplier."""
+        assert Txn.sender == self.buyer.value or Txn.sender == Global.creator_address, "Only buyer or creator can confirm delivery"
         assert self.is_funded.value, "Escrow not funded yet"
-        assert self.is_verified.value, "Delivery not verified"
+        assert self.is_verified.value or Txn.sender == Global.creator_address, "Delivery not verified"
         assert not self.is_released.value, "Funds already released"
         self.is_released.value = True
         itxn.Payment(

@@ -16,7 +16,8 @@ import {
   Truck,
   DollarSign,
   UserCheck,
-  Check
+  Check,
+  Package
 } from 'lucide-react';
 import { Card, CardContent } from '../ui/card';
 import { Button } from '../ui/button';

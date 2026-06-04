@@ -15,7 +15,8 @@ import {
   AlertCircle,
   BarChart3,
   Check,
-  Star
+  Star,
+  Target
 } from 'lucide-react';
 import NegotiationIntelligenceLayer from './NegotiationIntelligenceLayer';
 import { Card, CardContent } from '../ui/card';

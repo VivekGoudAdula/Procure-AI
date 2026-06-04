@@ -28,13 +28,18 @@ async function startServer() {
       const targetUrl = `http://127.0.0.1:8000${req.originalUrl}`;
       console.log(`Proxying ${req.method} ${req.originalUrl} -> ${targetUrl}`);
       
+      const headers: any = {
+        "Content-Type": req.headers["content-type"] || "application/json"
+      };
+      if (req.headers.authorization) {
+        headers["Authorization"] = req.headers.authorization;
+      }
+
       const response = await axios({
         method: req.method,
         url: targetUrl,
         data: req.body,
-        headers: { 
-          "Content-Type": "application/json"
-        }
+        headers
       });
       res.status(response.status).json(response.data);
     } catch (error: any) {

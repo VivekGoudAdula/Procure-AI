@@ -10,7 +10,7 @@ logger = logging.getLogger(__name__)
 
 # Algorand configuration
 # Algorand configuration
-ALGOD_ADDRESS = os.getenv("ALGOD_ADDRESS", "https://testnet-api.algonode.cloud")
+ALGOD_ADDRESS = os.getenv("ALGOD_ADDRESS", "https://testnet-api.4160.nodely.dev")
 ALGOD_TOKEN = os.getenv("ALGOD_TOKEN", "")
 MNEMONIC = os.getenv("MNEMONIC")
 
@@ -79,15 +79,45 @@ def fund_escrow(app_id: int, buyer_address: str, amount_microalgos: int):
     # and then calling the 'fund' method.
     pass
 
-def confirm_delivery_on_chain(app_id: int, buyer_address: str):
+def confirm_delivery_on_chain(app_id: int, buyer_address: str, supplier_address: str = None):
     """
     Calls the confirm_delivery method on the smart contract.
     """
     try:
         algorand = get_algorand_client()
         
-        # We need the buyer's signer. In a real app, this is in the wallet.
-        # This service mostly facilitates read or platform-level calls.
-        return {"message": "Requires signature from buyer wallet"}
+        # Get deployer account
+        if MNEMONIC:
+            from algosdk import mnemonic, account as algosdk_account
+            pk = mnemonic.to_private_key(MNEMONIC)
+            deployer_addr = algosdk_account.address_from_private_key(pk)
+            from algokit_utils.models.account import SigningAccount
+            buyer = SigningAccount(private_key=pk, address=deployer_addr)
+        else:
+            buyer = algorand.account.from_environment("DEPLOYER")
+
+        # Instantiate EscrowContractClient
+        client = EscrowContractClient(
+            algorand=algorand,
+            app_id=app_id,
+            default_sender=buyer.address,
+            default_signer=buyer.signer
+        )
+        
+        # Configure static fee to cover inner transaction fee (2000 microalgos)
+        # and provide account references for the supplier receiver.
+        call_params = algokit_utils.CommonAppCallParams(
+            account_references=[supplier_address] if supplier_address else None,
+            static_fee=algokit_utils.AlgoAmount(micro_algo=2000)
+        )
+        
+        result = client.send.confirm_delivery(params=call_params)
+        
+        return {
+            "status": "released",
+            "transaction_id": result.transaction_id if hasattr(result, "transaction_id") else getattr(result, "tx_id", ""),
+            "message": "On-chain settlement released successfully"
+        }
     except Exception as e:
+        logger.error(f"Failed to confirm delivery on-chain: {e}")
         return {"error": str(e)}
