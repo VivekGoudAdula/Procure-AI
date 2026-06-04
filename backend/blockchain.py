@@ -1,9 +1,10 @@
+import base64
 from algosdk.v2client import algod
-from algosdk import transaction
+from algosdk import encoding, transaction
 import os
 
-# TestNet Algorand Node (Example using Nodely dev)
-ALGOD_ADDRESS = os.getenv("ALGOD_ADDRESS", "https://testnet-api.4160.nodely.dev")
+# TestNet Algorand Node (Example using Algonode)
+ALGOD_ADDRESS = os.getenv("ALGOD_ADDRESS", "https://testnet-api.algonode.cloud")
 ALGOD_TOKEN = os.getenv("ALGOD_TOKEN", "")
 
 def get_algod_client():
@@ -26,7 +27,7 @@ def create_transaction(sender_address, receiver_address, amount_algos):
         txn = transaction.PaymentTxn(sender_address, params, receiver_address, amount_micro_algos)
         
         # Return dictified transaction for serialization
-        return {"unsigned_txn": transaction.write_to_binary(txn).hex(), "message": "Transaction created successfully. Ready for signing."}
+        return {"unsigned_txn": base64.b64decode(encoding.msgpack_encode(txn)).hex(), "message": "Transaction created successfully. Ready for signing."}
     except Exception as e:
         return {"error": str(e)}
 

@@ -241,6 +241,19 @@ A modular smart contract developed using **Algorand Python (Puya)** for secure, 
 
 ---
 
+## Project Structure
+
+```text
+frontend/       React + Vite frontend
+backend/        FastAPI backend services
+smartcontract/  Algorand smart contracts
+tests/          Automated test suite
+docs/           Architecture and deployment documentation
+scripts/        Development and migration utilities
+```
+
+---
+
 ## Setup & Local Deployment
 
 ### **1. Backend & AI Orchestrator**

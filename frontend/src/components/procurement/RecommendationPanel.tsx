@@ -20,7 +20,6 @@ import {
   Package
 } from 'lucide-react';
 import { Card, CardContent } from '../ui/card';
-import { Button } from '../ui/button';
 import { Badge } from '../ui/badge';
 import { cn } from '../../lib/utils';
 
@@ -138,12 +137,12 @@ const RecommendationPanel: React.FC<RecommendationPanelProps> = ({
                 </div>
 
                 <div className="mt-4">
-                  <Button 
+                  <button 
                     onClick={() => onSelect(rec)}
-                    className="w-full h-9 rounded-xl font-black text-[9px] uppercase tracking-widest transition-all bg-primary text-white shadow-lg shadow-primary/10 hover:bg-primary/90 hover:scale-[1.02]"
+                    className="w-full h-9 rounded-xl font-black text-[9px] uppercase tracking-widest transition-all bg-primary text-white shadow-lg shadow-primary/10 hover:bg-primary/90 hover:scale-[1.02] flex items-center justify-center cursor-pointer"
                   >
                     Select Option <ArrowRight className="ml-1.5 w-3 h-3" />
-                  </Button>
+                  </button>
                 </div>
               </CardContent>
             </Card>

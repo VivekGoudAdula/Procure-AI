@@ -40,8 +40,10 @@ import {
   Download,
   RefreshCw,
   MoreVertical,
-  Database
+  Database,
+  Sparkles
 } from 'lucide-react';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import IntelligenceLoading from '../components/procurement/IntelligenceLoading';
 import SupplierIntelligenceDashboard from '../components/procurement/SupplierIntelligenceDashboard';
 import { useApp } from '../context/AppContext';
@@ -56,7 +58,7 @@ import { toast } from 'sonner';
 import { API_BASE_URL } from '../config';
 const DEMO_VAULT_ADDRESS = "2RIRIX5XK6GWK7LOXDAYIDTN4IYDVNRDJFXR4TJCLYIM72A3EF2UQPROQY";
 const DEMO_TRANSACTION_AMOUNT = 0.1; 
-const algodClient = new algosdk.Algodv2('', 'https://testnet-api.4160.nodely.dev', '');
+const algodClient = new algosdk.Algodv2('', 'https://testnet-api.algonode.cloud', '');
 
 
 interface Supplier {
@@ -112,6 +114,8 @@ interface IntelligenceResult {
 
 const Procurement = () => {
   const { addTransaction, walletAddress, setWalletAddress, user } = useApp();
+  const navigate = useNavigate();
+  const [searchParams, setSearchParams] = useSearchParams();
 
   // Form State
   const [productName, setProductName] = useState('');
@@ -202,12 +206,28 @@ const Procurement = () => {
 
   const logsEndRef = useRef<HTMLDivElement>(null);
 
+  // Redundant reconnectSession removed to prevent double-initialization conflicts with AppContext.tsx
+
+  /**
+   * Auto-trigger escrow commitment when user returns from PremiumReport
+   * with ?commit=true query param set (after reading the unlocked report).
+   */
   useEffect(() => {
-    peraWallet.reconnectSession().then((accounts) => {
-      if (accounts.length > 0) {
-        setWalletAddress(accounts[0]);
+    const shouldCommit = searchParams.get('commit') === 'true';
+    if (!shouldCommit) return;
+
+    // Remove the query param so a refresh doesn't re-trigger
+    setSearchParams({}, { replace: true });
+
+    // Restore the previously selected supplier from sessionStorage
+    const savedResult = sessionStorage.getItem('procureai_result');
+    if (savedResult) {
+      const parsed = JSON.parse(savedResult);
+      if (parsed?.selectedSupplier) {
+        handleExecuteDealFromSelection(parsed.selectedSupplier);
       }
-    });
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   useEffect(() => {
@@ -1323,10 +1343,14 @@ const Procurement = () => {
                         <p className="text-xs text-slate-500 max-w-xs mx-auto">AI will translate your inquiry and send a professional procurement message to the supplier.</p>
                       </div>
                       <div className="flex gap-3">
-                        <Button onClick={handleSendInquiry} disabled={isSendingInquiry} className="bg-slate-900 hover:bg-black text-white rounded-xl px-8 font-bold">
-                          {isSendingInquiry ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : <Zap className="w-4 h-4 mr-2" />}
+                        <button 
+                          onClick={handleSendInquiry} 
+                          disabled={isSendingInquiry} 
+                          className="relative overflow-hidden w-full h-12 bg-gradient-to-r from-slate-900 to-slate-800 hover:from-slate-850 hover:to-slate-750 text-white rounded-xl font-bold tracking-wide shadow-lg shadow-slate-900/10 hover:shadow-xl active:scale-[0.98] transition-all duration-300 transform hover:-translate-y-0.5 flex items-center justify-center gap-2 cursor-pointer disabled:opacity-50 disabled:pointer-events-none"
+                        >
+                          {isSendingInquiry ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : <Zap className="w-4 h-4 mr-2 text-indigo-300 animate-pulse" />}
                           Initiate Supplier Communication
-                        </Button>
+                        </button>
                       </div>
                     </motion.div>
                   ) : (
@@ -1417,12 +1441,21 @@ const Procurement = () => {
                       </p>
                     </div>
 
-                    <Button 
-                      onClick={() => handleExecuteDealFromSelection(result!.selectedSupplier)}
-                      className="w-full h-12 bg-emerald-500 hover:bg-emerald-600 text-white rounded-xl font-bold shadow-lg shadow-emerald-500/20"
+                    {/* Single CTA: unlock the report first, commit comes after */}
+                    <button 
+                      onClick={() => {
+                        // Persist selected supplier so the commit flow survives navigation
+                        const currentResult = sessionStorage.getItem('procureai_result');
+                        if (!currentResult && result) {
+                          sessionStorage.setItem('procureai_result', JSON.stringify(result));
+                        }
+                        navigate(`/premium-report?supplier_id=${result!.selectedSupplier.id}`);
+                      }}
+                      className="w-full h-14 bg-gradient-to-r from-indigo-600 via-violet-600 to-purple-600 hover:from-indigo-500 hover:via-violet-500 hover:to-purple-500 text-xs font-black uppercase tracking-wider text-white rounded-xl shadow-lg shadow-indigo-500/20 hover:shadow-xl hover:shadow-indigo-500/30 transition-all duration-300 transform hover:-translate-y-0.5 active:scale-[0.98] flex items-center justify-center gap-2 cursor-pointer"
                     >
-                      Commit to Procurement
-                    </Button>
+                      <Sparkles className="w-4 h-4" />
+                      Unlock Premium AI Report (x402)
+                    </button>
                   </div>
                 )}
               </CardContent>
@@ -1647,14 +1680,14 @@ const Procurement = () => {
                       </div>
                     )}
 
-                    <Button
+                    <button
                       onClick={handleSubmitProof}
                       disabled={isSubmittingProof || escrowStatus !== 'funded'}
-                      className="w-full h-12 text-xs font-black uppercase tracking-widest bg-slate-900 hover:bg-black text-white rounded-xl transition-all shadow-lg"
+                      className="w-full h-12 text-xs font-black uppercase tracking-widest bg-gradient-to-r from-slate-900 to-slate-800 hover:from-slate-800 hover:to-slate-700 text-white rounded-xl shadow-lg transition-all duration-300 transform hover:-translate-y-0.5 disabled:opacity-50 disabled:pointer-events-none flex items-center justify-center gap-2 cursor-pointer"
                     >
-                      {isSubmittingProof ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : null}
+                      {isSubmittingProof ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : <FileUp className="w-4 h-4 mr-1 text-slate-300" />}
                       Submit for Review
-                    </Button>
+                    </button>
                     
                     <p className="text-[8px] text-slate-400 font-bold uppercase text-center mt-2 leading-relaxed">
                       MVP: Proof submitted via buyer interface for demonstration.
@@ -1720,31 +1753,35 @@ const Procurement = () => {
                       )}
                     </div>
 
-                    <Button
+                    <button
                       onClick={handleVerifyProof}
                       disabled={isVerifying || escrowStatus !== 'proof_submitted'}
-                      className="w-full h-14 text-xs font-black uppercase tracking-widest bg-primary hover:bg-primary/90 text-white rounded-xl shadow-xl shadow-primary/20"
+                      className="w-full h-14 text-xs font-black uppercase tracking-widest bg-gradient-to-r from-primary to-indigo-600 hover:from-primary/90 hover:to-indigo-500 text-white rounded-xl shadow-lg shadow-primary/20 hover:shadow-xl transition-all duration-300 transform hover:-translate-y-0.5 disabled:opacity-50 disabled:pointer-events-none flex items-center justify-center gap-2 cursor-pointer"
                     >
-                      {isVerifying ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : <ShieldCheck className="w-4 h-4 mr-2" />}
+                      {isVerifying ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : <ShieldCheck className="w-4 h-4 mr-2 text-indigo-200" />}
                       Finalize Verification
-                    </Button>
+                    </button>
                   </div>
                 </div>
 
                 <div className="pt-4 border-t border-slate-100">
-                  <Button
+                  <button
                     onClick={handleConfirmDelivery}
                     disabled={isConfirming || !isVerified}
                     className={cn(
-                      "w-full h-16 text-lg font-bold rounded-2xl shadow-xl transition-all flex items-center justify-center gap-3",
+                      "w-full h-16 text-base font-black uppercase tracking-wider rounded-2xl shadow-xl transition-all duration-300 transform flex items-center justify-center gap-3 active:scale-[0.99] cursor-pointer disabled:pointer-events-none",
                       isVerified 
-                        ? "bg-emerald-500 hover:bg-emerald-600 text-white shadow-emerald-500/20" 
-                        : "bg-slate-100 text-slate-400 cursor-not-allowed shadow-none"
+                        ? "bg-gradient-to-r from-emerald-500 via-teal-500 to-emerald-600 hover:from-emerald-400 hover:to-emerald-500 text-white shadow-emerald-500/30 hover:-translate-y-1 hover:shadow-emerald-500/40" 
+                        : "bg-slate-100 text-slate-400 cursor-not-allowed shadow-none border border-slate-200"
                     )}
                   >
-                    {isConfirming ? <Loader2 className="w-6 h-6 animate-spin" /> : <Zap className={cn("w-6 h-6", isVerified ? "animate-pulse" : "")} />}
+                    {isConfirming ? (
+                      <Loader2 className="w-5 h-5 animate-spin" />
+                    ) : (
+                      <Zap className={cn("w-5 h-5 transition-transform duration-300", isVerified ? "animate-pulse text-emerald-100" : "")} />
+                    )}
                     {isVerified ? "Release Procurement Settlement" : "Verification Required to Release"}
-                  </Button>
+                  </button>
                   
                   <p className="text-[9px] text-center text-slate-400 font-bold uppercase tracking-widest mt-4">
                     On-chain settlement is irreversible. verify carefully.
@@ -1805,19 +1842,18 @@ const Procurement = () => {
                 </div>
 
                 <div className="flex flex-col sm:flex-row gap-4 pt-4">
-                  <Button
+                  <button
                     onClick={() => setStep('form')}
-                    variant="outline"
-                    className="flex-1 h-14 text-lg font-bold border-slate-200 hover:bg-slate-50 rounded-xl text-slate-600"
+                    className="flex-1 h-14 text-sm font-bold tracking-wide border border-slate-200 bg-white hover:bg-slate-50 rounded-xl text-slate-600 transition-all duration-300 hover:border-slate-300 hover:-translate-y-0.5 hover:shadow-sm flex items-center justify-center cursor-pointer"
                   >
                     New Procurement
-                  </Button>
-                  <Button
+                  </button>
+                  <button
                     onClick={() => window.location.href = '/transactions'}
-                    className="flex-1 h-14 text-lg font-bold bg-primary hover:bg-primary/90 text-white rounded-xl shadow-lg shadow-primary/20"
+                    className="flex-1 h-14 text-sm font-bold tracking-wide bg-gradient-to-r from-primary to-slate-900 hover:from-primary/95 hover:to-slate-850 text-white rounded-xl shadow-lg shadow-primary/20 transition-all duration-300 hover:-translate-y-0.5 hover:shadow-xl active:scale-[0.98] flex items-center justify-center gap-2 cursor-pointer"
                   >
-                    View History
-                  </Button>
+                    <Activity className="w-4 h-4 text-primary-foreground/80" /> View History
+                  </button>
                 </div>
               </CardContent>
             </Card>
@@ -2029,12 +2065,23 @@ const Procurement = () => {
                    </div>
                 </div>
 
-                <Button 
-                  onClick={() => setShowSupplierDetails(null)}
-                  className="w-full h-14 bg-slate-900 hover:bg-black text-white font-bold rounded-2xl shadow-xl"
-                >
-                  Close Insights
-                </Button>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  <Button 
+                    onClick={() => {
+                      setShowSupplierDetails(null);
+                      navigate(`/premium-report?supplier_id=${showSupplierDetails.id}`);
+                    }}
+                    className="w-full h-14 bg-indigo-600 hover:bg-indigo-700 text-white font-bold rounded-2xl shadow-xl flex items-center justify-center gap-2"
+                  >
+                    <Sparkles className="w-4 h-4" /> Unlock Premium Report
+                  </Button>
+                  <Button 
+                    onClick={() => setShowSupplierDetails(null)}
+                    className="w-full h-14 bg-slate-900 hover:bg-black text-white font-bold rounded-2xl shadow-xl"
+                  >
+                    Close Insights
+                  </Button>
+                </div>
 
                 <p className="text-[9px] text-center text-slate-400 font-bold uppercase tracking-widest leading-relaxed">
                   Reputation evolves after every completed escrow settlement.

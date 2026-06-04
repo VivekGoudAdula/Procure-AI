@@ -1,8 +1,15 @@
 import json
 import os
+import sys
+
+# Add backend directory to sys.path to enable imports of main and services
+backend_path = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "backend"))
+if backend_path not in sys.path:
+    sys.path.insert(0, backend_path)
+
 from db import users_collection, suppliers_collection, escrows_collection
 
-BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+BASE_DIR = backend_path
 DATABASE_PATH = os.path.join(BASE_DIR, "database.json")
 ESCROW_RECORDS_PATH = os.path.join(BASE_DIR, "escrow_records.json")
 

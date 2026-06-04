@@ -1,3 +1,11 @@
+import os
+import sys
+
+# Add backend directory to sys.path to enable imports of main and services
+backend_path = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "backend"))
+if backend_path not in sys.path:
+    sys.path.insert(0, backend_path)
+
 from db import suppliers_collection
 import random
 

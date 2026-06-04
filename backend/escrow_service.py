@@ -10,7 +10,7 @@ logger = logging.getLogger(__name__)
 
 # Algorand configuration
 # Algorand configuration
-ALGOD_ADDRESS = os.getenv("ALGOD_ADDRESS", "https://testnet-api.4160.nodely.dev")
+ALGOD_ADDRESS = os.getenv("ALGOD_ADDRESS", "https://testnet-api.algonode.cloud")
 ALGOD_TOKEN = os.getenv("ALGOD_TOKEN", "")
 MNEMONIC = os.getenv("MNEMONIC")
 

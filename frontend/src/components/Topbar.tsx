@@ -41,12 +41,12 @@ const Topbar = () => {
   };
 
   return (
-    <header className="h-20 border-b border-slate-300 bg-white/70 backdrop-blur-2xl sticky top-0 z-30 flex items-center justify-between px-10 shadow-[0_4px_20px_rgba(0,0,0,0.02)] transition-all duration-300 relative">
-      {/* Left: Brand Logo & Text */}
-      <div className="flex items-center gap-3 z-10">
+    <header className="h-20 border-b border-slate-300 bg-white/70 backdrop-blur-2xl sticky top-0 z-30 flex items-center justify-between px-10 shadow-[0_4px_20px_rgba(0,0,0,0.02)] transition-all duration-300">
+      {/* Left: Brand Logo + Search Bar (flex row, never overlaps right) */}
+      <div className="flex items-center gap-6 min-w-0 flex-1 mr-6">
          <div 
            onClick={() => navigate('/dashboard')}
-           className="flex items-center gap-3 cursor-pointer group"
+           className="flex items-center gap-3 cursor-pointer group flex-shrink-0"
          >
            <img 
              src="/logo.png" 
@@ -55,21 +55,22 @@ const Topbar = () => {
            />
            <span className="text-xl font-display font-black tracking-tight text-slate-950">ProcureAI</span>
          </div>
-      </div>
 
-      {/* Center: Search bar styled like a floating dock (Mathematically Centered) */}
-      <div className="hidden md:flex absolute left-[45%] -translate-x-1/2 w-full max-w-md justify-center z-10">
-         <div className="relative w-full group">
-           <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-400 group-focus-within:text-primary transition-colors z-20" />
-           <input 
-             type="text" 
-             placeholder="Search agents, transactions..." 
-             className="w-full bg-white/70 backdrop-blur-2xl border border-slate-300 rounded-2xl py-3 pl-12 pr-4 text-sm font-bold text-slate-900 shadow-[0_8px_30px_rgb(0,0,0,0.06)] focus:outline-none focus:border-primary focus:bg-white focus:shadow-[0_12px_40px_rgba(139,92,246,0.15)] hover:border-slate-400 transition-all duration-300"
-           />
+         {/* Search bar — sits right of logo, capped so it never reaches the right section */}
+         <div className="hidden md:flex w-full max-w-xs lg:max-w-sm">
+           <div className="relative w-full group">
+             <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-400 group-focus-within:text-primary transition-colors z-20" />
+             <input 
+               type="text" 
+               placeholder="Search agents, transactions..." 
+               className="w-full bg-white/70 backdrop-blur-2xl border border-slate-300 rounded-2xl py-3 pl-12 pr-4 text-sm font-bold text-slate-900 shadow-[0_8px_30px_rgb(0,0,0,0.06)] focus:outline-none focus:border-primary focus:bg-white focus:shadow-[0_12px_40px_rgba(139,92,246,0.15)] hover:border-slate-400 transition-all duration-300"
+             />
+           </div>
          </div>
       </div>
 
-      <div className="flex items-center gap-6">
+      {/* Right: Wallet, Notifications, User — flex-shrink-0 keeps them from being squished */}
+      <div className="flex items-center gap-6 flex-shrink-0">
         {/* Wallet Status */}
         <div 
           onClick={handleConnectWallet}
