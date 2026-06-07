@@ -20,11 +20,13 @@ db = client[DB_NAME]
 users_collection = db["users"]
 suppliers_collection = db["suppliers"]
 escrows_collection = db["escrows"]
+supplier_ratings_collection = db["supplier_ratings"]
 
 # Ensure unique indexes
 users_collection.create_index("email", unique=True)
 suppliers_collection.create_index("id", unique=True)
 escrows_collection.create_index("transaction_id", unique=True)
+supplier_ratings_collection.create_index([("transaction_id", 1)], unique=True)
 
 print(f"[MongoDB] Connected to database: '{DB_NAME}'")
 

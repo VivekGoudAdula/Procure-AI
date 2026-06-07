@@ -130,6 +130,7 @@ from database.db import (
     escrows_collection,
     get_cached_suppliers,
     persist_suppliers_from_intelligence,
+    supplier_ratings_collection,
 )
 
 def load_db():
@@ -194,6 +195,13 @@ class SupplierNegotiationRequest(BaseModel):
 
 class VerifyDeliveryRequest(BaseModel):
     escrow_id: str
+
+class SupplierRatingRequest(BaseModel):
+    transaction_id: str
+    supplier_id: str
+    buyer_id: str
+    rating: int
+    review: str
 
 
 
@@ -772,6 +780,78 @@ class UpdateReputationRequest(BaseModel):
 async def update_reputation_endpoint(req: UpdateReputationRequest, current_user: str = Depends(get_current_user)):
     update_supplier_reputation(req.supplier_id, req.delivered_on_time)
     return {"message": "Reputation updated"}
+
+# --- Supplier Rating Endpoints ---
+
+@app.post("/api/ratings")
+@limiter.limit("20/minute")
+async def create_supplier_rating(request: Request, req: SupplierRatingRequest, current_user: str = Depends(get_current_user)):
+    """
+    Submit a supplier rating after successful escrow release.
+    
+    Future Recommendation Score:
+    Recommendation Score = AI Supplier Intelligence Score + Supplier Reputation Score
+    This rating data will later be used by supplier ranking and recommendation modules.
+    """
+    # Validation
+    if req.rating < 1 or req.rating > 5:
+        raise HTTPException(status_code=400, detail="Rating must be between 1 and 5")
+    
+    if not req.transaction_id:
+        raise HTTPException(status_code=400, detail="transaction_id is required")
+    
+    if not req.supplier_id:
+        raise HTTPException(status_code=400, detail="supplier_id is required")
+    
+    if not req.buyer_id:
+        raise HTTPException(status_code=400, detail="buyer_id is required")
+    
+    # Check if rating already exists for this transaction
+    existing_rating = supplier_ratings_collection.find_one({"transaction_id": req.transaction_id})
+    if existing_rating:
+        raise HTTPException(status_code=400, detail="Rating already submitted for this transaction")
+    
+    # Create rating document
+    rating_doc = {
+        "transaction_id": req.transaction_id,
+        "supplier_id": req.supplier_id,
+        "buyer_id": req.buyer_id,
+        "rating": req.rating,
+        "review": req.review,
+        "created_at": datetime.now(timezone.utc)
+    }
+    
+    supplier_ratings_collection.insert_one(rating_doc)
+    
+    return {"message": "Rating submitted successfully"}
+
+@app.get("/api/ratings/supplier/{supplier_id}")
+@limiter.limit("30/minute")
+async def get_supplier_ratings(request: Request, supplier_id: str, current_user: str = Depends(get_current_user)):
+    """
+    Get average rating and reviews for a supplier.
+    
+    Future Recommendation Score:
+    Recommendation Score = AI Supplier Intelligence Score + Supplier Reputation Score
+    This rating data will later be used by supplier ranking and recommendation modules.
+    """
+    ratings = list(supplier_ratings_collection.find({"supplier_id": supplier_id}, {"_id": 0}))
+    
+    if not ratings:
+        return {
+            "average_rating": 0,
+            "total_reviews": 0,
+            "reviews": []
+        }
+    
+    total_reviews = len(ratings)
+    average_rating = sum(r["rating"] for r in ratings) / total_reviews
+    
+    return {
+        "average_rating": round(average_rating, 1),
+        "total_reviews": total_reviews,
+        "reviews": ratings
+    }
 
 # --- Supplier Agent Endpoint ---
 

@@ -41,7 +41,8 @@ import {
   RefreshCw,
   MoreVertical,
   Database,
-  Sparkles
+  Sparkles,
+  Star
 } from 'lucide-react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import IntelligenceLoading from '../components/procurement/IntelligenceLoading';
@@ -184,6 +185,12 @@ const Procurement = () => {
   const [inquirySent, setInquirySent] = useState(false);
   const [selectedSupplierForComm, setSelectedSupplierForComm] = useState<any>(null);
 
+  // Supplier Rating State
+  const [rating, setRating] = useState<number>(0);
+  const [review, setReview] = useState<string>('');
+  const [ratingSubmitted, setRatingSubmitted] = useState<boolean>(false);
+  const [isSubmittingRating, setIsSubmittingRating] = useState<boolean>(false);
+
   // Sync state to session storage
   useEffect(() => {
     sessionStorage.setItem('procureai_step', step);
@@ -240,6 +247,56 @@ const Procurement = () => {
     for (const log of logs) {
       await new Promise(res => setTimeout(res, 600 + Math.random() * 600));
       setProcurementLogs(prev => [...prev, `[PROCURE-AI] ${log}`]);
+    }
+  };
+
+  const handleSubmitRating = async () => {
+    if (rating === 0) {
+      toast.error('Please select a rating');
+      return;
+    }
+
+    if (!result?.selectedSupplier?.id || !txId) {
+      toast.error('Missing transaction information');
+      return;
+    }
+
+    setIsSubmittingRating(true);
+
+    try {
+      const token = localStorage.getItem('access_token');
+      const response = await fetch(`${API_BASE_URL}/api/ratings`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`,
+        },
+        body: JSON.stringify({
+          transaction_id: txId,
+          supplier_id: result.selectedSupplier.id.toString(),
+          buyer_id: user?.email || 'anonymous',
+          rating: rating,
+          review: review,
+        }),
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.detail || 'Failed to submit rating');
+      }
+
+      const data = await response.json();
+      toast.success('Rating submitted successfully');
+      setRatingSubmitted(true);
+
+      // Future Recommendation Score:
+      // Recommendation Score = AI Supplier Intelligence Score + Supplier Reputation Score
+      // This rating data will later be used by supplier ranking and recommendation modules.
+    } catch (error) {
+      console.error('Error submitting rating:', error);
+      toast.error(error instanceof Error ? error.message : 'Failed to submit rating');
+    } finally {
+      setIsSubmittingRating(false);
     }
   };
 
@@ -1840,6 +1897,81 @@ const Procurement = () => {
                     </a>
                   </div>
                 </div>
+
+                {/* Supplier Rating Card */}
+                {!ratingSubmitted && (
+                  <div className="pt-4 border-t border-slate-100">
+                    <div className="bg-gradient-to-br from-violet-50 to-indigo-50 border border-violet-100 rounded-2xl p-6 space-y-4">
+                      <div className="flex items-center gap-2">
+                        <Star className="w-5 h-5 text-violet-500" />
+                        <h4 className="text-sm font-bold text-slate-900">Rate Your Supplier</h4>
+                      </div>
+                      
+                      {/* Star Selector */}
+                      <div className="flex items-center gap-2">
+                        {[1, 2, 3, 4, 5].map((star) => (
+                          <button
+                            key={star}
+                            onClick={() => setRating(star)}
+                            className={cn(
+                              "transition-all duration-200 hover:scale-110",
+                              star <= rating ? "text-yellow-400" : "text-slate-300"
+                            )}
+                          >
+                            <Star className={cn("w-8 h-8", star <= rating && "fill-yellow-400")} />
+                          </button>
+                        ))}
+                      </div>
+
+                      {/* Review Textarea */}
+                      <div className="space-y-2">
+                        <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest block">
+                          Review
+                        </label>
+                        <textarea
+                          value={review}
+                          onChange={(e) => setReview(e.target.value)}
+                          placeholder="Share your experience with this supplier..."
+                          className="w-full h-24 px-4 py-3 bg-white border border-slate-200 rounded-xl text-sm font-medium text-slate-900 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-violet-500/20 focus:border-violet-500 transition-all resize-none"
+                        />
+                      </div>
+
+                      {/* Submit Rating Button */}
+                      <Button
+                        onClick={handleSubmitRating}
+                        disabled={rating === 0 || isSubmittingRating}
+                        className="w-full h-12 bg-violet-600 hover:bg-violet-700 text-white font-bold rounded-xl shadow-lg shadow-violet-500/20 transition-all duration-300 hover:-translate-y-0.5 hover:shadow-xl active:scale-[0.98] flex items-center justify-center gap-2"
+                      >
+                        {isSubmittingRating ? (
+                          <>
+                            <Loader2 className="w-4 h-4 animate-spin" />
+                            Submitting...
+                          </>
+                        ) : (
+                          <>
+                            <Star className="w-4 h-4" />
+                            Submit Rating
+                          </>
+                        )}
+                      </Button>
+                    </div>
+                  </div>
+                )}
+
+                {/* Rating Submitted Success Message */}
+                {ratingSubmitted && (
+                  <div className="pt-4 border-t border-slate-100">
+                    <div className="bg-emerald-50 border border-emerald-100 rounded-2xl p-6 flex items-center gap-4">
+                      <div className="w-12 h-12 bg-emerald-100 rounded-full flex items-center justify-center">
+                        <CheckCircle2 className="w-6 h-6 text-emerald-600" />
+                      </div>
+                      <div className="flex-1">
+                        <h4 className="text-sm font-bold text-emerald-900">Rating Submitted Successfully</h4>
+                        <p className="text-xs text-emerald-700 mt-1">Thank you for your feedback. This helps improve our supplier recommendation system.</p>
+                      </div>
+                    </div>
+                  </div>
+                )}
 
                 <div className="flex flex-col sm:flex-row gap-4 pt-4">
                   <button
