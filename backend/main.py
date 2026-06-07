@@ -133,6 +133,7 @@ from database.db import (
     persist_suppliers_from_intelligence,
     supplier_ratings_collection,
     chat_messages_collection,
+    audit_logs_collection,
 )
 from services.audit_service import log_event, get_audit_logs, get_audit_stats
 
@@ -991,20 +992,34 @@ async def create_supplier_rating(request: Request, req: SupplierRatingRequest, c
     
     # Check if rating already exists for this transaction
     existing_rating = supplier_ratings_collection.find_one({"transaction_id": req.transaction_id})
+    
     if existing_rating:
-        raise HTTPException(status_code=400, detail="Rating already submitted for this transaction")
-    
-    # Create rating document
-    rating_doc = {
-        "transaction_id": req.transaction_id,
-        "supplier_id": req.supplier_id,
-        "buyer_id": req.buyer_id,
-        "rating": req.rating,
-        "review": req.review,
-        "created_at": datetime.now(timezone.utc)
-    }
-    
-    supplier_ratings_collection.insert_one(rating_doc)
+        # Update existing rating
+        supplier_ratings_collection.update_one(
+            {"transaction_id": req.transaction_id},
+            {
+                "$set": {
+                    "rating": req.rating,
+                    "review": req.review,
+                    "updated_at": datetime.now(timezone.utc)
+                }
+            }
+        )
+        action = "updated"
+    else:
+        # Create new rating document with unique rating_id
+        import uuid
+        rating_doc = {
+            "rating_id": str(uuid.uuid4()),
+            "transaction_id": req.transaction_id,
+            "supplier_id": req.supplier_id,
+            "buyer_id": req.buyer_id,
+            "rating": req.rating,
+            "review": req.review,
+            "created_at": datetime.now(timezone.utc)
+        }
+        supplier_ratings_collection.insert_one(rating_doc)
+        action = "created"
     
     # Log supplier rating event for audit trail
     log_event(
@@ -1021,7 +1036,7 @@ async def create_supplier_rating(request: Request, req: SupplierRatingRequest, c
         }
     )
     
-    return {"message": "Rating submitted successfully"}
+    return {"message": f"Rating {action} successfully"}
 
 @app.get("/api/ratings/supplier/{supplier_id}")
 @limiter.limit("30/minute")
@@ -1072,6 +1087,32 @@ async def get_admin_stats(request: Request, current_user: str = Depends(get_curr
         # Get audit statistics
         audit_stats = get_audit_stats()
         
+        # Calculate payment stats
+        escrows_created = escrows_collection.count_documents({})
+        escrows_released = escrows_collection.count_documents({"escrow_status": "released"})
+        escrows_verified = escrows_collection.count_documents({"escrow_status": "verified"})
+        escrows_in_progress = escrows_collection.count_documents({"escrow_status": {"$in": ["funded", "created"]}})
+        failed_transactions = escrows_collection.count_documents({"escrow_status": "failed"})
+        
+        # Calculate total payment amount from escrows
+        total_payment_amount = 0
+        for escrow in escrows_collection.find({"escrow_status": {"$ne": "failed"}}):
+            if escrow.get("amount"):
+                total_payment_amount += float(escrow["amount"])
+        
+        # Calculate supplier stats from audit logs
+        supplier_selection_logs = list(audit_logs_collection.find({"action": "SUPPLIER_SELECTED"}))
+        total_suppliers_selected = len(supplier_selection_logs)
+        
+        # Get unique suppliers
+        unique_suppliers = set()
+        total_procurement_value = 0
+        for log in supplier_selection_logs:
+            if log.get("details", {}).get("supplier_id"):
+                unique_suppliers.add(log["details"]["supplier_id"])
+            if log.get("details", {}).get("final_price"):
+                total_procurement_value += float(log["details"]["final_price"])
+        
         return {
             "total_users": total_users,
             "total_suppliers": total_suppliers,
@@ -1080,7 +1121,20 @@ async def get_admin_stats(request: Request, current_user: str = Depends(get_curr
             "total_settlements": total_settlements,
             "total_audit_logs": audit_stats["total_audit_logs"],
             "recent_activity": audit_stats["recent_activity"],
-            "module_counts": audit_stats["module_counts"]
+            "module_counts": audit_stats["module_counts"],
+            "payment_stats": {
+                "total_escrows_created": escrows_created,
+                "total_escrows_released": escrows_released,
+                "total_escrows_verified": escrows_verified,
+                "total_escrows_in_progress": escrows_in_progress,
+                "total_payment_amount": total_payment_amount,
+                "failed_transactions": failed_transactions
+            },
+            "supplier_stats": {
+                "total_suppliers_selected": total_suppliers_selected,
+                "unique_suppliers_count": len(unique_suppliers),
+                "total_procurement_value": total_procurement_value
+            }
         }
     except HTTPException:
         raise
@@ -1440,6 +1494,233 @@ async def send_procurement_inquiry(request: Request, req: SendInquiryRequest, cu
         print(f"[ProcureAI] Send Inquiry Error: {str(e)}")
         raise HTTPException(status_code=500, detail=str(e))
 
+
+# --- Forgot Password & Change Password Endpoints ---
+
+# In-memory OTP storage (for MVP - should use Redis/database in production)
+otp_storage = {}
+
+class SendOTPRequest(BaseModel):
+    email: str
+
+class VerifyOTPRequest(BaseModel):
+    email: str
+    otp: str
+
+class ResetPasswordRequest(BaseModel):
+    email: str
+    otp: str
+    new_password: str
+
+class ChangePasswordRequest(BaseModel):
+    current_password: str
+    new_password: str
+
+@app.post("/api/forgot-password/send-otp")
+@limiter.limit("5/minute")
+async def send_otp(request: Request, req: SendOTPRequest):
+    """
+    Send OTP to user's email for password reset.
+    
+    ProcureAI maintains complete procurement auditability.
+    Every OTP request is logged for security monitoring.
+    """
+    # Check if user exists
+    users = list(users_collection.find({}, {"_id": 0}))
+    user = next((u for u in users if u["email"] == req.email), None)
+    
+    if not user:
+        # For security, don't reveal if email exists or not
+        return {"message": "If the email exists, an OTP has been sent"}
+    
+    # Generate 6-digit OTP
+    otp = str(random.randint(100000, 999999))
+    
+    # Store OTP with 10-minute expiry
+    otp_storage[req.email] = {
+        "otp": otp,
+        "expires_at": datetime.now(timezone.utc) + timedelta(minutes=10)
+    }
+    
+    # Log OTP request for audit trail
+    client_host = request.client.host if request.client else "unknown"
+    log_event(
+        user_id=req.email,
+        user_email=req.email,
+        action="PASSWORD_RESET_OTP_REQUEST",
+        module="Authentication",
+        entity_type="user",
+        entity_id=req.email,
+        ip_address=client_host
+    )
+    
+    # Send email with OTP
+    try:
+        subject = "ProcureAI Password Reset OTP"
+        body = f"""
+        <html>
+        <body style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+            <div style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); padding: 30px; text-align: center;">
+                <h1 style="color: white; margin: 0;">ProcureAI</h1>
+            </div>
+            <div style="padding: 30px; background-color: #f9f9f9;">
+                <h2 style="color: #333;">Password Reset Request</h2>
+                <p style="color: #666;">You have requested to reset your password. Use the following OTP to proceed:</p>
+                <div style="background: white; padding: 20px; text-align: center; border-radius: 10px; margin: 20px 0;">
+                    <span style="font-size: 32px; font-weight: bold; color: #667eea; letter-spacing: 5px;">{otp}</span>
+                </div>
+                <p style="color: #666;">This OTP will expire in 10 minutes.</p>
+                <p style="color: #999; font-size: 12px;">If you did not request this password reset, please ignore this email.</p>
+            </div>
+        </body>
+        </html>
+        """
+        email_service.send_raw_email(req.email, subject, body)
+        return {"message": "OTP sent successfully"}
+    except Exception as e:
+        print(f"Error sending OTP email: {e}")
+        # For demo purposes, return OTP in response (remove in production)
+        return {"message": "OTP sent successfully", "otp": otp}
+
+@app.post("/api/forgot-password/verify-otp")
+@limiter.limit("10/minute")
+async def verify_otp(request: Request, req: VerifyOTPRequest):
+    """
+    Verify OTP for password reset.
+    
+    ProcureAI maintains complete procurement auditability.
+    Every OTP verification is logged for security monitoring.
+    """
+    if req.email not in otp_storage:
+        raise HTTPException(status_code=400, detail="Invalid or expired OTP")
+    
+    stored_otp = otp_storage[req.email]
+    
+    # Check if OTP expired
+    if datetime.now(timezone.utc) > stored_otp["expires_at"]:
+        del otp_storage[req.email]
+        raise HTTPException(status_code=400, detail="OTP has expired")
+    
+    # Verify OTP
+    if stored_otp["otp"] != req.otp:
+        raise HTTPException(status_code=400, detail="Invalid OTP")
+    
+    # Log OTP verification for audit trail
+    client_host = request.client.host if request.client else "unknown"
+    log_event(
+        user_id=req.email,
+        user_email=req.email,
+        action="PASSWORD_RESET_OTP_VERIFIED",
+        module="Authentication",
+        entity_type="user",
+        entity_id=req.email,
+        ip_address=client_host
+    )
+    
+    return {"message": "OTP verified successfully"}
+
+@app.post("/api/forgot-password/reset-password")
+@limiter.limit("5/minute")
+async def reset_password(request: Request, req: ResetPasswordRequest):
+    """
+    Reset password using verified OTP.
+    
+    ProcureAI maintains complete procurement auditability.
+    Every password reset is logged for security monitoring.
+    """
+    # Verify OTP again
+    if req.email not in otp_storage:
+        raise HTTPException(status_code=400, detail="Invalid or expired OTP")
+    
+    stored_otp = otp_storage[req.email]
+    
+    if datetime.now(timezone.utc) > stored_otp["expires_at"]:
+        del otp_storage[req.email]
+        raise HTTPException(status_code=400, detail="OTP has expired")
+    
+    if stored_otp["otp"] != req.otp:
+        raise HTTPException(status_code=400, detail="Invalid OTP")
+    
+    # Update password
+    users = list(users_collection.find({}, {"_id": 0}))
+    user = next((u for u in users if u["email"] == req.email), None)
+    
+    if not user:
+        raise HTTPException(status_code=404, detail="User not found")
+    
+    # Hash new password
+    hashed_password = bcrypt.hashpw(req.new_password.encode('utf-8'), bcrypt.gensalt()).decode('utf-8')
+    
+    # Update in database
+    users_collection.update_one(
+        {"email": req.email},
+        {"$set": {"password": hashed_password}}
+    )
+    
+    # Clear OTP
+    del otp_storage[req.email]
+    
+    # Log password reset for audit trail
+    client_host = request.client.host if request.client else "unknown"
+    log_event(
+        user_id=req.email,
+        user_email=req.email,
+        action="PASSWORD_RESET",
+        module="Authentication",
+        entity_type="user",
+        entity_id=req.email,
+        ip_address=client_host
+    )
+    
+    return {"message": "Password reset successfully"}
+
+@app.post("/api/change-password")
+@limiter.limit("5/minute")
+async def change_password(request: Request, req: ChangePasswordRequest, current_user: str = Depends(get_current_user)):
+    """
+    Change password for authenticated user.
+    
+    ProcureAI maintains complete procurement auditability.
+    Every password change is logged for security monitoring.
+    """
+    # Get user
+    users = list(users_collection.find({}, {"_id": 0}))
+    user = next((u for u in users if u["email"] == current_user), None)
+    
+    if not user:
+        raise HTTPException(status_code=404, detail="User not found")
+    
+    # Verify current password
+    try:
+        valid_password = bcrypt.checkpw(req.current_password.encode("utf-8"), user["password"].encode("utf-8"))
+    except Exception:
+        valid_password = False
+    
+    if not valid_password:
+        raise HTTPException(status_code=400, detail="Current password is incorrect")
+    
+    # Hash new password
+    hashed_password = bcrypt.hashpw(req.new_password.encode('utf-8'), bcrypt.gensalt()).decode('utf-8')
+    
+    # Update in database
+    users_collection.update_one(
+        {"email": current_user},
+        {"$set": {"password": hashed_password}}
+    )
+    
+    # Log password change for audit trail
+    client_host = request.client.host if request.client else "unknown"
+    log_event(
+        user_id=current_user,
+        user_email=current_user,
+        action="PASSWORD_CHANGED",
+        module="Authentication",
+        entity_type="user",
+        entity_id=current_user,
+        ip_address=client_host
+    )
+    
+    return {"message": "Password changed successfully"}
 
 @app.get("/health", tags=["System"])
 async def health_check():

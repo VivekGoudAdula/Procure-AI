@@ -4,6 +4,7 @@ import { AppProvider } from './context/AppContext';
 import Layout from './components/Layout';
 import LandingPage from './pages/LandingPage';
 import Auth from './pages/Auth';
+import ForgotPassword from './pages/ForgotPassword';
 import Dashboard from './pages/Dashboard';
 import Procurement from './pages/Procurement';
 import PremiumReport from './pages/PremiumReport';
@@ -22,6 +23,7 @@ export default function App() {
           <Route path="/" element={<LandingPage />} />
           <Route path="/login" element={<Auth initialMode="login" />} />
           <Route path="/signup" element={<Auth initialMode="signup" />} />
+          <Route path="/forgot-password" element={<ForgotPassword />} />
           
           <Route element={<Layout />}>
             <Route path="/dashboard" element={<Dashboard />} />

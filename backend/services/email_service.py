@@ -61,6 +61,38 @@ class EmailService:
             print(f"[EmailService] Failed to send email: {str(e)}")
             return {"status": "error", "message": str(e)}
 
+    def send_raw_email(self, recipient_email: str, subject: str, body_html: str):
+        """
+        Sends a raw email with given subject and HTML body.
+        Used for OTP emails and other transactional emails.
+        """
+        if not self.smtp_email or not self.smtp_password:
+            self._load_credentials()
+
+        if not self.smtp_email or not self.smtp_password:
+            print("[EmailService] Error: SMTP credentials missing in .env")
+            return {"status": "simulated", "message": "SMTP credentials missing. Email simulated."}
+
+        try:
+            msg = MIMEMultipart()
+            msg['From'] = self.smtp_email
+            msg['To'] = recipient_email
+            msg['Subject'] = subject
+
+            msg.attach(MIMEText(body_html, 'html'))
+
+            server = smtplib.SMTP(self.smtp_server, self.smtp_port)
+            server.starttls()
+            server.login(self.smtp_email, self.smtp_password)
+            server.send_message(msg)
+            server.quit()
+
+            print(f"[EmailService] Email sent successfully to {recipient_email}")
+            return {"status": "success", "message": f"Email sent to {recipient_email}"}
+        except Exception as e:
+            print(f"[EmailService] Failed to send email: {str(e)}")
+            return {"status": "error", "message": str(e)}
+
     def generate_html_template(self, supplier_name: str, message: str):
         """
         Generates a professional HTML email template for procurement.
@@ -72,11 +104,11 @@ class EmailService:
                 <h2 style="color: #1a365d; border-bottom: 2px solid #1a365d; padding-bottom: 10px;">Procurement Inquiry — ProcureAI Global Sourcing Network</h2>
                 <p>Dear {supplier_name},</p>
                 <p>We are initiating a procurement sourcing discussion for the following requirements.</p>
-                
+
                 <div style="background-color: #f7fafc; padding: 15px; border-radius: 5px; margin: 20px 0; border-left: 4px solid #1a365d;">
                     <p style="white-space: pre-wrap;">{message}</p>
                 </div>
-                
+
                 <p>Please respond with:</p>
                 <ul>
                     <li>MOQ (Minimum Order Quantity)</li>
@@ -85,9 +117,9 @@ class EmailService:
                     <li>Production Capacity</li>
                     <li>Export Certifications</li>
                 </ul>
-                
+
                 <p>Regards,<br><strong>ProcureAI Autonomous Procurement Agent</strong></p>
-                
+
                 <div style="margin-top: 30px; font-size: 12px; color: #718096; border-top: 1px solid #e2e8f0; padding-top: 10px;">
                     This is an automated procurement inquiry sent via the ProcureAI Orchestration Layer.
                 </div>

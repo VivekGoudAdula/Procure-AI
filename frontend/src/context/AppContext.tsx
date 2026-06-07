@@ -3,7 +3,7 @@ import axios from 'axios';
 import { peraWallet } from '../lib/pera';
 import { API_BASE_URL } from '../config';
 
-// Global Axios Request Interceptor
+// Global Axios Request Interceptor for authentication
 axios.interceptors.request.use(
   (config) => {
     const token = localStorage.getItem('procureai_token');

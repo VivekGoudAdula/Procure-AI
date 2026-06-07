@@ -22,7 +22,9 @@ import {
   ExternalLink,
   ChevronRight,
   TrendingDown,
-  Clock
+  Clock,
+  Eye,
+  EyeOff
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '../components/ui/card';
@@ -32,6 +34,8 @@ import { Badge } from '../components/ui/badge';
 import { toast } from 'sonner';
 import { useApp } from '../context/AppContext';
 import { cn } from '../lib/utils';
+import axios from 'axios';
+import { API_BASE_URL } from '../config';
 
 type SettingsTab = 'profile' | 'notifications' | 'security' | 'wallets' | 'ai' | 'network';
 
@@ -60,6 +64,15 @@ const Settings = () => {
   const [signPref, setSignPref] = useState(() => localStorage.getItem('procureai_signpref') || 'x402');
   const [biometricAuth, setBiometricAuth] = useState(() => localStorage.getItem('procureai_bioauth') === 'true');
   const [autoLockRisk, setAutoLockRisk] = useState(() => localStorage.getItem('procureai_autolock') !== 'false');
+
+  // --- Change Password States ---
+  const [currentPassword, setCurrentPassword] = useState('');
+  const [newPassword, setNewPassword] = useState('');
+  const [confirmPassword, setConfirmPassword] = useState('');
+  const [showCurrentPassword, setShowCurrentPassword] = useState(false);
+  const [showNewPassword, setShowNewPassword] = useState(false);
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
+  const [isChangingPassword, setIsChangingPassword] = useState(false);
 
   // --- Network States ---
   const [network, setNetwork] = useState(() => localStorage.getItem('procureai_network') || 'Testnet');
@@ -171,6 +184,52 @@ const Settings = () => {
         setIsConnectingWallet(false);
         toast.success('Wallet connected successfully via Pera Wallet!');
       }, 1000);
+    }
+  };
+
+  /**
+   * Handle password change for authenticated user.
+   */
+  const handleChangePassword = async () => {
+    if (!currentPassword || !newPassword || !confirmPassword) {
+      toast.error('Please fill in all password fields');
+      return;
+    }
+
+    if (newPassword !== confirmPassword) {
+      toast.error('New passwords do not match');
+      return;
+    }
+
+    if (newPassword.length < 6) {
+      toast.error('Password must be at least 6 characters');
+      return;
+    }
+
+    setIsChangingPassword(true);
+    try {
+      const token = localStorage.getItem('procureai_token');
+      await axios.post(
+        `${API_BASE_URL}/api/change-password`,
+        {
+          current_password: currentPassword,
+          new_password: newPassword
+        },
+        {
+          headers: {
+            Authorization: `Bearer ${token}`
+          }
+        }
+      );
+      toast.success('Password changed successfully');
+      setCurrentPassword('');
+      setNewPassword('');
+      setConfirmPassword('');
+    } catch (error: any) {
+      console.error(error);
+      toast.error(error.response?.data?.detail || 'Failed to change password');
+    } finally {
+      setIsChangingPassword(false);
     }
   };
 
@@ -554,6 +613,84 @@ const Settings = () => {
                                 <p className="text-[10px] text-slate-400 mt-1 font-medium">{proto.desc}</p>
                               </button>
                             ))}
+                          </div>
+                        </div>
+
+                        {/* Change Password Section */}
+                        <div className="pt-6 border-t border-slate-100">
+                          <h3 className="text-sm font-bold text-slate-900 mb-4 flex items-center gap-2">
+                            <Lock className="w-4 h-4 text-blue-600" />
+                            Change Password
+                          </h3>
+                          <div className="space-y-4">
+                            <div className="space-y-2">
+                              <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest pl-1">Current Password</label>
+                              <div className="relative">
+                                <Input 
+                                  type={showCurrentPassword ? "text" : "password"}
+                                  placeholder="Enter current password"
+                                  className="h-11 bg-white border-slate-200 text-slate-900 focus:border-blue-500 focus:ring-1 focus:ring-blue-500/30 rounded-xl pr-10"
+                                  value={currentPassword}
+                                  onChange={(e) => setCurrentPassword(e.target.value)}
+                                />
+                                <button 
+                                  type="button"
+                                  onClick={() => setShowCurrentPassword(!showCurrentPassword)}
+                                  className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 transition-colors"
+                                >
+                                  {showCurrentPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                                </button>
+                              </div>
+                            </div>
+
+                            <div className="space-y-2">
+                              <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest pl-1">New Password</label>
+                              <div className="relative">
+                                <Input 
+                                  type={showNewPassword ? "text" : "password"}
+                                  placeholder="Enter new password"
+                                  className="h-11 bg-white border-slate-200 text-slate-900 focus:border-blue-500 focus:ring-1 focus:ring-blue-500/30 rounded-xl pr-10"
+                                  value={newPassword}
+                                  onChange={(e) => setNewPassword(e.target.value)}
+                                />
+                                <button 
+                                  type="button"
+                                  onClick={() => setShowNewPassword(!showNewPassword)}
+                                  className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 transition-colors"
+                                >
+                                  {showNewPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                                </button>
+                              </div>
+                            </div>
+
+                            <div className="space-y-2">
+                              <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest pl-1">Confirm New Password</label>
+                              <div className="relative">
+                                <Input 
+                                  type={showConfirmPassword ? "text" : "password"}
+                                  placeholder="Confirm new password"
+                                  className="h-11 bg-white border-slate-200 text-slate-900 focus:border-blue-500 focus:ring-1 focus:ring-blue-500/30 rounded-xl pr-10"
+                                  value={confirmPassword}
+                                  onChange={(e) => setConfirmPassword(e.target.value)}
+                                />
+                                <button 
+                                  type="button"
+                                  onClick={() => setShowConfirmPassword(!showConfirmPassword)}
+                                  className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 transition-colors"
+                                >
+                                  {showConfirmPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                                </button>
+                              </div>
+                            </div>
+
+                            <Button
+                              onClick={handleChangePassword}
+                              disabled={isChangingPassword}
+                              className="w-full h-11 bg-slate-900 hover:bg-slate-800 text-white rounded-xl font-bold shadow-lg shadow-slate-900/20 transition-all hover:scale-[1.02] active:scale-[0.98] disabled:opacity-70 disabled:cursor-not-allowed disabled:hover:scale-100"
+                            >
+                              {isChangingPassword ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : <Lock className="w-4 h-4 mr-2" />}
+                              {isChangingPassword ? 'Changing Password...' : 'Change Password'}
+                            </Button>
                           </div>
                         </div>
                       </CardContent>

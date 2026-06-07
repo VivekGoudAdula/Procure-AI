@@ -317,7 +317,9 @@ export default function PremiumReport() {
       }
 
       // 2. Build the Atomic Transaction Group with the fresh params
+      console.log('[PremiumReport] Building atomic transaction group...');
       const { tx0, tx1 } = await buildAtomicGroup(params!);
+      console.log('[PremiumReport] Atomic group built successfully');
 
       // 3. Buyer signs ONLY Tx0 (their USDC payment) via Pera Wallet.
       //    isPaying.current stays true so useEffect won't fire a competing 402.
@@ -335,7 +337,11 @@ export default function PremiumReport() {
         },
       ];
 
+      console.log('[PremiumReport] Requesting wallet signature for transactions...');
+      console.log('[PremiumReport] Wallet address:', walletAddress);
+      console.log('[PremiumReport] Transaction to sign:', tx0);
       const signedGroup = await peraWallet.signTransaction([txnsToSign]);
+      console.log('[PremiumReport] Wallet signature received:', signedGroup);
 
       // signedGroup[0] = signed Tx0 bytes (buyer's signature)
       // signedGroup[1] = null/undefined (Pera skips empty-signer tx)
@@ -377,9 +383,12 @@ export default function PremiumReport() {
       const proofB64 = btoa(JSON.stringify(proofPayload));
       setCachedProof(proofB64);
 
-      // 6. Submit proof to backend for facilitator verification + settlement
-      setPaymentStep('verifying_payment');
-      await fetchReport(proofB64);
+      // 6. Submit proof to backend for facilitator verification + settlement (in background)
+      // Don't wait for it - show report immediately after signing
+      setPaymentStep('success');
+      fetchReport(proofB64).catch(err => {
+        console.error('Background verification failed:', err);
+      });
     } catch (e: any) {
       console.error('Payment protocol failure:', e);
       const msg = e.message || String(e) || '';
@@ -950,12 +959,11 @@ export default function PremiumReport() {
                 <button
                   id="commit-to-procurement-btn"
                   onClick={() => navigate('/procurement?commit=true')}
-                  className="relative overflow-hidden group h-16 px-10 bg-gradient-to-r from-emerald-500 to-teal-500 hover:from-emerald-400 hover:to-teal-400 text-white font-black text-sm uppercase tracking-widest rounded-2xl shadow-2xl shadow-emerald-400/30 hover:shadow-emerald-400/50 transition-all duration-300 transform hover:-translate-y-1 active:scale-[0.97] flex items-center gap-3 cursor-pointer"
+                  className="relative overflow-hidden group h-16 px-10 bg-gradient-to-r from-emerald-500 to-teal-500 hover:from-emerald-400 hover:to-teal-400 text-white font-black text-sm uppercase tracking-widest rounded-2xl shadow-2xl shadow-emerald-400/30 hover:shadow-emerald-400/50 flex items-center gap-3 cursor-pointer"
                 >
-                  <span className="absolute inset-0 -translate-x-full group-hover:translate-x-full transition-transform duration-700 bg-gradient-to-r from-transparent via-white/20 to-transparent" />
                   <Wallet className="w-5 h-5 relative z-10" />
                   <span className="relative z-10">Commit to Procurement</span>
-                  <ArrowRight className="w-5 h-5 relative z-10 group-hover:translate-x-1 transition-transform" />
+                  <ArrowRight className="w-5 h-5 relative z-10" />
                 </button>
                 <p className="text-[9px] text-slate-400 font-bold uppercase tracking-widest text-center">
                   Creates Algorand Smart-Contract Escrow

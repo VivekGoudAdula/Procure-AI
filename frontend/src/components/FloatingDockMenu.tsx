@@ -38,24 +38,30 @@ export default function FloatingDockMenu() {
         onClick: () => navigate("/procurement"),
       },
     ]),
-    {
-      title: "Transactions",
-      icon: <History />,
-      isActive: location.pathname.startsWith("/transactions"),
-      onClick: () => navigate("/transactions"),
-    },
-    {
-      title: "Analytics",
-      icon: <BarChart3 />,
-      isActive: location.pathname.startsWith("/analytics"),
-      onClick: () => navigate("/analytics"),
-    },
-    {
-      title: "Settings",
-      icon: <Settings />,
-      isActive: location.pathname.startsWith("/settings"),
-      onClick: () => navigate("/settings"),
-    },
+    ...(isAdmin ? [] : [
+      {
+        title: "Transactions",
+        icon: <History />,
+        isActive: location.pathname.startsWith("/transactions"),
+        onClick: () => navigate("/transactions"),
+      },
+    ]),
+    ...(isAdmin ? [] : [
+      {
+        title: "Analytics",
+        icon: <BarChart3 />,
+        isActive: location.pathname.startsWith("/analytics"),
+        onClick: () => navigate("/analytics"),
+      },
+    ]),
+    ...(isAdmin ? [] : [
+      {
+        title: "Settings",
+        icon: <Settings />,
+        isActive: location.pathname.startsWith("/settings"),
+        onClick: () => navigate("/settings"),
+      },
+    ]),
     {
       title: "Logout",
       icon: <LogOut />,

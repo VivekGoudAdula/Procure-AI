@@ -2,15 +2,11 @@ import React from 'react';
 import { useApp } from '../context/AppContext';
 import { useNavigate } from 'react-router-dom';
 import { cn } from '../lib/utils';
-import { 
-  Bell, 
-  Search, 
-  Wallet, 
-  User,
+import {
+  Search,
+  Wallet,
   ChevronDown
 } from 'lucide-react';
-import { Button } from './ui/button';
-import { Badge } from './ui/badge';
 import { peraWallet } from '../lib/pera';
 import { toast } from 'sonner';
 
@@ -93,11 +89,6 @@ const Topbar = () => {
             {walletAddress && <div className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse ml-1" />}
           </div>
         )}
-
-        <Button variant="ghost" size="icon" className="w-12 h-12 rounded-2xl relative text-slate-400 hover:text-slate-950 hover:bg-slate-50 transition-all">
-          <Bell className="w-6 h-6" />
-          <span className="absolute top-3.5 right-3.5 w-2 h-2 bg-rose-500 rounded-full border-2 border-white shadow-sm" />
-        </Button>
 
         <div className="h-8 w-px bg-slate-100 mx-1" />
 

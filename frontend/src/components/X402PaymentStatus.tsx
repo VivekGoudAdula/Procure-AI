@@ -149,12 +149,12 @@ export const X402PaymentStatus: React.FC<X402PaymentStatusProps> = ({
       </div>
 
       {/* Main status display */}
-      <div className={`p-4 rounded-2xl border flex items-start gap-3 transition-colors duration-300 ${getStatusColor()}`}>
+      <div className={`p-4 rounded-2xl border flex items-start gap-3 ${getStatusColor()}`}>
         <div className="shrink-0 mt-0.5">
           {step === 'success' ? (
-            <CheckCircle className="w-5 h-5 text-emerald-500 animate-bounce" />
+            <CheckCircle className="w-5 h-5 text-emerald-500" />
           ) : step === 'error' ? (
-            <AlertCircle className="w-5 h-5 text-rose-500 animate-pulse" />
+            <AlertCircle className="w-5 h-5 text-rose-500" />
           ) : step === 'idle' ? (
             <Wallet className="w-5 h-5 text-slate-400" />
           ) : (
@@ -197,7 +197,7 @@ export const X402PaymentStatus: React.FC<X402PaymentStatusProps> = ({
             return (
               <div key={s.id} className="relative flex gap-3 items-start group">
                 {/* Step circle indicator */}
-                <div className={`absolute -left-6 w-4.5 h-4.5 rounded-full border-2 flex items-center justify-center shrink-0 transition-all duration-300 ${
+                <div className={`absolute -left-6 w-4.5 h-4.5 rounded-full border-2 flex items-center justify-center shrink-0 ${
                   stepStatus === 'completed' ? 'bg-emerald-500 border-emerald-500 text-white' :
                   stepStatus === 'failed'    ? 'bg-rose-500 border-rose-500 text-white' :
                   stepStatus === 'active'    ? 'bg-white border-indigo-500 text-indigo-500 ring-4 ring-indigo-50' :
@@ -208,13 +208,13 @@ export const X402PaymentStatus: React.FC<X402PaymentStatusProps> = ({
                   ) : stepStatus === 'failed' ? (
                     <span className="w-1.5 h-1.5 rounded-full bg-white" />
                   ) : stepStatus === 'active' ? (
-                    <span className="w-1.5 h-1.5 rounded-full bg-indigo-500 animate-ping" />
+                    <span className="w-1.5 h-1.5 rounded-full bg-indigo-500" />
                   ) : null}
                 </div>
 
                 {/* Step text */}
                 <div className="space-y-0.5">
-                  <span className={`text-[11px] font-bold block leading-none transition-colors duration-300 ${
+                  <span className={`text-[11px] font-bold block leading-none ${
                     stepStatus === 'completed' ? 'text-slate-500 font-semibold' :
                     stepStatus === 'active'    ? 'text-indigo-600 font-extrabold' :
                     stepStatus === 'failed'    ? 'text-rose-600 font-extrabold' :
@@ -236,7 +236,7 @@ export const X402PaymentStatus: React.FC<X402PaymentStatusProps> = ({
       {step === 'error' && (
         <div className="space-y-3 pt-2">
           {error && (
-            <div className="flex gap-2 p-3.5 rounded-xl border border-rose-100 bg-rose-50/50 hover:bg-rose-50 transition-colors">
+            <div className="flex gap-2 p-3.5 rounded-xl border border-rose-100 bg-rose-50/50 hover:bg-rose-50">
               <ShieldAlert className="w-4 h-4 text-rose-500 shrink-0 mt-0.5" />
               <p className="text-[10px] font-bold text-rose-700 leading-relaxed break-words">{error}</p>
             </div>

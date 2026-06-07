@@ -34,7 +34,6 @@ import {
   Filter,
   RefreshCw,
   LogOut,
-  Settings,
   TrendingUp,
   Database,
   CheckSquare,
@@ -209,7 +208,7 @@ const Admin = () => {
         </div>
 
         {/* Stats Cards */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+        <div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-5 gap-6 mb-8">
           <Card className="border-l-4 border-l-blue-500">
             <CardHeader className="pb-3">
               <CardTitle className="text-sm font-medium text-slate-600">Total Users</CardTitle>
@@ -257,10 +256,7 @@ const Admin = () => {
               </div>
             </CardContent>
           </Card>
-        </div>
 
-        {/* Payment & Supplier Metrics */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
           <Card className="border-l-4 border-l-purple-500">
             <CardHeader className="pb-3">
               <CardTitle className="text-sm font-medium text-slate-600">Total Payment Amount</CardTitle>
@@ -269,42 +265,6 @@ const Admin = () => {
               <div className="flex items-center justify-between">
                 <div className="text-3xl font-bold text-slate-900">${stats?.payment_stats?.total_payment_amount?.toFixed(2) || '0.00'}</div>
                 <DollarSign className="w-8 h-8 text-purple-500" />
-              </div>
-            </CardContent>
-          </Card>
-
-          <Card className="border-l-4 border-l-red-500">
-            <CardHeader className="pb-3">
-              <CardTitle className="text-sm font-medium text-slate-600">Failed Transactions</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="flex items-center justify-between">
-                <div className="text-3xl font-bold text-slate-900">{stats?.payment_stats?.failed_transactions || 0}</div>
-                <AlertCircle className="w-8 h-8 text-red-500" />
-              </div>
-            </CardContent>
-          </Card>
-
-          <Card className="border-l-4 border-l-indigo-500">
-            <CardHeader className="pb-3">
-              <CardTitle className="text-sm font-medium text-slate-600">Suppliers Selected</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="flex items-center justify-between">
-                <div className="text-3xl font-bold text-slate-900">{stats?.supplier_stats?.total_suppliers_selected || 0}</div>
-                <Building2 className="w-8 h-8 text-indigo-500" />
-              </div>
-            </CardContent>
-          </Card>
-
-          <Card className="border-l-4 border-l-cyan-500">
-            <CardHeader className="pb-3">
-              <CardTitle className="text-sm font-medium text-slate-600">Procurement Value</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="flex items-center justify-between">
-                <div className="text-3xl font-bold text-slate-900">${stats?.supplier_stats?.total_procurement_value?.toFixed(2) || '0.00'}</div>
-                <TrendingUp className="w-8 h-8 text-cyan-500" />
               </div>
             </CardContent>
           </Card>
@@ -379,7 +339,16 @@ const Admin = () => {
                           Entity: {log.entity_type} - {log.entity_id}
                         </p>
                       )}
-                      {log.details && Object.keys(log.details).length > 0 && (
+                      {log.details && (
+                        log.details.supplier_name ||
+                        log.details.product ||
+                        log.details.final_price ||
+                        log.details.amount ||
+                        log.details.supplier_id ||
+                        log.details.app_id ||
+                        log.details.settlement_tx_id ||
+                        log.details.quantity
+                      ) && (
                         <div className="mt-2 p-2 bg-white rounded border border-slate-200">
                           <p className="text-xs font-semibold text-slate-700 mb-1">Details:</p>
                           <div className="text-xs text-slate-600 space-y-1">

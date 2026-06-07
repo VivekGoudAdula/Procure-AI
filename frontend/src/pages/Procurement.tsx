@@ -841,14 +841,26 @@ const Procurement = () => {
       return;
     }
 
+    // Check for duplicate transaction in progress
+    const existingTx = sessionStorage.getItem('procureai_pending_tx');
+    if (existingTx) {
+      const txData = JSON.parse(existingTx);
+      const timeDiff = Date.now() - txData.timestamp;
+      if (timeDiff < 30000) { // 30 seconds
+        toast.error('Transaction already in progress. Please wait.');
+        return;
+      }
+    }
+
     setIsExecuting(true);
     setPaymentPhase(0);
     setError(null);
 
-    // Cycle through 4 animation phases faster (100ms)
-    const phaseInterval = setInterval(() => {
-      setPaymentPhase(p => (p < 3 ? p + 1 : p));
-    }, 100);
+    // Mark transaction as in progress
+    sessionStorage.setItem('procureai_pending_tx', JSON.stringify({
+      timestamp: Date.now(),
+      supplier_id: selected.id
+    }));
 
     try {
       const response: any = await axios.post(`${API_BASE_URL}/api/procurement/initiate-commitment`, {
@@ -907,13 +919,17 @@ const Procurement = () => {
       setTxId(fundResult.txIDs[0]);
       setEscrowStatus('funded');
       
+      // Clear pending transaction marker
+      sessionStorage.removeItem('procureai_pending_tx');
+      
       setStep('escrow_locked');
       toast.success('Escrow settlement initiated and funds locked!');
     } catch (err: any) {
       setError(`Transaction failed: ${err.message || 'Check wallet connection.'}`);
       toast.error('Failed to initiate escrow settlement.');
+      // Clear pending transaction marker on error
+      sessionStorage.removeItem('procureai_pending_tx');
     } finally {
-      clearInterval(phaseInterval);
       setIsExecuting(false);
       setPaymentPhase(0);
     }
@@ -941,19 +957,26 @@ const Procurement = () => {
       return;
     }
 
+    // Check for duplicate transaction in progress
+    const existingTx = sessionStorage.getItem('procureai_pending_tx');
+    if (existingTx) {
+      const txData = JSON.parse(existingTx);
+      const timeDiff = Date.now() - txData.timestamp;
+      if (timeDiff < 30000) { // 30 seconds
+        toast.error('Transaction already in progress. Please wait.');
+        return;
+      }
+    }
+
     setIsExecuting(true);
     setPaymentPhase(0);
     setError(null);
 
-    // Cycle through 4 animation phases faster (100ms)
-    const phases = [0, 1, 2, 3];
-    let phaseIndex = 0;
-    const phaseInterval = setInterval(() => {
-      phaseIndex++;
-      if (phaseIndex < phases.length) {
-        setPaymentPhase(phaseIndex);
-      }
-    }, 100);
+    // Mark transaction as in progress
+    sessionStorage.setItem('procureai_pending_tx', JSON.stringify({
+      timestamp: Date.now(),
+      supplier_id: result.selectedSupplier.id
+    }));
 
     try {
       // 1. Create Escrow on Backend (Deploys Contract)
@@ -974,8 +997,6 @@ const Procurement = () => {
 
       setAppId(deployedAppId);
       setAppAddress(deployedAppAddress);
-
-      setPaymentPhase(2); // Validating / Funding Phase
 
       // 2. Fund the Escrow via account pre-funding + ABI call
       const suggestedParams = await algodClient.getTransactionParams().do();
@@ -1033,12 +1054,14 @@ const Procurement = () => {
       
       composer.addTransaction({ txn: rentTxn, signer });
 
-      setPaymentPhase(3); // Confirming Phase
       console.log("[ProcureAI] Executing 'Double-Funded' (Shifted) transaction group...");
       const fundResult = await composer.execute(algodClient, 4);
       
       setTxId(fundResult.txIDs[0]);
       setEscrowStatus('funded');
+      
+      // Clear pending transaction marker
+      sessionStorage.removeItem('procureai_pending_tx');
       
       // Update status to awaiting_delivery in backend
       try {
@@ -1056,8 +1079,9 @@ const Procurement = () => {
       console.error('[ProcureAI] Execute Deal Error:', err);
       setError(`Transaction failed: ${err.message || 'Check wallet connection.'}`);
       toast.error('Failed to reserve funds on chain.');
+      // Clear pending transaction marker on error
+      sessionStorage.removeItem('procureai_pending_tx');
     } finally {
-      clearInterval(phaseInterval);
       setIsExecuting(false);
       setPaymentPhase(0);
     }
@@ -1239,14 +1263,14 @@ const Procurement = () => {
       <div className="max-w-7xl mx-auto bg-white border border-slate-200 rounded-[1.5rem] p-5 shadow-sm">
         <div className="flex items-center justify-between">
           {[
-            { label: 'Discovery', desc: 'AI Global Sourcing' },
-            { label: 'Negotiation', desc: 'Multi-Lingual Engine' },
-            { label: 'Approval', desc: 'Shortlist Partnership' },
-            { label: 'Commitment', desc: 'Algorand Escrow Lock' },
-            { label: 'Verification', desc: 'On-Chain Delivery Proof' },
-            { label: 'Settlement', desc: 'Fund Release' }
+            { label: 'Discovery', desc: 'AI Global Sourcing', stepValue: 'form' },
+            { label: 'Negotiation', desc: 'Multi-Lingual Engine', stepValue: 'intelligence_dashboard' },
+            { label: 'Approval', desc: 'Shortlist Partnership', stepValue: 'communication' },
+            { label: 'Commitment', desc: 'Algorand Escrow Lock', stepValue: 'escrow_locked' },
+            { label: 'Verification', desc: 'On-Chain Delivery Proof', stepValue: 'escrow_locked' },
+            { label: 'Settlement', desc: 'Fund Release', stepValue: 'payment' }
           ].map((tStep, idx) => {
-            const currentIdx = 
+            const currentIdx =
               (step === 'form' || step === 'intelligence_loading') ? 0 :
               (step === 'intelligence_dashboard') ? 1 :
               (step === 'communication') ? 2 :
@@ -1257,9 +1281,33 @@ const Procurement = () => {
             const isCompleted = idx < currentIdx;
             const isActive = idx === currentIdx;
 
+            const handleStepClick = () => {
+              // Allow navigation to any completed step or current step
+              if (isCompleted || isActive) {
+                // Restore necessary state for each step
+                if (tStep.stepValue === 'form') {
+                  setStep('form');
+                } else if (tStep.stepValue === 'intelligence_dashboard' && intelligenceResult) {
+                  setStep('intelligence_dashboard');
+                } else if (tStep.stepValue === 'communication' && selectedSupplierForComm) {
+                  setStep('communication');
+                } else if (tStep.stepValue === 'escrow_locked' && txId) {
+                  setStep('escrow_locked');
+                } else if (tStep.stepValue === 'payment' && txId) {
+                  setStep('payment');
+                }
+              }
+            };
+
             return (
               <React.Fragment key={idx}>
-                <div className="flex flex-col items-center flex-1 relative">
+                <div
+                  className={cn(
+                    "flex flex-col items-center flex-1 relative cursor-pointer",
+                    (isCompleted || isActive) ? "hover:scale-105 transition-transform" : "cursor-not-allowed opacity-50"
+                  )}
+                  onClick={handleStepClick}
+                >
                   <div className={cn(
                     "w-8 h-8 rounded-full flex items-center justify-center font-bold text-xs transition-all duration-500",
                     isCompleted ? "bg-emerald-500 text-white shadow-lg shadow-emerald-100" :
@@ -1610,18 +1658,11 @@ const Procurement = () => {
             <Card className="border-slate-100 shadow-sm rounded-2xl overflow-hidden">
               <CardHeader className="bg-slate-50/50 border-bottom border-slate-100">
                 <CardTitle className="text-sm font-bold flex items-center gap-2">
-                  <Activity className="w-4 h-4 text-primary" /> Negotiation Intelligence
+                  <Activity className="w-4 h-4 text-primary" /> Supplier Intelligence
                 </CardTitle>
               </CardHeader>
               <CardContent className="p-6 space-y-6">
-                {!inquirySent ? (
-                  <div className="text-center py-10 space-y-4">
-                    <div className="w-12 h-12 bg-slate-50 rounded-full flex items-center justify-center mx-auto opacity-50">
-                      <Lock className="w-6 h-6 text-slate-300" />
-                    </div>
-                    <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Waiting for response...</p>
-                  </div>
-                ) : (
+                {inquiryData ? (
                   <div className="space-y-4">
                     {[
                       { signal: "MOQ Flexibility", status: inquiryData.supplier_reply_simulation.analysis.moq_flexibility, color: inquiryData.supplier_reply_simulation.analysis.moq_flexibility === "HIGH" ? "text-emerald-600" : "text-amber-600" },
@@ -1645,7 +1686,7 @@ const Procurement = () => {
                     </div>
 
                     {/* Single CTA: unlock the report first, commit comes after */}
-                    <button 
+                    <button
                       onClick={() => {
                         // Persist selected supplier so the commit flow survives navigation
                         const currentResult = sessionStorage.getItem('procureai_result');
@@ -1657,7 +1698,47 @@ const Procurement = () => {
                       className="w-full h-14 bg-gradient-to-r from-indigo-600 via-violet-600 to-purple-600 hover:from-indigo-500 hover:via-violet-500 hover:to-purple-500 text-xs font-black uppercase tracking-wider text-white rounded-xl shadow-lg shadow-indigo-500/20 hover:shadow-xl hover:shadow-indigo-500/30 transition-all duration-300 transform hover:-translate-y-0.5 active:scale-[0.98] flex items-center justify-center gap-2 cursor-pointer"
                     >
                       <Sparkles className="w-4 h-4" />
-                      Unlock Premium AI Report (x402)
+                      Initiate Session
+                    </button>
+                  </div>
+                ) : (
+                  <div className="space-y-4">
+                    {/* Supplier Intelligence Metrics */}
+                    <div className="space-y-3">
+                      {[
+                        { signal: "MOQ Flexibility", status: result?.selectedSupplier.reliability > 85 ? "HIGH" : "MODERATE", color: result?.selectedSupplier.reliability > 85 ? "text-emerald-600" : "text-amber-600" },
+                        { signal: "Lead Time Risk", status: result?.selectedSupplier.deliveryTime.includes("Days") && parseInt(result?.selectedSupplier.deliveryTime) <= 7 ? "LOW" : "MODERATE", color: result?.selectedSupplier.deliveryTime.includes("Days") && parseInt(result?.selectedSupplier.deliveryTime) <= 7 ? "text-emerald-600" : "text-amber-600" },
+                        { signal: "Pricing Openness", status: "MODERATE", color: "text-primary" },
+                        { signal: "Long-Term Interest", status: "NEUTRAL", color: "text-cyan-600" }
+                      ].map((card, i) => (
+                        <div key={i} className="p-4 bg-slate-50 border border-slate-100 rounded-xl flex items-center justify-between">
+                          <span className="text-[10px] font-bold text-slate-500 uppercase tracking-tight">{card.signal}</span>
+                          <span className={cn("text-xs font-black uppercase tracking-widest", card.color)}>{card.status}</span>
+                        </div>
+                      ))}
+
+                      <div className="p-4 bg-primary/5 border border-primary/10 rounded-xl space-y-2">
+                        <p className="text-[9px] font-black text-primary uppercase tracking-widest flex items-center gap-1">
+                          <Info className="w-3 h-3" /> AI Interpretation
+                        </p>
+                        <p className="text-[11px] font-medium text-slate-700 leading-relaxed">
+                          {result?.selectedSupplier.reasoning || "Supplier demonstrates strong fulfillment capability based on historical performance metrics."}
+                        </p>
+                      </div>
+                    </div>
+
+                    <button
+                      onClick={() => {
+                        const currentResult = sessionStorage.getItem('procureai_result');
+                        if (!currentResult && result) {
+                          sessionStorage.setItem('procureai_result', JSON.stringify(result));
+                        }
+                        navigate(`/premium-report?supplier_id=${result!.selectedSupplier.id}`);
+                      }}
+                      className="w-full h-14 bg-gradient-to-r from-indigo-600 via-violet-600 to-purple-600 hover:from-indigo-500 hover:via-violet-500 hover:to-purple-500 text-xs font-black uppercase tracking-wider text-white rounded-xl shadow-lg shadow-indigo-500/20 hover:shadow-xl hover:shadow-indigo-500/30 flex items-center justify-center gap-2 cursor-pointer"
+                    >
+                      <Sparkles className="w-4 h-4" />
+                      Initiate Session
                     </button>
                   </div>
                 )}
@@ -2208,10 +2289,6 @@ const Procurement = () => {
                   {isExecuting ? (
                     <motion.div
                       key={paymentPhase}
-                      initial={{ opacity: 0, y: 10 }}
-                      animate={{ opacity: 1, y: 0 }}
-                      exit={{ opacity: 0, y: -10 }}
-                      transition={{ duration: 0.4 }}
                       className="flex flex-col items-center"
                     >
                       <h3 className="font-display font-bold text-2xl text-slate-900 mb-2 tracking-tight">
@@ -2234,8 +2311,6 @@ const Procurement = () => {
                   ) : (
                     <motion.div
                       key="confirming"
-                      initial={{ opacity: 0, y: 10 }}
-                      animate={{ opacity: 1, y: 0 }}
                       className="flex flex-col items-center"
                     >
                       <h3 className="font-display font-bold text-2xl text-slate-900 mb-2 tracking-tight">Securing Commitment...</h3>

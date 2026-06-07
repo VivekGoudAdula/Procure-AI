@@ -228,9 +228,14 @@ const Auth = ({ initialMode = 'login' }: AuthProps) => {
                 </Button>
               </form>
               
-              <p className="text-center text-sm font-bold text-slate-500 mt-8">
-                Don't have an account? <span onClick={() => { setIsLogin(false); setEmail(''); setPassword(''); }} className="text-indigo-600 cursor-pointer hover:underline">Sign up</span>
-              </p>
+              <div className="space-y-4 mt-8">
+                <p className="text-center">
+                  <Link to="/forgot-password" className="text-sm font-bold text-indigo-600 hover:underline">Forgot password?</Link>
+                </p>
+                <p className="text-center text-sm font-bold text-slate-500">
+                  Don't have an account? <span onClick={() => { setIsLogin(false); setEmail(''); setPassword(''); }} className="text-indigo-600 cursor-pointer hover:underline">Sign up</span>
+                </p>
+              </div>
             </div>
           </div>
 
