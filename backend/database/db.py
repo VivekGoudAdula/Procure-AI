@@ -2,6 +2,7 @@ import hashlib
 import os
 import random
 from typing import Any, Dict, List, Optional
+from datetime import datetime, timezone
 
 from pymongo import MongoClient
 from dotenv import load_dotenv, find_dotenv
@@ -22,6 +23,7 @@ suppliers_collection = db["suppliers"]
 escrows_collection = db["escrows"]
 supplier_ratings_collection = db["supplier_ratings"]
 chat_messages_collection = db["chat_messages"]
+audit_logs_collection = db["audit_logs"]
 
 # Ensure unique indexes
 users_collection.create_index("email", unique=True)
@@ -29,6 +31,10 @@ suppliers_collection.create_index("id", unique=True)
 escrows_collection.create_index("transaction_id", unique=True)
 supplier_ratings_collection.create_index([("transaction_id", 1)], unique=True)
 chat_messages_collection.create_index([("buyer_id", 1), ("supplier_id", 1)])
+audit_logs_collection.create_index([("timestamp", -1)])
+audit_logs_collection.create_index([("user_id", 1)])
+audit_logs_collection.create_index([("module", 1)])
+audit_logs_collection.create_index([("action", 1)])
 
 print(f"[MongoDB] Connected to database: '{DB_NAME}'")
 
@@ -141,3 +147,70 @@ def get_cached_suppliers(product_name: Optional[str] = None) -> List[Dict[str, A
 def get_alibaba_suppliers(product_name: Optional[str] = None) -> List[Dict[str, Any]]:
     """Backward-compatible alias: cached suppliers only (never hits Alibaba live)."""
     return get_cached_suppliers(product_name)
+
+
+def ensure_admin_account():
+    """
+    Ensure default admin account exists.
+    
+    ProcureAI maintains complete procurement auditability.
+    This admin account provides platform oversight and compliance monitoring.
+    """
+    import bcrypt
+    try:
+        admin_email = "admin@procureai.co"
+        admin_password = "admin123"
+        
+        # Check if admin exists
+        existing_admin = users_collection.find_one({"email": admin_email})
+        
+        if not existing_admin:
+            # Create admin account
+            hashed_password = bcrypt.hashpw(admin_password.encode('utf-8'), bcrypt.gensalt()).decode('utf-8')
+            admin_doc = {
+                "email": admin_email,
+                "password": hashed_password,
+                "role": "admin",
+                "created_at": datetime.now(timezone.utc)
+            }
+            users_collection.insert_one(admin_doc)
+            print(f"[MongoDB] Created default admin account: {admin_email}")
+        else:
+            # Ensure role is set to admin
+            if existing_admin.get("role") != "admin":
+                users_collection.update_one(
+                    {"email": admin_email},
+                    {"$set": {"role": "admin"}}
+                )
+                print(f"[MongoDB] Updated admin role for: {admin_email}")
+    except Exception as e:
+        print(f"[MongoDB] Error ensuring admin account: {e}")
+
+
+def ensure_user_roles():
+    """
+    Ensure all existing users have a role field.
+    Default to 'buyer' for users without a role.
+    
+    ProcureAI maintains complete procurement auditability.
+    Role-based access control requires all users to have a role assigned.
+    """
+    try:
+        # Find users without a role field
+        users_without_role = users_collection.find({"role": {"$exists": False}})
+        count = 0
+        
+        for user in users_without_role:
+            users_collection.update_one(
+                {"_id": user["_id"]},
+                {"$set": {"role": "buyer"}}
+            )
+            count += 1
+        
+        if count > 0:
+            print(f"[MongoDB] Updated {count} users with default 'buyer' role")
+    except Exception as e:
+        print(f"[MongoDB] Error ensuring user roles: {e}")
+
+ensure_admin_account()
+ensure_user_roles()

@@ -17,6 +17,7 @@ import { toast } from 'sonner';
 const Topbar = () => {
   const { user, walletAddress, setWalletAddress } = useApp();
   const navigate = useNavigate();
+  const isAdmin = user?.role === 'admin';
 
   const handleConnectWallet = async () => {
     if (walletAddress) {
@@ -71,25 +72,27 @@ const Topbar = () => {
 
       {/* Right: Wallet, Notifications, User — flex-shrink-0 keeps them from being squished */}
       <div className="flex items-center gap-6 flex-shrink-0">
-        {/* Wallet Status */}
-        <div 
-          onClick={handleConnectWallet}
-          className="hidden sm:flex items-center gap-3 px-4 py-2.5 rounded-2xl bg-white border border-slate-100 shadow-sm hover:shadow-xl transition-all cursor-pointer group"
-        >
-          <div className={cn(
-            "w-8 h-8 rounded-xl flex items-center justify-center transition-all group-hover:scale-110",
-            walletAddress ? "bg-emerald-50 text-emerald-600" : "bg-slate-50 text-slate-400"
-          )}>
-            <Wallet className="w-4 h-4" />
+        {/* Wallet Status - Hidden for admin */}
+        {!isAdmin && (
+          <div
+            onClick={handleConnectWallet}
+            className="hidden sm:flex items-center gap-3 px-4 py-2.5 rounded-2xl bg-white border border-slate-100 shadow-sm hover:shadow-xl transition-all cursor-pointer group"
+          >
+            <div className={cn(
+              "w-8 h-8 rounded-xl flex items-center justify-center transition-all group-hover:scale-110",
+              walletAddress ? "bg-emerald-50 text-emerald-600" : "bg-slate-50 text-slate-400"
+            )}>
+              <Wallet className="w-4 h-4" />
+            </div>
+            <div className="flex flex-col">
+              <span className="text-[9px] font-black text-slate-400 uppercase tracking-[0.15em] leading-none mb-1">Network</span>
+              <span className="text-xs font-black text-slate-950 font-mono tracking-tight">
+                {walletAddress ? `${walletAddress.slice(0, 6)}...${walletAddress.slice(-4)}` : 'Disconnected'}
+              </span>
+            </div>
+            {walletAddress && <div className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse ml-1" />}
           </div>
-          <div className="flex flex-col">
-            <span className="text-[9px] font-black text-slate-400 uppercase tracking-[0.15em] leading-none mb-1">Network</span>
-            <span className="text-xs font-black text-slate-950 font-mono tracking-tight">
-              {walletAddress ? `${walletAddress.slice(0, 6)}...${walletAddress.slice(-4)}` : 'Disconnected'}
-            </span>
-          </div>
-          {walletAddress && <div className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse ml-1" />}
-        </div>
+        )}
 
         <Button variant="ghost" size="icon" className="w-12 h-12 rounded-2xl relative text-slate-400 hover:text-slate-950 hover:bg-slate-50 transition-all">
           <Bell className="w-6 h-6" />

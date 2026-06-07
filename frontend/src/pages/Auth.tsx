@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import axios from 'axios';
 import { motion, AnimatePresence } from 'motion/react';
-import { Eye, EyeOff } from 'lucide-react';
+import { Eye, EyeOff, Loader2 } from 'lucide-react';
 import { useApp } from '../context/AppContext';
 import { Button } from '../components/ui/button';
 import { Input } from '../components/ui/input';
@@ -52,6 +52,7 @@ const Auth = ({ initialMode = 'login' }: AuthProps) => {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
+  const [isLoading, setIsLoading] = useState(false);
   const { login } = useApp();
   const navigate = useNavigate();
 
@@ -59,14 +60,27 @@ const Auth = ({ initialMode = 'login' }: AuthProps) => {
     e.preventDefault();
     if (!email || !password) return;
 
+    setIsLoading(true);
+
     try {
       const endpoint = isLogin ? `${API_BASE_URL}/api/login` : `${API_BASE_URL}/api/signup`;
       const response = await axios.post(endpoint, { email, password });
-      
+
       if (isLogin) {
         const token = response.data.access_token;
-        login(email, token);
-        navigate('/dashboard');
+        const role = response.data.role || 'buyer';
+        login(email, token, role);
+
+        // Role-based redirect
+        if (role === 'admin') {
+          navigate('/admin');
+        } else if (role === 'buyer') {
+          navigate('/dashboard');
+        } else if (role === 'supplier') {
+          navigate('/coming-soon');
+        } else {
+          navigate('/dashboard');
+        }
       } else {
         setIsLogin(true);
         setPassword('');
@@ -75,6 +89,8 @@ const Auth = ({ initialMode = 'login' }: AuthProps) => {
       console.error(err);
       const errorMsg = err.response?.data?.detail || "Authentication failed";
       alert(errorMsg);
+    } finally {
+      setIsLoading(false);
     }
   };
 
@@ -207,8 +223,8 @@ const Auth = ({ initialMode = 'login' }: AuthProps) => {
                   </div>
                 </div>
 
-                <Button type="submit" className="w-full h-12 bg-slate-900 hover:bg-slate-800 text-white rounded-full font-bold shadow-lg shadow-slate-900/20 transition-all hover:scale-[1.02] active:scale-[0.98] mt-4">
-                  SIGN IN
+                <Button type="submit" disabled={isLoading} className="w-full h-12 bg-slate-900 hover:bg-slate-800 text-white rounded-full font-bold shadow-lg shadow-slate-900/20 transition-all hover:scale-[1.02] active:scale-[0.98] mt-4 disabled:opacity-70 disabled:cursor-not-allowed disabled:hover:scale-100">
+                  {isLoading ? <Loader2 className="w-5 h-5 animate-spin" /> : 'SIGN IN'}
                 </Button>
               </form>
               
@@ -264,8 +280,8 @@ const Auth = ({ initialMode = 'login' }: AuthProps) => {
                   </div>
                 </div>
 
-                <Button type="submit" className="w-full h-12 bg-slate-900 hover:bg-slate-800 text-white rounded-full font-bold shadow-lg shadow-slate-900/20 transition-all hover:scale-[1.02] active:scale-[0.98] mt-4">
-                  SIGN UP
+                <Button type="submit" disabled={isLoading} className="w-full h-12 bg-slate-900 hover:bg-slate-800 text-white rounded-full font-bold shadow-lg shadow-slate-900/20 transition-all hover:scale-[1.02] active:scale-[0.98] mt-4 disabled:opacity-70 disabled:cursor-not-allowed disabled:hover:scale-100">
+                  {isLoading ? <Loader2 className="w-5 h-5 animate-spin" /> : 'SIGN UP'}
                 </Button>
               </form>
               

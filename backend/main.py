@@ -127,12 +127,14 @@ def get_current_user(credentials: HTTPAuthorizationCredentials = Depends(securit
 
 from database.db import (
     users_collection,
+    suppliers_collection,
     escrows_collection,
     get_cached_suppliers,
     persist_suppliers_from_intelligence,
     supplier_ratings_collection,
     chat_messages_collection,
 )
+from services.audit_service import log_event, get_audit_logs, get_audit_stats
 
 def load_db():
     users = list(users_collection.find({}, {"_id": 0}))
@@ -381,9 +383,32 @@ async def get_settlements_ledger(current_user: str = Depends(get_current_user)):
 
 @app.post("/api/procurement/intelligence")
 async def get_procurement_intelligence(req: ProcurementIntelligenceRequest, current_user: str = Depends(get_current_user)):
+    """
+    Generate AI-powered supplier intelligence.
+    
+    ProcureAI maintains complete procurement auditability.
+    Every AI intelligence generation event is logged for transparency and AI decision tracking.
+    """
     try:
         result = procurement_engine.run_intelligence(req.dict())
         persist_suppliers_from_intelligence(result, req.product_name)
+        
+        # Log AI intelligence generation event for audit trail
+        log_event(
+            user_id=current_user,
+            user_email=current_user,
+            action="SUPPLIER_INTELLIGENCE_GENERATED",
+            module="AI",
+            entity_type="product",
+            entity_id=req.product_name,
+            details={
+                "product_name": req.product_name,
+                "quantity": req.quantity,
+                "budget": req.budget,
+                "suppliers_found": len(result.get("suppliers", []))
+            }
+        )
+        
         return result
     except Exception as e:
         print(f"[ProcureAI] Error: {str(e)}")
@@ -392,6 +417,12 @@ async def get_procurement_intelligence(req: ProcurementIntelligenceRequest, curr
 @app.post("/api/login")
 @limiter.limit("5/minute")
 async def login(request: Request, user: User):
+    """
+    Authenticate user and return JWT token.
+    
+    ProcureAI maintains complete procurement auditability.
+    Every login event is logged for security and compliance monitoring.
+    """
     users = list(users_collection.find({}, {"_id": 0}))
     
     # Locate the user and verify their password
@@ -408,10 +439,28 @@ async def login(request: Request, user: User):
         valid_password = False
         
     if valid_password:
+        # Get user role (default to 'buyer' if not set)
+        user_role = found_user.get("role", "buyer")
+        
         access_token = create_access_token(data={"sub": user.email})
+        
+        # Log login event for audit trail
+        client_host = request.client.host if request.client else "unknown"
+        log_event(
+            user_id=user.email,
+            user_email=user.email,
+            action="LOGIN",
+            module="Authentication",
+            entity_type="user",
+            entity_id=user.email,
+            details={"role": user_role},
+            ip_address=client_host
+        )
+        
         return {
             "message": "Login successful",
             "email": user.email,
+            "role": user_role,
             "access_token": access_token,
             "token_type": "bearer"
         }
@@ -427,6 +476,12 @@ def agent_competition_api(request: Request, req: SupplierRequest, current_user: 
 @app.post("/api/select-supplier")
 @limiter.limit("30/minute")
 async def select_supplier_api(request: Request, req: SupplierRequest, current_user: str = Depends(get_current_user)):
+    """
+    Select best supplier using AI agent competition.
+    
+    ProcureAI maintains complete procurement auditability.
+    Every supplier selection event is logged for transparency and accountability.
+    """
     try:
         policy_dict = req.policy.dict() if req.policy else None
         result = select_best_supplier(req.productName, req.quantity, req.budget, policy_dict)
@@ -464,6 +519,24 @@ async def select_supplier_api(request: Request, req: SupplierRequest, current_us
             "success_rate": s.get("success_rate", 90),
             "score": s.get("score", 0)
         })
+    
+    # Log supplier selection event for audit trail
+    if winner_id:
+        log_event(
+            user_id=current_user,
+            user_email=current_user,
+            action="SUPPLIER_SELECTED",
+            module="Procurement",
+            entity_type="supplier",
+            entity_id=str(winner_id),
+            details={
+                "supplier_name": winner_name,
+                "product": req.productName,
+                "quantity": req.quantity,
+                "final_price": winner_final_price,
+                "reasoning": winner_reason
+            }
+        )
         
     return {
         "deal": result.get("deal"),
@@ -519,6 +592,12 @@ async def escrow_api(request: Request, action: str, current_user: str = Depends(
 @app.post("/api/procurement/initiate-commitment")
 @limiter.limit("20/minute")
 async def create_escrow(request: Request, req: EscrowRequest, current_user: str = Depends(get_current_user)):
+    """
+    Create and fund blockchain escrow for procurement transaction.
+    
+    ProcureAI maintains complete procurement auditability.
+    Every escrow creation and funding event is logged for blockchain transparency.
+    """
     # 1. Deploy real smart contract on TestNet
     amount_microalgos = int(req.amount * 1_000_000)
     deployment = deploy_escrow(req.sender, req.receiver, amount_microalgos)
@@ -548,11 +627,34 @@ async def create_escrow(request: Request, req: EscrowRequest, current_user: str 
     db[deployment["transaction_id"]] = escrow_record
     save_escrow_db(db)
     
+    # Log escrow creation event for audit trail
+    log_event(
+        user_id=current_user,
+        user_email=current_user,
+        action="ESCROW_CREATED",
+        module="Escrow",
+        entity_type="escrow",
+        entity_id=deployment["transaction_id"],
+        details={
+            "app_id": deployment["app_id"],
+            "app_address": deployment["app_address"],
+            "amount": req.amount,
+            "supplier_id": str(req.supplier_id),
+            "promised_delivery_days": req.promised_delivery_days
+        }
+    )
+    
     return escrow_record
     
 @app.post("/api/procurement/release-settlement")
 @limiter.limit("20/minute")
 async def confirm_delivery(request: Request, req: ConfirmDeliveryRequest, current_user: str = Depends(get_current_user)):
+    """
+    Release escrow settlement after delivery verification.
+    
+    ProcureAI maintains complete procurement auditability.
+    Every escrow release event is logged for blockchain transparency and settlement tracking.
+    """
     db = load_escrow_db()
     # Search by transaction_id OR app_id (often used interchangeably in frontend)
     record = db.get(req.transaction_id)
@@ -581,6 +683,7 @@ async def confirm_delivery(request: Request, req: ConfirmDeliveryRequest, curren
     app_id = record.get("app_id")
     buyer_address = record.get("sender_address")
     supplier_address = record.get("receiver_address")
+    settlement_tx_id = None
     if app_id and buyer_address:
         from blockchain.escrow_service import confirm_delivery_on_chain
         try:
@@ -591,11 +694,27 @@ async def confirm_delivery(request: Request, req: ConfirmDeliveryRequest, curren
                 tx_id = settlement_res.get("transaction_id")
                 if tx_id:
                     record["settlement_tx_id"] = tx_id
+                    settlement_tx_id = tx_id
                     print(f"[PROCURE-AI] On-chain settlement transaction confirmed: {tx_id}")
         except Exception as e:
             print(f"[PROCURE-AI] Error calling on-chain settlement: {e}")
             
     print("[PROCURE-AI] Settlement lifecycle completed.")
+    
+    # Log escrow release event for audit trail
+    log_event(
+        user_id=current_user,
+        user_email=current_user,
+        action="ESCROW_RELEASED",
+        module="Escrow",
+        entity_type="escrow",
+        entity_id=req.transaction_id,
+        details={
+            "app_id": app_id,
+            "settlement_tx_id": settlement_tx_id,
+            "amount": record.get("amount")
+        }
+    )
     
     # Update Reputation
     supplier_id = record.get("supplier_id")
@@ -689,6 +808,12 @@ async def submit_delivery_proof(
 @app.post("/api/procurement/verify-delivery")
 @limiter.limit("20/minute")
 async def verify_delivery(request: Request, req: VerifyDeliveryRequest, current_user: str = Depends(get_current_user)):
+    """
+    Verify delivery proof before escrow release.
+    
+    ProcureAI maintains complete procurement auditability.
+    Every delivery verification event is logged for quality assurance and compliance.
+    """
     db = load_escrow_db()
     record = db.get(req.escrow_id)
     if not record:
@@ -722,6 +847,20 @@ async def verify_delivery(request: Request, req: VerifyDeliveryRequest, current_
 
     record["escrow_status"] = "verified"
     record["verified"] = True
+    
+    # Log delivery verification event for audit trail
+    log_event(
+        user_id=current_user,
+        user_email=current_user,
+        action="ESCROW_VERIFIED",
+        module="Escrow",
+        entity_type="escrow",
+        entity_id=req.escrow_id,
+        details={
+            "proof_type": proof["type"],
+            "supplier_id": str(record.get("supplier_id"))
+        }
+    )
     
     save_escrow_db(db)
     return record
@@ -759,14 +898,42 @@ async def get_transaction(request: Request, tx_id: str, current_user: str = Depe
 @app.post("/api/signup")
 @limiter.limit("5/minute")
 async def signup(request: Request, user: User):
+    """
+    Register a new user account.
+    
+    ProcureAI maintains complete procurement auditability.
+    Every registration event is logged for security and compliance monitoring.
+    """
     db = load_db()
     users = db.setdefault("users", [])
     if any(u["email"] == user.email for u in users):
         raise HTTPException(status_code=400, detail="User already exists")
     
     hashed_password = bcrypt.hashpw(user.password.encode('utf-8'), bcrypt.gensalt()).decode('utf-8')
-    users.append({"email": user.email, "password": hashed_password})
+    
+    # Default role is 'buyer' for new registrations
+    user_doc = {
+        "email": user.email, 
+        "password": hashed_password,
+        "role": "buyer",
+        "created_at": datetime.now(timezone.utc)
+    }
+    users.append(user_doc)
     save_db(db)
+    
+    # Log registration event for audit trail
+    client_host = request.client.host if request.client else "unknown"
+    log_event(
+        user_id=user.email,
+        user_email=user.email,
+        action="REGISTRATION",
+        module="Authentication",
+        entity_type="user",
+        entity_id=user.email,
+        details={"role": "buyer"},
+        ip_address=client_host
+    )
+    
     return {"message": "User registered successfully"}
 
 @app.get("/api/suppliers")
@@ -802,6 +969,9 @@ async def create_supplier_rating(request: Request, req: SupplierRatingRequest, c
     """
     Submit a supplier rating after successful escrow release.
     
+    ProcureAI maintains complete procurement auditability.
+    Every supplier rating event is logged for reputation tracking and quality assurance.
+    
     Future Recommendation Score:
     Recommendation Score = AI Supplier Intelligence Score + Supplier Reputation Score
     This rating data will later be used by supplier ranking and recommendation modules.
@@ -836,7 +1006,119 @@ async def create_supplier_rating(request: Request, req: SupplierRatingRequest, c
     
     supplier_ratings_collection.insert_one(rating_doc)
     
+    # Log supplier rating event for audit trail
+    log_event(
+        user_id=current_user,
+        user_email=current_user,
+        action="SUPPLIER_RATED",
+        module="Ratings",
+        entity_type="supplier",
+        entity_id=req.supplier_id,
+        details={
+            "transaction_id": req.transaction_id,
+            "rating": req.rating,
+            "review": req.review
+        }
+    )
+    
     return {"message": "Rating submitted successfully"}
+
+@app.get("/api/ratings/supplier/{supplier_id}")
+@limiter.limit("30/minute")
+async def get_supplier_ratings(request: Request, supplier_id: str, current_user: str = Depends(get_current_user)):
+    """
+    Get average rating and reviews for a supplier.
+    
+    Future Recommendation Score:
+    Recommendation Score = AI Supplier Intelligence Score + Supplier Reputation Score
+    This rating data will later be used by supplier ranking and recommendation modules.
+    """
+    ratings = list(supplier_ratings_collection.find({"supplier_id": supplier_id}, {"_id": 0}))
+    
+    if not ratings:
+        return {
+            "average_rating": 0,
+            "total_reviews": 0,
+            "reviews": []
+        }
+    
+    total_reviews = len(ratings)
+
+
+# --- Admin Dashboard Endpoints ---
+
+@app.get("/api/admin/stats")
+@limiter.limit("30/minute")
+async def get_admin_stats(request: Request, current_user: str = Depends(get_current_user)):
+    """
+    Get platform statistics for admin dashboard.
+    
+    ProcureAI maintains complete procurement auditability.
+    Admin dashboard provides comprehensive platform oversight and compliance monitoring.
+    """
+    try:
+        # Check if user is admin
+        user = users_collection.find_one({"email": current_user})
+        if not user or user.get("role") != "admin":
+            raise HTTPException(status_code=403, detail="Admin access required")
+        
+        # Get platform statistics
+        total_users = users_collection.count_documents({})
+        total_suppliers = suppliers_collection.count_documents({})
+        total_transactions = escrows_collection.count_documents({})
+        total_escrows = escrows_collection.count_documents({})
+        total_settlements = escrows_collection.count_documents({"escrow_status": "released"})
+        
+        # Get audit statistics
+        audit_stats = get_audit_stats()
+        
+        return {
+            "total_users": total_users,
+            "total_suppliers": total_suppliers,
+            "total_procurement_transactions": total_transactions,
+            "total_escrows": total_escrows,
+            "total_settlements": total_settlements,
+            "total_audit_logs": audit_stats["total_audit_logs"],
+            "recent_activity": audit_stats["recent_activity"],
+            "module_counts": audit_stats["module_counts"]
+        }
+    except HTTPException:
+        raise
+    except Exception as e:
+        print(f"[Admin Stats] Error: {e}")
+        raise HTTPException(status_code=500, detail=f"Error fetching admin stats: {str(e)}")
+
+
+@app.get("/api/admin/audit-logs")
+@limiter.limit("30/minute")
+async def get_admin_audit_logs(
+    request: Request,
+    limit: int = 100,
+    skip: int = 0,
+    module: Optional[str] = None,
+    action: Optional[str] = None,
+    current_user: str = Depends(get_current_user)
+):
+    """
+    Get audit logs for admin dashboard with optional filtering.
+    
+    ProcureAI maintains complete procurement auditability.
+    Admin can view all platform activities for compliance and security monitoring.
+    """
+    # Check if user is admin
+    user = users_collection.find_one({"email": current_user})
+    if not user or user.get("role") != "admin":
+        raise HTTPException(status_code=403, detail="Admin access required")
+    
+    logs = get_audit_logs(
+        limit=limit,
+        skip=skip,
+        module=module,
+        action=action
+    )
+    
+    return {"logs": logs, "total": len(logs)}
+
 
 @app.get("/api/ratings/supplier/{supplier_id}")
 @limiter.limit("30/minute")
@@ -873,6 +1155,9 @@ async def get_supplier_ratings(request: Request, supplier_id: str, current_user:
 async def send_chat_message(request: Request, req: ChatMessageRequest, current_user: str = Depends(get_current_user)):
     """
     Send a chat message to a supplier with automatic translation.
+    
+    ProcureAI maintains complete procurement auditability.
+    Every chat message event is logged for communication tracking and compliance.
     For hackathon MVP: Simulates supplier reply after 2-3 seconds.
     """
     try:
@@ -896,6 +1181,21 @@ async def send_chat_message(request: Request, req: ChatMessageRequest, current_u
             "created_at": datetime.now(timezone.utc)
         }
         chat_messages_collection.insert_one(buyer_message_doc)
+        
+        # Log chat message event for audit trail
+        log_event(
+            user_id=current_user,
+            user_email=current_user,
+            action="MESSAGE_SENT",
+            module="Chat",
+            entity_type="message",
+            entity_id=message_id,
+            details={
+                "supplier_id": req.supplier_id,
+                "source_language": req.source_language,
+                "target_language": req.target_language
+            }
+        )
         
         # Simulate supplier reply (Hackathon MVP - no real supplier login)
         # Generate simulated supplier reply using existing translation flow

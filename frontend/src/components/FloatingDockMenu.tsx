@@ -14,26 +14,30 @@ import {
 export default function FloatingDockMenu() {
   const navigate = useNavigate();
   const location = useLocation();
-  const { logout } = useApp();
+  const { logout, user } = useApp();
 
   const handleLogout = () => {
     logout();
     navigate("/login");
   };
 
+  const isAdmin = user?.role === 'admin';
+
   const links = [
     {
       title: "Dashboard",
       icon: <LayoutDashboard />,
-      isActive: location.pathname.startsWith("/dashboard"),
-      onClick: () => navigate("/dashboard"),
+      isActive: location.pathname.startsWith("/dashboard") || location.pathname.startsWith("/admin"),
+      onClick: () => navigate(isAdmin ? "/admin" : "/dashboard"),
     },
-    {
-      title: "Procurement",
-      icon: <ShoppingCart />,
-      isActive: location.pathname.startsWith("/procurement"),
-      onClick: () => navigate("/procurement"),
-    },
+    ...(isAdmin ? [] : [
+      {
+        title: "Procurement",
+        icon: <ShoppingCart />,
+        isActive: location.pathname.startsWith("/procurement"),
+        onClick: () => navigate("/procurement"),
+      },
+    ]),
     {
       title: "Transactions",
       icon: <History />,

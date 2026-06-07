@@ -66,8 +66,8 @@ interface Transaction {
 }
 
 interface AppContextType {
-  user: { email: string; name?: string } | null;
-  login: (email: string, token: string) => void;
+  user: { email: string; name?: string; role?: string } | null;
+  login: (email: string, token: string, role?: string) => void;
   logout: () => void;
   transactions: Transaction[];
   addTransaction: (tx: Transaction) => void;
@@ -122,9 +122,9 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     }
   }, [walletAddress]);
 
-  const login = (email: string, token: string) => {
+  const login = (email: string, token: string, role?: string) => {
     const name = email.split('@')[0].split(/[._-]/).map(part => part.charAt(0).toUpperCase() + part.slice(1)).join(' ');
-    const newUser = { email, name };
+    const newUser = { email, name, role };
     setUser(newUser);
     localStorage.setItem('procureai_user', JSON.stringify(newUser));
     localStorage.setItem('procureai_token', token);

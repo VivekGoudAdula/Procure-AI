@@ -11,6 +11,7 @@ import Transactions from './pages/Transactions';
 import Analytics from './pages/Analytics';
 import Settings from './pages/Settings';
 import Help from './pages/Help';
+import Admin from './pages/Admin';
 import { Toaster } from './components/ui/sonner';
 
 export default function App() {
@@ -30,6 +31,7 @@ export default function App() {
             <Route path="/analytics" element={<Analytics />} />
             <Route path="/settings" element={<Settings />} />
             <Route path="/help" element={<Help />} />
+            <Route path="/admin" element={<Admin />} />
           </Route>
 
           <Route path="*" element={<Navigate to="/" replace />} />
