@@ -4,7 +4,7 @@ This document outlines the step-by-step implementation of the production-grade *
 
 ---
 
-## 🛠️ Protocol Mechanics
+## Protocol Mechanics
 
 The production-grade x402 version 2 protocol uses fee pooling and transaction co-signing via the GoPlausible facilitator. The client signs only the USDC transfer transaction (Tx0), while the facilitator signs the fee payment transaction (Tx1).
 
@@ -36,7 +36,7 @@ The production-grade x402 version 2 protocol uses fee pooling and transaction co
 
 ---
 
-## 💻 Backend API Endpoints
+## Backend API Endpoints
 
 ### 1. Payment Gated Resource Route
 * **Endpoint**: `/api/x402/premium-supplier-report`
@@ -88,7 +88,7 @@ If the payment is verified and settled successfully by the facilitator or direct
 
 ---
 
-## 🔌 Client Integration (React + Pera Wallet)
+## Client Integration (React + Pera Wallet)
 
 The client performs the following steps:
 

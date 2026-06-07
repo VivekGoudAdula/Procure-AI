@@ -1,5 +1,6 @@
-# ProcureAI: Modular AI Procurement Intelligence Infrastructure
-### Autonomous Supplier Intelligence, Multilingual Procurement Negotiation & x402 Agent Infrastructure on Algorand
+# ProcureAI: AI Procurement Intelligence Platform
+
+An AI-powered procurement platform with supplier intelligence, multilingual negotiation, and blockchain-based escrow on Algorand.
 
 [![Algorand TestNet](https://img.shields.io/badge/Blockchain-Algorand_TestNet-blue.svg)](https://testnet.explorer.perawallet.app/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
@@ -8,92 +9,137 @@
 
 ---
 
-## Executive Summary
+## What is ProcureAI?
 
-ProcureAI is an AI-powered procurement orchestration platform and modular procurement intelligence infrastructure built for global sourcing workflows.
+ProcureAI is an AI platform that helps businesses find and work with suppliers globally. It sits on top of existing supplier ecosystems like Alibaba and adds intelligence to the procurement process.
 
-The platform combines reusable x402-powered procurement agents with multilingual supplier communication, AI-driven supplier intelligence, negotiation analysis, and blockchain-backed escrow commitments on Algorand.
+The platform helps you:
 
-Rather than replacing procurement marketplaces like Alibaba, ProcureAI acts as an intelligent procurement layer on top of existing supplier ecosystems.
+- Find suppliers worldwide
+- Generate procurement requests with AI
+- Communicate in multiple languages
+- Analyze negotiations
+- Rank suppliers by reliability
+- Handle payments through blockchain escrow
 
-The system enables businesses to:
-
-* discover suppliers globally
-* generate AI-powered procurement inquiries
-* localize supplier communication
-* analyze negotiation intelligence
-* rank suppliers using trust & fulfillment scoring
-* coordinate escrow-backed procurement settlements
-
-Each procurement capability is designed as an independently reusable procurement intelligence agent that can later operate as a standalone x402 marketplace endpoint.
+Each feature works as a separate agent that can be used independently.
 
 ---
 
-## Why ProcureAI?
+## Why use ProcureAI?
 
-Global procurement workflows are still highly manual.
+Most procurement work is still done manually:
 
-Businesses often rely on:
+- Comparing suppliers by hand
+- Scattered communication channels
+- Using translation tools
+- Managing spreadsheets
+- Coordinating multiple people
+- Slow negotiation cycles
 
-* manual supplier comparison
-* fragmented communication
-* language translation tools
-* spreadsheet-based evaluations
-* multiple procurement coordinators
-* slow RFQ negotiation cycles
-
-ProcureAI introduces an AI-native procurement intelligence layer that automates supplier discovery, multilingual negotiation workflows, supplier trust analysis, and procurement orchestration.
-
-The platform transforms procurement from a manual operational workflow into an AI-assisted intelligence system.
+ProcureAI automates supplier discovery, negotiations, and analysis. It turns manual procurement into an AI-assisted process.
 
 ---
 
 ## System Architecture
 
-ProcureAI uses a modular infrastructure powered by reusable agents:
+ProcureAI uses a modular system with reusable agents and blockchain escrow:
 
 ```mermaid
-graph TD
-
-    subgraph "Frontend Orchestration Layer"
-        UI[ProcureAI Frontend]
+graph TB
+    subgraph "Client Layer"
+        UI[React Frontend<br/>Vite + Tailwind + Pera Wallet]
     end
-
-    subgraph "x402 Procurement Gateway"
-        GW[x402 Agent Gateway]
+    
+    subgraph "API Gateway Layer"
+        API[FastAPI Backend<br/>REST API + Rate Limiting]
+        X402[x402 Payment Gateway<br/>HTTP 402 Protocol]
     end
-
-    subgraph "Procurement Intelligence Agents"
-        SDA[Supplier Discovery Agent]
-        PIA[Procurement Inquiry Agent]
-        TA[Translation Agent]
-        NIA[Negotiation Intelligence Agent]
-        SRA[Supplier Ranking Agent]
-        ECA[Escrow Commitment Agent]
+    
+    subgraph "Service Layer"
+        S1[Alibaba Procurement Service]
+        S2[Multilingual Negotiation Service]
+        S3[Translation Service]
+        S4[Negotiation Intelligence Engine]
+        S5[Supplier Intelligence Service]
+        S6[Email Service]
+        S7[Dashboard Analytics]
+        S8[Procurement Analytics Engine]
+        S9[Settlement Analytics]
+        S10[Audit Service]
     end
-
+    
+    subgraph "AI Layer"
+        AI[Groq Llama-3 Agent Engine<br/>8B/70B Models]
+    end
+    
+    subgraph "Blockchain Layer"
+        SC[Algorand Smart Contracts<br/>ARC-4 Python]
+        ESC[Escrow Service]
+        BC[Algorand TestNet Blockchain]
+        IDX[Algorand Indexer]
+    end
+    
+    subgraph "Payment Layer"
+        FAC[GoPlausible Facilitator<br/>Co-signing & Broadcasting]
+        WAL[Pera Wallet Integration]
+    end
+    
+    subgraph "Data Layer"
+        DB[(MongoDB Atlas<br/>NoSQL Database)]
+    end
+    
     subgraph "External Ecosystems"
         ALI[Alibaba Supplier APIs]
-        ALGO[Algorand Escrow Layer]
+        SMTP[Email Gateway]
     end
-
-    UI --> GW
-    GW --> SDA
-    GW --> PIA
-    GW --> TA
-    GW --> NIA
-    GW --> SRA
-    GW --> ECA
-
-    SDA --> ALI
-    ECA --> ALGO
+    
+    UI --> API
+    UI --> X402
+    UI --> WAL
+    
+    API --> S1
+    API --> S2
+    API --> S3
+    API --> S4
+    API --> S5
+    API --> S6
+    API --> S7
+    API --> S8
+    API --> S9
+    API --> S10
+    API --> DB
+    
+    X402 --> FAC
+    X402 --> WAL
+    FAC --> BC
+    
+    S1 --> ALI
+    S2 --> AI
+    S3 --> AI
+    S4 --> AI
+    S5 --> AI
+    S6 --> SMTP
+    
+    API --> ESC
+    ESC --> SC
+    ESC --> BC
+    BC --> IDX
+    IDX --> API
+    
+    style UI fill:#e3f2fd
+    style API fill:#e8f5e9
+    style X402 fill:#fce4ec
+    style AI fill:#f3e5f5
+    style BC fill:#fff9c4
+    style DB fill:#ffe0b2
 ```
 
 ---
 
-## Procurement Intelligence Agents
+## Procurement Agents
 
-ProcureAI is powered through modular procurement intelligence agents.
+ProcureAI uses these agents:
 
 | Agent                          | Capability                                           |
 | ------------------------------ | ---------------------------------------------------- |
@@ -105,38 +151,38 @@ ProcureAI is powered through modular procurement intelligence agents.
 | Escrow Commitment Agent        | Coordinates blockchain-backed procurement settlement |
 | Verification Agent             | Handles delivery verification workflows              |
 
-These agents are designed to later operate independently as reusable x402 procurement endpoints.
+These agents can work independently as separate services.
 
 ---
 
-## Autonomous Procurement Workflow Demonstration
+## How It Works
 
-Here is a step-by-step walkthrough of ProcureAI's autonomous procurement intelligence workflow in action:
+Here is how the procurement workflow works:
 
-### 1. AI Procurement Requirement Submission
+### 1. Submit Requirements
 
-Buyers enter procurement requirements including:
-- product specifications
-- quantity
-- budget
-- delivery timeline
-- sourcing region
-- custom manufacturing requirements
+Enter what you need:
+- Product details
+- Quantity
+- Budget
+- Delivery date
+- Location
+- Custom requirements
 
-The Procurement Inquiry Agent structures sourcing requests before initiating supplier intelligence workflows.
+The system structures your request and starts finding suppliers.
 
 ![Procurement Request](./frontend/assets/procurement-dashboard.png)
 
-### 2. AI Supplier Discovery & Intelligence Ranking
+### 2. Find and Rank Suppliers
 
-The Supplier Discovery Agent scans supplier ecosystems through Alibaba integrations and ranks suppliers using:
-- trust scoring
-- fulfillment analysis
-- negotiation delta
-- MOQ flexibility
-- supplier verification signals
+The system searches supplier databases and ranks them by:
+- Trust score
+- Delivery reliability
+- Price flexibility
+- Minimum order requirements
+- Verification status
 
-ProcureAI automatically recommends the highest-confidence procurement matches.
+It shows you the best matches.
 
 ![Supplier Intelligence](./frontend/assets/top3.png)
 
@@ -144,136 +190,132 @@ Below is the extended supplier scanning matrix generated by the agent:
 
 ![Supplier Matrix](./frontend/assets/sourced-all-suppliers.png)
 
-### 3. Cross-Border Procurement Communication
+### 3. Communicate with Suppliers
 
-The Translation Agent localizes procurement communication into supplier-native languages.
+The system translates your requests into the supplier's language.
 
-The Negotiation Intelligence Agent extracts:
-- MOQ flexibility
-- pricing openness
-- delivery confidence
-- long-term partnership intent
+It analyzes supplier responses for:
+- Minimum order flexibility
+- Price negotiation room
+- Delivery reliability
+- Long-term partnership interest
 
-Supplier responses are automatically translated back into English for procurement operators.
+Responses are translated back to English.
 
 ![Translation Workflow](./frontend/assets/translation.png)
 
-### 4. Real Supplier Communication Workflow
+### 4. Send Inquiries
 
-ProcureAI sends AI-generated multilingual procurement inquiries directly to suppliers.
+The system sends your requests to suppliers in their language.
 
-This demonstrates:
-- operational procurement automation
-- real-world supplier communication
-- AI-generated RFQ orchestration
-- multilingual sourcing execution
+This shows:
+- Automated procurement
+- Real supplier communication
+- AI-generated requests
+- Multilingual sourcing
 
 ![Supplier Mail](./frontend/assets/mail.png)
 
-## Operational Workflow Summary
+## Workflow Summary
 
-ProcureAI demonstrates a complete AI-assisted procurement lifecycle:
+The complete process:
 
-1. Procurement request generation
-2. Global supplier discovery
-3. AI supplier ranking
-4. Multilingual supplier communication
-5. Negotiation intelligence extraction
-6. Escrow-backed procurement commitment
-7. Delivery verification
-8. Settlement execution on Algorand
+1. Create procurement request
+2. Find suppliers globally
+3. Rank suppliers with AI
+4. Communicate in multiple languages
+5. Analyze negotiations
+6. Secure payment with escrow
+7. Verify delivery
+8. Complete settlement on blockchain
 
 ---
 
 ## Business Model
 
-ProcureAI supports multiple monetization layers:
+Revenue sources:
 
-- SaaS procurement subscriptions
-- AI negotiation credits
-- Procurement intelligence APIs
-- Escrow transaction fees
-- Enterprise procurement orchestration
-- x402 pay-per-use procurement endpoints
-
----
-
-## Future Vision
-
-ProcureAI is evolving toward a modular procurement intelligence marketplace powered through reusable x402 endpoints.
-
-Future roadmap includes:
-- independently consumable procurement APIs
-- procurement agent marketplace publishing
-- ERP integrations
-- supplier risk forecasting
-- predictive procurement intelligence
-- AI procurement copilots
-- real-time logistics intelligence
+- Subscription plans
+- Per-use AI credits
+- API access
+- Transaction fees
+- Enterprise services
+- Pay-per-use endpoints
 
 ---
 
-## Key Innovations
+## Future Plans
 
-### **1. Agent-to-Agent Commerce**
-AI agents act as fiduciary proxies, orchestrating complex negotiations and quantitative supplier scoring, compressing procurement lead times from days to microseconds.
+Upcoming features:
 
-### **2. Strategic Negotiation Engine**
-Leverages advanced LLMs to execute counter-offers and evaluate trade-offs based on proprietary business logic and supplier pricing elasticity.
+- Standalone procurement APIs
+- Agent marketplace
+- ERP system integration
+- Risk prediction
+- AI procurement assistants
+- Real-time logistics tracking
 
-### **3. Algorand Governance Escrow**
-A modular smart contract developed using **Algorand Python (Puya)** for secure, decentralized value retention.
-*   **Asset Segregation**: Capital is isolated within a unique Application Address.
-*   **Atomic Payouts**: Settlement is executed via Inner Transactions, triggered exclusively by verified fulfillment conditions.
-*   **Verified Auditability**: Every state transition is recorded as a permanent Transaction on the ledger.
+---
+
+## Key Features
+
+### 1. Agent-Based Commerce
+AI agents handle negotiations and supplier scoring automatically, speeding up procurement from days to minutes.
+
+### 2. AI Negotiation Engine
+Uses advanced language models to make counter-offers and evaluate trade-offs based on your business rules.
+
+### 3. Algorand Escrow
+Smart contracts on Algorand for secure payments:
+- Funds are held separately
+- Payments release only when conditions are met
+- All transactions are recorded on the blockchain
 
 ---
 
 ## Technology Stack
 
-| Layer | Technology Specification |
+| Layer | Technology |
 | :--- | :--- |
-| **User Interface** | React 18, Vite, Framer Motion, Lucide Architecture |
-| **API Backbone** | FastAPI (Python), Asynchronous Orchestration |
-| **On-Chain Logic** | Algorand Python (Puya), Algokit, Python SDK |
-| **AI Intelligence** | Groq Core, Llama 3 (8B/70B models) |
-| **Payment Gateway** | Pera Wallet Integration (TestNet) |
+| **User Interface** | React 18, Vite, Tailwind CSS |
+| **API** | FastAPI (Python) |
+| **Blockchain** | Algorand Python, Algokit |
+| **AI** | Groq, Llama 3 |
+| **Wallet** | Pera Wallet (TestNet) |
 
 ---
 
 ## Project Structure
 
-```text
-frontend/       React + Vite frontend
-backend/        FastAPI backend services
-smartcontract/  Algorand smart contracts
-tests/          Automated test suite
-docs/           Architecture and deployment documentation
-scripts/        Development and migration utilities
+```
+frontend/       React frontend
+backend/        FastAPI backend
+smartcontract/  Algorand contracts
+tests/          Test suite
+docs/           Documentation
 ```
 
 ---
 
-## Setup & Local Deployment
+## Setup
 
-### **1. Backend & AI Orchestrator**
+### 1. Backend
 ```bash
 python -m venv venv
 pip install -r requirements.txt
-
 cd backend
 venv\Scripts\activate
 uvicorn main:app --reload
 ```
 
-### **2. Frontend Dashboard**
+### 2. Frontend
 ```bash
 cd frontend
 npm install
 npm run dev
 ```
 
-### **3. Smart Contract Governance**
+### 3. Smart Contracts
 ```bash
 cd smartcontract
 poetry install
@@ -283,12 +325,8 @@ algokit compile python smart_contracts.escrow.contract
 ---
 
 ## License
-This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
+MIT License - see LICENSE file for details.
 
 ---
 
-<div align="center">
-**ProcureAI — Building Modular Procurement Intelligence Infrastructure.**
-
-*Powered through reusable x402 procurement intelligence agents.*
-</div>
+ProcureAI - AI-powered procurement platform.

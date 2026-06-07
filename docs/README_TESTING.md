@@ -1,29 +1,29 @@
 # ProcureAI Backend Validation & Testing Suite
 
-This repository contains a lightweight, isolated, and highly reliable automated testing suite for the **ProcureAI** backend. It validates key API endpoints, core business logic, and transaction lifecycles without requiring actual external database connections or blockchain operations.
+This repository contains an automated testing suite for the **ProcureAI** backend. It validates API endpoints, business logic, and transaction lifecycles without requiring external database connections or blockchain operations.
 
 ---
 
-## 🛠️ Testing Philosophy & Mock Strategy
+## Testing Strategy
 
-To ensure hackathon stability and rapid, non-breaking validation:
-* **Algorand TestNet Mocking**: Smart contract deployment and blockchain interactions are intercepted and mocked to avoid consuming Test ALGOs or failing due to TestNet latency or downtime.
-* **In-Memory Database**: MongoDB calls are mocked using an in-memory dictionary-backed datastore to allow tests to run instantly without external connection dependencies.
-* **Isolated Environment**: Network-sensitive services (such as SMTP email sending) are mocked to return mock success status immediately.
+To ensure stability and rapid validation:
+* **Algorand TestNet Mocking**: Smart contract operations are mocked to avoid consuming Test ALGOs or failing due to network issues.
+* **In-Memory Database**: MongoDB calls use an in-memory datastore for instant test execution.
+* **Isolated Environment**: Network services like SMTP are mocked to return success immediately.
 
 ---
 
-## 📋 Test Inventory
+## Test Inventory
 
-The suite contains **4 core tests** covering health, supplier intelligence, and blockchain escrow operations:
+The suite contains **4 tests** covering health, supplier intelligence, and escrow operations:
 
 1. **`tests/test_health.py`**
-   * `test_health_endpoint`: Verifies that the `/health` endpoint is alive (returns HTTP 200) and returns the correct healthy state payload.
+   * `test_health_endpoint`: Verifies the `/health` endpoint returns HTTP 200.
 2. **`tests/test_supplier_selection.py`**
-   * `test_supplier_selection_api_response`: Checks the `/api/select-supplier` HTTP POST request structure (supplier list, rounds, final winner selection).
-   * `test_ranking_logic_winner`: Calls the underlying mathematical ranking algorithm directly and verifies that the selected winner indeed has the highest score.
+   * `test_supplier_selection_api_response`: Checks the `/api/select-supplier` request structure.
+   * `test_ranking_logic_winner`: Verifies the ranking algorithm selects the highest score.
 3. **`tests/test_escrow.py`**
-   * `test_full_escrow_lifecycle`: Verifies the complete sequential lifecycle of an Algorand procurement escrow:
+   * `test_full_escrow_lifecycle`: Verifies the complete escrow lifecycle:
      1. **Creation**: `/api/procurement/initiate-commitment`
      2. **Delivery Proof**: `/api/submit-delivery-proof`
      3. **Verification**: `/api/procurement/verify-delivery`
@@ -31,16 +31,16 @@ The suite contains **4 core tests** covering health, supplier intelligence, and 
 
 ---
 
-## 🚀 How to Run the Tests
+## How to Run Tests
 
 ### Prerequisites
-Make sure `pytest` and `httpx` (for FastAPI's `TestClient`) are installed:
+Install pytest and httpx:
 ```bash
 pip install pytest httpx
 ```
 
 ### Running the Suite
-Execute the tests from the root of the project:
+Run tests from the project root:
 ```bash
 python -m pytest tests/
 ```
@@ -52,9 +52,9 @@ python -m pytest -v tests/
 
 ---
 
-## 📊 Expected Output
+## Expected Output
 
-When running the tests, you should see output similar to the following:
+Expected output:
 
 ```
 ============================= test session starts =============================

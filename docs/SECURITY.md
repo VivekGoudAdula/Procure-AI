@@ -1,55 +1,126 @@
 # ProcureAI Security Documentation
 
-This document describes the security policies, access controls, key protection measures, and production-grade security implementations for ProcureAI.
+This document describes security policies, access controls, and security implementations for ProcureAI.
 
 ---
 
-## 🔒 Current Security Implementations
+## Security Features Overview
 
-### 1. Cryptographic Password Hashing (Bcrypt)
-All user passwords are encrypted using bcrypt hashing before storage.
-* **Algorithm**: Blowfish-based key derivation function (`bcrypt`) with a dynamically generated salt (`gensalt`).
-* **Hashed Storage**: Plaintext passwords are never stored. Upon login, credentials are safe-checked against bcrypt hashes, protecting user databases in case of breach.
+ProcureAI implements security measures across all layers:
 
-### 2. JSON Web Token (JWT) Authentication
-ProcureAI uses stateless JSON Web Token (JWT) authentication to secure backend operations.
-* **Token Structure**: Issued JWTs include token expiration (`exp`) set to `30` minutes and user subject identifier (`sub`).
-* **Validation**: FastAPI dependency injection (`get_current_user` using HTTPBearer credentials) validates signatures, claims, and expirations for all protected routes, including procurement insights, analytics, supplier selection, and escrow controls.
+```mermaid
+graph TB
+    subgraph "Security Layers"
+        AUTH[JWT Authentication<br/>+ Bcrypt Password Hashing]
+        RATE[Rate Limiting<br/>+ Brute-Force Protection]
+        CORS[CORS Configuration<br/>+ Origin Validation]
+        FILE[File Upload Validation<br/>+ MIME Type Checking]
+        ENV[Environment Variable<br/>+ Secret Management]
+        BLOCK[Blockchain Security<br/>+ Signature Separation]
+        AUDIT[Audit Logging<br/>+ Transaction Tracking]
+    end
+    
+    subgraph "Protected Components"
+        API[FastAPI Backend]
+        DB[MongoDB Atlas]
+        BC[Algorand Blockchain]
+        X402[x402 Payment Gateway]
+    end
+    
+    AUTH --> API
+    RATE --> API
+    CORS --> API
+    FILE --> API
+    ENV --> API
+    ENV --> DB
+    BLOCK --> BC
+    BLOCK --> X402
+    AUDIT --> API
+    AUDIT --> DB
+    
+    style AUTH fill:#e3f2fd
+    style RATE fill:#e8f5e9
+    style CORS fill:#fff9c4
+    style FILE fill:#fce4ec
+    style ENV fill:#f3e5f5
+    style BLOCK fill:#ffe0b2
+    style AUDIT fill:#e1f5fe
+```
 
-### 3. SlowAPI Rate Limiting
-To mitigate brute-force and Denial of Service (DoS) attacks, endpoint rate limits are enforced server-side.
-* **Mechanism**: Uses the `slowapi` library which tracks clients by remote IP addresses.
+---
+
+## Current Security Implementations
+
+### 1. Password Hashing (Bcrypt)
+Passwords are encrypted using bcrypt before storage.
+* **Algorithm**: Blowfish-based key derivation with dynamic salt.
+* **Storage**: Plaintext passwords are never stored. Login credentials are checked against bcrypt hashes.
+
+### 2. JWT Authentication
+ProcureAI uses JWT authentication for backend security.
+* **Token Structure**: Tokens include 30-minute expiration and user identifier.
+* **Validation**: FastAPI validates signatures and expirations for protected routes.
+
+### 3. Rate Limiting
+Rate limits prevent brute-force and DoS attacks.
+* **Mechanism**: Uses `slowapi` to track clients by IP.
 * **Limits**:
-  * **Brute-Force Protection**: `/api/login` and `/api/signup` are strictly limited to `5 requests/minute`.
-  * **API Protection**: Escrow operations, supplier selection, and negotiation routes are capped at `20-30 requests/minute`.
+  * **Auth**: `/api/login` and `/api/signup` limited to `5 requests/minute`.
+  * **API**: Escrow and supplier routes capped at `20-30 requests/minute`.
 
-### 4. Secure File Upload Validation
-Invoice and delivery proof uploads are heavily sanitized to prevent remote code execution or file traversal exploits.
-* **MIME Verification**: Uploaded files are strictly restricted to `image/png`, `image/jpeg`, and `application/pdf`.
-* **Extension Matching**: Only files with explicit `.jpg`, `.jpeg`, `.png`, and `.pdf` extensions are accepted.
-* **Sanitization**: Destination filenames are re-mapped using the unique `escrow_id` and unix timestamps, isolating user inputs from backend path executions.
+### 4. File Upload Validation
+File uploads are sanitized to prevent exploits.
+* **MIME Check**: Only `image/png`, `image/jpeg`, and `application/pdf` allowed.
+* **Extension Check**: Only `.jpg`, `.jpeg`, `.png`, and `.pdf` accepted.
+* **Sanitization**: Filenames are remapped using `escrow_id` and timestamps.
 
-### 5. Configurable CORS (Cross-Origin Resource Sharing)
-Access to backend endpoints is restricted to trusted origins.
-* **Allowed Origins**: Configured dynamically via the `ALLOWED_ORIGINS` environment variable (e.g., `http://localhost:3000,http://localhost:5173`).
-* **Credentials Policy**: Credentials sharing is turned off by default (`allow_credentials=False`) unless explicitly enabled, preventing unauthorized cross-site scripting/request attacks.
+### 5. CORS Configuration
+Backend access is restricted to trusted origins.
+* **Allowed Origins**: Set via `ALLOWED_ORIGINS` environment variable.
+* **Credentials**: Disabled by default unless explicitly enabled.
 
-### 6. Environment Variable Separation
-All high-privilege keys, database secrets, and blockchain credentials are separated from code.
-* **Mnemonic Storage**: The platform's 25-word mnemonic key is loaded strictly at runtime.
-* **Database Isolation**: MongoDB connection URIs are managed through Render environment variables.
-* **Exclusion Policies**: `.gitignore` explicitly prevents `.env` or temporary key configs from being pushed to source repositories.
+### 6. Environment Variables
+Keys and secrets are separated from code.
+* **Mnemonic**: Loaded at runtime only.
+* **Database**: MongoDB URIs managed via environment variables.
+* **Git**: `.gitignore` prevents `.env` files from being committed.
+
+### 7. Signature Separation (x402)
+The x402 protocol uses signature separation:
+* **Buyer**: Signs only payment transaction (Tx0) via Pera Wallet
+* **Facilitator**: Signs fee transaction (Tx1) and broadcasts
+* **Verification**: Server confirms on-chain settlement before unlocking resources
+* **Replay Protection**: Transaction IDs tracked to prevent replay attacks
+
+### 8. Audit Logging
+Tracks all critical operations:
+* **User Actions**: Login, signup, procurement, escrow management
+* **Transactions**: Blockchain transactions, settlements, reputation updates
+* **Security Events**: Failed auth, rate limit violations, suspicious activity
+* **Logs**: Append-only with timestamps
 
 ---
 
-## 🗺️ Future Security Roadmap
+## Future Security Plans
 
-To achieve enterprise-grade security, the following roadmap is planned:
+Planned security improvements:
 
-### 🔑 1. Role-Based Access Control (RBAC)
-* **Roadmap**: Define distinct scopes for users (e.g., `buyer`, `supplier`, `admin`).
-* **Details**: Inspect JWT scopes during authentication to ensure only specific roles can trigger critical endpoints like `/api/procurement/verify-delivery` or `/api/procurement/release-settlement`.
+### 1. Role-Based Access Control (RBAC)
+* **Plan**: Define user scopes (buyer, supplier, admin).
+* **Details**: Check JWT scopes to restrict critical endpoints.
 
-### 🛡️ 2. Escrow Signature Handshake
-* **Roadmap**: Require double signature verification.
-* **Details**: Both buyer and supplier will submit signed messages to the API, which are verified on-chain by the smart contract before updating delivery or releasing escrow funds, providing end-to-end trust.
+### 2. Escrow Signature Handshake
+* **Plan**: Require double signature verification.
+* **Details**: Both buyer and supplier sign messages verified on-chain before updates.
+
+### 3. Multi-Factor Authentication (MFA)
+* **Plan**: Optional MFA for high-value transactions
+* **Details**: TOTP or hardware key support for escrow releases
+
+### 4. Real-time Threat Detection
+* **Plan**: Anomaly detection and automated response
+* **Details**: Pattern recognition for unusual transactions and behavior
+
+### 5. Security Dashboard
+* **Plan**: Real-time security monitoring
+* **Details**: Centralized dashboard for metrics and incident response

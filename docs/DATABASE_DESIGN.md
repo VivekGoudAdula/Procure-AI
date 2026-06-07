@@ -4,6 +4,36 @@
 
 ---
 
+## Architecture Context
+
+ProcureAI uses MongoDB Atlas as the database. It connects to multiple service layers:
+
+```mermaid
+graph TB
+    UI[React Frontend]
+    API[FastAPI Backend]
+    DB[(MongoDB Atlas)]
+    AI[AI Procurement Engine]
+    ALG[Algorand Escrow Layer]
+    INDEXER[Algorand Indexer]
+
+    UI --> API
+    API --> DB
+    API --> AI
+    API --> ALG
+    ALG --> INDEXER
+    INDEXER --> API
+
+    style UI fill:#e3f2fd
+    style API fill:#e8f5e9
+    style DB fill:#fff9c4
+    style AI fill:#f3e5f5
+    style ALG fill:#fce4ec
+    style INDEXER fill:#ffe0b2
+```
+
+---
+
 ## Section 1: Database Overview
 
 ProcureAI uses MongoDB Atlas as its primary database, providing a flexible NoSQL schema that scales with the platform's growth. The current implementation includes two core collections (`users` and `escrows`) that support authentication and blockchain escrow functionality. The production-ready design expands to seven additional collections for comprehensive supplier management, transaction tracking, settlement processing, reputation systems, and audit logging.

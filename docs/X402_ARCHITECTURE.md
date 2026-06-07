@@ -1,31 +1,31 @@
 # ProcureAI x402 v2 Payment-Gated Architecture
 
-This document provides a comprehensive architectural breakdown of the **x402 version 2 payment layer** integrated into **ProcureAI**. It details the concepts of Agentic Commerce, pay-per-use APIs, AVM (Algorand Virtual Machine) mechanics, fee abstraction via Atomic Transaction Groups (ATG), and the GoPlausible facilitator integration.
+This document explains the **x402 version 2 payment layer** in **ProcureAI**. It covers Agentic Commerce, pay-per-use APIs, Algorand mechanics, fee abstraction via Atomic Transaction Groups (ATG), and the GoPlausible facilitator.
 
 ---
 
-## 🌐 1. Agentic Commerce & Pay-Per-Use Resource APIs
+## 1. Agentic Commerce & Pay-Per-Use APIs
 
-As commerce shifts from human-driven systems to **autonomous AI agents**, traditional billing models (SaaS subscriptions, API keys, long-term invoices) create severe bottlenecks:
-- AI agents need to consume microservices instantly without manual sign-ups or billing setup.
-- API keys require centralized management, secret storage, and introduce payment defaults risk.
+As commerce shifts to AI agents, traditional billing (subscriptions, API keys, invoices) creates bottlenecks:
+- AI agents need instant microservice access without manual setup.
+- API keys require centralized management and introduce payment risks.
 
 **The Solution: x402 Protocol.**
-The x402 protocol implements **HTTP 402 (Payment Required)** as an active, programmatic gate. It replaces centralized API billing with instant, trustless, pay-per-request verification:
+The x402 protocol implements **HTTP 402 (Payment Required)** as a programmatic gate. It replaces centralized billing with instant, pay-per-request verification:
 
-- The agent requests a high-value resource (e.g. AI-Generated Sourcing Intelligence Report).
-- The server refuses access, returning the payment requirements (amount, network, destination wallet, asset ID) and the recent suggested network parameters (`suggestedParams`).
-- The agent/client constructs a two-transaction Atomic Transaction Group (ATG) in the browser, where:
-  - **Tx0**: USDC AssetTransfer from the buyer to the treasury address.
-  - **Tx1**: A dummy payment from the facilitator fee-payer address to itself with a fee covering the group.
-- The agent signs only the buyer-owned transaction (**Tx0**) using Pera Wallet.
-- The agent re-submits the request, attaching the `paymentGroup` containing the signed Tx0 and the unsigned Tx1.
-- The server posts the group to the GoPlausible facilitator `/verify` and `/settle` endpoints. The facilitator co-signs Tx1, broadcasts the group, and returns the transaction ID.
-- The server unlocks the resource on-chain confirmation.
+- The agent requests a resource (e.g. AI Sourcing Report).
+- The server returns payment requirements and network parameters.
+- The client builds a two-transaction Atomic Transaction Group (ATG):
+  - **Tx0**: USDC transfer from buyer to treasury.
+  - **Tx1**: Payment from facilitator to itself covering the group fee.
+- The agent signs only Tx0 using Pera Wallet.
+- The request is resubmitted with the signed Tx0 and unsigned Tx1.
+- The server sends the group to GoPlausible to co-sign and broadcast.
+- The server unlocks the resource after on-chain confirmation.
 
 ---
 
-## 🏛️ 2. Comprehensive System Architecture
+## 2. System Architecture
 
 ```
 +---------------------------------------------------------------------------------+
@@ -71,25 +71,25 @@ The x402 protocol implements **HTTP 402 (Payment Required)** as an active, progr
 
 ---
 
-## 🔒 3. Production-Grade Security: Buyer/Facilitator Signature Separation
+## 3. Security: Buyer/Facilitator Signature Separation
 
-To support gasless transactions for the end user, x402 v2 uses fee-pooling and signature separation:
-1. **The Buyer signs only buyer-owned transactions**: Pera Wallet only requests signature authorization for Tx0 (the asset transfer of 0.05 USDC).
-2. **The Facilitator signs only facilitator-owned transactions**: The facilitator co-signs Tx1 (self-payment with double transaction fee to cover Tx0).
-3. **No Private Keys on the Frontend/Backend**: No private keys for the facilitator are exposed or required in the frontend or backend code. All co-signing logic is handled inside GoPlausible's secure infrastructure.
-4. **Official ATG Structure**: The AVM group is assigned a unique Group ID using `algosdk.assignGroupID([tx0, tx1])` to guarantee that both transactions must succeed together or fail together.
+x402 v2 uses fee-pooling and signature separation:
+1. **Buyer signs only their transactions**: Pera Wallet signs only Tx0 (USDC transfer).
+2. **Facilitator signs only their transactions**: The facilitator co-signs Tx1 (fee payment).
+3. **No private keys exposed**: Facilitator keys stay in GoPlausible's infrastructure.
+4. **ATG structure**: Transactions are grouped with `algosdk.assignGroupID` so they succeed or fail together.
 
 ---
 
-## ⚡ 4. AVM Mechanics & why Algorand is Ideal
+## 4. Why Algorand
 
-Executing pay-per-request micro-payments on traditional blockchains is often unfeasible due to high transaction fees, slow confirmation times, and forks. Algorand's unique layer-1 parameters make it uniquely qualified:
+Pay-per-request payments are difficult on traditional blockchains due to high fees, slow confirmations, and forks. Algorand is ideal because:
 
 ### A. Sub-Second Finality
-Algorand achieves finality in **~2.8 seconds** with zero risk of forks. For an AI agent or client waiting to unlock an API, this provides a seamless, instant user experience.
+Algorand achieves finality in **~2.8 seconds** with no fork risk. This provides instant API access.
 
-### B. Ultra-Low Transaction Fees & Fee Pooling
-Standard transactions on Algorand cost a flat **0.001 ALGO** (fractions of a cent). In addition, Algorand supports **Fee Pooling** where one transaction in an atomic group can pay the fee for other transactions. Here, Tx1 pays `0.002 ALGO` (covering its own fee and Tx0's fee of `0`), allowing the buyer to pay only the USDC without having any ALGO in their wallet.
+### B. Low Fees & Fee Pooling
+Algorand transactions cost **0.001 ALGO**. Fee Pooling lets one transaction pay for others. Tx1 pays `0.002 ALGO` covering both fees, so buyers only need USDC.
 
-### C. Direct On-Chain Fallback
-If the facilitator service is temporarily unreachable, the resource server falls back to direct on-chain verification using indexer and algod queries, ensuring high system availability and resilience.
+### C. On-Chain Fallback
+If the facilitator is unavailable, the server verifies directly on-chain using indexer queries.

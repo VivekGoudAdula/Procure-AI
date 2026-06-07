@@ -4,7 +4,7 @@ This document details the production-grade **x402 version 2 cryptographic paymen
 
 ---
 
-## 🗺️ Architectural Flow
+## Architectural Flow
 
 Here is the structured sequence of data, signals, and assets between the buyer, resource server, facilitator, and the blockchain ledger:
 
@@ -29,7 +29,7 @@ Here is the structured sequence of data, signals, and assets between the buyer, 
 
 ---
 
-## 🏛️ Component Directory
+## Component Directory
 
 | Component | Responsibility | Technical Stack |
 | :--- | :--- | :--- |

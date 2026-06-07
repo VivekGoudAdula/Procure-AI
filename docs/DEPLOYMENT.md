@@ -4,7 +4,68 @@ This document outlines the step-by-step instructions to deploy ProcureAI into pr
 
 ---
 
-## 🏛️ Deployment Architecture Overview
+## Deployment Architecture Overview
+
+**Production Deployment Architecture:**
+
+```mermaid
+graph TB
+    subgraph "Frontend Layer"
+        Vercel[Vercel Deployment<br/>React + Vite + Tailwind]
+    end
+    
+    subgraph "Backend Layer"
+        Render[Render Web Service<br/>FastAPI + Uvicorn]
+    end
+    
+    subgraph "Database Layer"
+        Atlas[MongoDB Atlas<br/>Cloud Database]
+    end
+    
+    subgraph "Blockchain Layer"
+        TestNet[Algorand TestNet<br/>Smart Contracts]
+        Indexer[Algorand Indexer<br/>Transaction Queries]
+    end
+    
+    subgraph "Payment Layer"
+        GoPlausible[GoPlausible Facilitator<br/>x402 Payment Gateway]
+    end
+    
+    subgraph "External Services"
+        Groq[Groq AI API<br/>Llama-3 Models]
+        Alibaba[Alibaba Supplier APIs]
+        SMTP[Email Gateway]
+    end
+    
+    Vercel --> Render
+    Render --> Atlas
+    Render --> TestNet
+    Render --> Indexer
+    Render --> GoPlausible
+    Render --> Groq
+    Render --> Alibaba
+    Render --> SMTP
+    
+    TestNet --> Indexer
+    
+    style Vercel fill:#e3f2fd
+    style Render fill:#e8f5e9
+    style Atlas fill:#fff9c4
+    style TestNet fill:#fce4ec
+    style GoPlausible fill:#f3e5f5
+```
+
+**Development Environment:**
+- Frontend: `npm run dev` (Vite dev server)
+- Backend: `uvicorn main:app --reload`
+- Smart Contracts: `algokit compile python`
+
+**Production Environment:**
+- Frontend: Vercel deployment
+- Backend: Containerized FastAPI on Render
+- Database: MongoDB Atlas
+- Blockchain: Algorand TestNet
+- Payment: GoPlausible hosted facilitator
 
 * **Frontend**: React + Vite + Tailwind CSS deployed on **Vercel**.
 * **Backend**: FastAPI (Python) web server deployed on **Render** (via Web Service).
@@ -13,7 +74,7 @@ This document outlines the step-by-step instructions to deploy ProcureAI into pr
 
 ---
 
-## 🔑 Environment Variables Reference
+## Environment Variables Reference
 
 To successfully launch the services, the following environment variables must be defined:
 
@@ -32,7 +93,7 @@ To successfully launch the services, the following environment variables must be
 
 ---
 
-## 🛠️ Step-by-Step Deployment Instructions
+## Deployment Instructions
 
 ### 1. Database Setup: MongoDB Atlas
 1. Create a free-tier cluster at [MongoDB Atlas](https://www.mongodb.com/cloud/atlas).

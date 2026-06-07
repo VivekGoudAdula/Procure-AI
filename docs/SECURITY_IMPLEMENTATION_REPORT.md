@@ -1,72 +1,72 @@
 # Security Implementation Report: ProcureAI Hardening
 
-This report details the security hardening implementations completed for the ProcureAI backend.
+This report details security implementations for the ProcureAI backend.
 
 ---
 
 ## 1. Password Security (Bcrypt)
 
-- **Implementation**: Replaced plaintext password storage with secure `bcrypt` hashing using a work factor/salt.
+- **Implementation**: Replaced plaintext passwords with bcrypt hashing.
 - **Workflow**:
-  - **Signup (`/api/signup`)**: Passwords are coded to UTF-8, salted, and hashed using `bcrypt.hashpw(password, bcrypt.gensalt())`. The resulting string is persisted to MongoDB.
-  - **Login (`/api/login`)**: Passwords submitted during authentication are verified using `bcrypt.checkpw(password, hash)`.
-- **Backward Compatibility**: A robust check is implemented to verify plaintext matches if the database hash does not match standard bcrypt patterns, preventing service disruptions for legacy accounts.
+  - **Signup**: Passwords are salted and hashed using `bcrypt.hashpw()` and stored in MongoDB.
+  - **Login**: Passwords are verified using `bcrypt.checkpw()`.
+- **Backward Compatibility**: Checks for plaintext matches if hash doesn't match bcrypt patterns.
 
 ---
 
 ## 2. JWT Authentication Architecture
 
-- **Token Scheme**: JSON Web Tokens (JWT) using the `PyJWT` library.
-- **Tokens**: Created after successful login, containing:
-  - Subject (`sub`): Email address of the user.
-  - Expiration (`exp`): 30 minutes by default (configurable).
-  - Signature: Signed via the secret `JWT_SECRET_KEY` using the `HS256` hashing algorithm.
-- **Access Middleware / Dependency**: A reusable FastAPI dependency `get_current_user` was added using `fastapi.security.HTTPBearer`. It intercepts the `Authorization: Bearer <token>` header, decodes the token, checks for signature validity and expiration, and retrieves the email. If the token is missing, invalid, or expired, it returns standard HTTP `401 Unauthorized` or `403 Forbidden` statuses.
+- **Token Scheme**: JWT using `PyJWT` library.
+- **Tokens**: Created after login with:
+  - Subject (`sub`): User email.
+  - Expiration (`exp`): 30 minutes (configurable).
+  - Signature: Signed with `JWT_SECRET_KEY` using `HS256`.
+- **Middleware**: FastAPI dependency `get_current_user` validates tokens via `Authorization: Bearer` header. Returns 401/403 for invalid tokens.
 
 ---
 
 ## 3. API Rate Limiting Strategy
 
-- **Library**: `slowapi` (based on limits).
-- **Resolver**: Client remote IP address via `get_remote_address`.
+- **Library**: `slowapi`.
+- **Resolver**: Client IP via `get_remote_address`.
 - **Configuration**:
-  - Enabled by default in development and production modes.
-  - Disabled during test runs (`TESTING=True`) to maintain clean testing pipelines.
-- **Endpoint Limits**:
-  - **Auth Limits**: `5 requests/minute` (covers `/api/login` and `/api/signup` to prevent brute-force attacks).
-  - **Supplier Selection/Negotiation**: `30 requests/minute` (prevents crawler spamming and API overloading).
-  - **Escrow Operations**: `20 requests/minute` (mitigates double-spending and ledger manipulation vectors).
+  - Enabled by default.
+  - Disabled during tests (`TESTING=True`).
+- **Limits**:
+  - **Auth**: `5 requests/minute` for login/signup.
+  - **Supplier/Negotiation**: `30 requests/minute`.
+  - **Escrow**: `20 requests/minute`.
 
 ---
 
 ## 4. File Upload Validation
 
-- **Mechanism**: Validates the MIME (Multipurpose Internet Mail Extensions) type of uploaded files in addition to standard file extension checking.
-- **Target Route**: `/api/submit-delivery-proof` (invoice uploads).
-- **Validation Rules**:
-  - **Permitted MIME Types**: `image/png`, `image/jpeg`, `application/pdf`.
-  - **Rejection Policy**: All other file formats are rejected immediately with a `400 Bad Request` HTTP error.
+- **Mechanism**: Validates MIME type of uploaded files.
+- **Target Route**: `/api/submit-delivery-proof`.
+- **Rules**:
+  - **Allowed**: `image/png`, `image/jpeg`, `application/pdf`.
+  - **Rejection**: Other formats return 400 error.
 
 ---
 
 ## 5. CORS Hardening
 
-- **Modification**: Replaced wildcard configurations (`allow_origins=["*"]`) with restricted configurations.
-- **Source**: Comma-separated domain names loaded dynamically from the `ALLOWED_ORIGINS` environment variable.
-- **Fallbacks**: In development, defaults to standard local frontend environments (`http://localhost:3000,http://localhost:5173`).
+- **Modification**: Replaced wildcard origins with restricted list.
+- **Source**: Comma-separated domains from `ALLOWED_ORIGINS`.
+- **Fallback**: Defaults to `http://localhost:3000,http://localhost:5173` in development.
 
 ---
 
 ## 6. Uvicorn Production Configuration
 
-- **Rule**: Startup never runs with `reload=True` when running in production.
-- **Check**: The startup checks the `APP_ENV` environment variable. If set to `"production"`, uvicorn hot-reload is forced to `False`.
+- **Rule**: Never run with `reload=True` in production.
+- **Check**: Checks `APP_ENV`. If `"production"`, sets reload to `False`.
 
 ---
 
 ## 7. Protected Endpoints List
 
-All critical dashboard, analytics, escrow, supplier, and negotiation endpoints are protected using JWT token dependency. Below is the list of endpoints hardened:
+Critical endpoints are protected with JWT tokens:
 
 ### Dashboard & Analytics APIs (JWT Protected)
 - `GET /api/procurement/analytics`
