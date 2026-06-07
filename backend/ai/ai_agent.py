@@ -26,40 +26,7 @@ def get_alibaba_suppliers(product_name: str, quantity: int = 1, budget: float = 
     if cached:
         return cached
 
-    all_suppliers = []
-
-    # Fallback to realistic mock suppliers when nothing has been sourced yet
-    if not all_suppliers:
-        mock_companies = [
-            {"name": "Shenzhen Industrial Supply Ltd", "region": "China", "price_mult": 0.85},
-            {"name": "Guangzhou Textile Manufacturing Co.", "region": "China", "price_mult": 0.75},
-            {"name": "Vietnam Garment & Fabric Export", "region": "Vietnam", "price_mult": 0.80},
-            {"name": "Bosphorus Premium Hardware", "region": "Turkey", "price_mult": 0.95},
-            {"name": "Dhaka Bulk sourcing Enterprise", "region": "Bangladesh", "price_mult": 0.70}
-        ]
-        for i, comp in enumerate(mock_companies):
-            s_id = f"ALB-{1000 + i}"
-            all_suppliers.append({
-                "id": s_id,
-                "name": comp["name"],
-                "category": "General",
-                "product": product_name,
-                "reliability": 0.88,
-                "address": "2RIRIX5XK6GWK7LOXDAYIDTN4IYDVNRDJFXR4TJCLYIM72A3EF2UQPROQY",
-                "endpoint": f"/supplier/{s_id}/respond",
-                "base_price": round((budget / quantity) * comp["price_mult"], 2),
-                "reliability_score": 88,
-                "rating": 4.4,
-                "delivery_days": random.randint(3, 14),
-                "success_rate": 92,
-                "total_deals": 10,
-                "successful_deals": 9,
-                "failed_deals": 1,
-                "on_time_deliveries": 8,
-                "late_deliveries": 2,
-                "reputation_hash": hashlib.sha256(f"{s_id}-10-92-80".encode()).hexdigest()
-            })
-    return all_suppliers
+    return []
 
 def run_agent_competition(product_name, quantity, budget, policy=None):
     print(f"\n[ProcureAI] Starting Dynamic Agent Competition for '{product_name}'...")

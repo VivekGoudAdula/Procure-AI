@@ -42,7 +42,9 @@ import {
   MoreVertical,
   Database,
   Sparkles,
-  Star
+  Star,
+  Mic,
+  Send
 } from 'lucide-react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import IntelligenceLoading from '../components/procurement/IntelligenceLoading';
@@ -185,6 +187,13 @@ const Procurement = () => {
   const [inquirySent, setInquirySent] = useState(false);
   const [selectedSupplierForComm, setSelectedSupplierForComm] = useState<any>(null);
 
+  // Chat State
+  const [chatMessages, setChatMessages] = useState<any[]>([]);
+  const [newMessage, setNewMessage] = useState('');
+  const [isSendingChat, setIsSendingChat] = useState(false);
+  const [isRecording, setIsRecording] = useState(false);
+  const chatEndRef = useRef<HTMLDivElement>(null);
+
   // Supplier Rating State
   const [rating, setRating] = useState<number>(0);
   const [review, setReview] = useState<string>('');
@@ -212,6 +221,13 @@ const Procurement = () => {
   }, [step, result, txId, escrowStatus]);
 
   const logsEndRef = useRef<HTMLDivElement>(null);
+
+  // Auto-scroll chat to bottom
+  useEffect(() => {
+    if (chatEndRef.current) {
+      chatEndRef.current.scrollIntoView({ behavior: 'smooth' });
+    }
+  }, [chatMessages]);
 
   // Redundant reconnectSession removed to prevent double-initialization conflicts with AppContext.tsx
 
@@ -428,6 +444,116 @@ const Procurement = () => {
       toast.error("Failed to send procurement inquiry.");
     } finally {
       setIsSendingInquiry(false);
+    }
+  };
+
+  // Chat Functions
+  const handleSendChatMessage = async () => {
+    if (!newMessage.trim() || !selectedSupplierForComm) return;
+
+    setIsSendingChat(true);
+    try {
+      const token = localStorage.getItem('access_token');
+      const response = await fetch(`${API_BASE_URL}/api/chat/send`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`,
+        },
+        body: JSON.stringify({
+          buyer_id: user?.email || 'anonymous',
+          supplier_id: selectedSupplierForComm.id.toString(),
+          original_message: newMessage,
+          source_language: 'en',
+          target_language: selectedSupplierForComm.region === 'China' ? 'zh' : 'en'
+        }),
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to send message');
+      }
+
+      const data = await response.json();
+
+      // Add buyer message (translated to supplier's language)
+      setChatMessages(prev => [...prev, {
+        sender: 'buyer',
+        original_text: data.buyer_message.original_text,
+        translated_text: data.buyer_message.translated_text,
+        source_language: data.buyer_message.source_language,
+        target_language: data.buyer_message.target_language,
+        created_at: new Date().toISOString()
+      }]);
+
+      setNewMessage('');
+      toast.success('Message sent successfully');
+    } catch (error) {
+      console.error('Error sending chat message:', error);
+      toast.error('Failed to send message');
+    } finally {
+      setIsSendingChat(false);
+    }
+  };
+
+  const handleVoiceInput = () => {
+    if (!('webkitSpeechRecognition' in window) && !('SpeechRecognition' in window)) {
+      toast.error('Speech recognition not supported in this browser. Please use Chrome or Edge.');
+      return;
+    }
+
+    try {
+      const SpeechRecognition = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
+      const recognition = new SpeechRecognition();
+      
+      recognition.lang = 'en-US';
+      recognition.continuous = false;
+      recognition.interimResults = false;
+      recognition.maxAlternatives = 1;
+
+      recognition.onstart = () => {
+        setIsRecording(true);
+        toast.info('🎤 Listening... Speak now');
+      };
+
+      recognition.onresult = (event: any) => {
+        const transcript = event.results[0][0].transcript;
+        const confidence = event.results[0][0].confidence;
+        
+        if (transcript && transcript.trim()) {
+          setNewMessage(transcript);
+          setIsRecording(false);
+          toast.success('Speech captured');
+        } else {
+          setIsRecording(false);
+          toast.warning('No speech detected, please try again');
+        }
+      };
+
+      recognition.onerror = (event: any) => {
+        console.error('Speech recognition error:', event.error);
+        setIsRecording(false);
+        
+        const errorMessages: Record<string, string> = {
+          'no-speech': 'No speech detected. Please try again.',
+          'audio-capture': 'No microphone found. Please check your audio input.',
+          'not-allowed': 'Microphone access denied. Please allow microphone permissions.',
+          'network': 'Network error. Please check your internet connection.',
+          'aborted': 'Speech recognition was aborted.'
+        };
+        
+        const message = errorMessages[event.error] || 'Speech recognition failed. Please try again.';
+        toast.error(message);
+      };
+
+      recognition.onend = () => {
+        setIsRecording(false);
+      };
+
+      recognition.start();
+    } catch (error) {
+      console.error('Speech recognition initialization error:', error);
+      setIsRecording(false);
+      toast.error('Failed to initialize speech recognition. Please try again.');
     }
   };
 
@@ -1370,91 +1496,111 @@ const Procurement = () => {
             </Card>
           </div>
 
-          {/* CENTER PANEL: Supplier Translation Layer */}
+          {/* CENTER PANEL: Multilingual Procurement Chat */}
           <div className="lg:col-span-5 space-y-6">
-            <Card className="border-slate-100 shadow-sm rounded-2xl overflow-hidden min-h-[400px] flex flex-col">
+            {/* Business Value Label Card */}
+            <div className="bg-gradient-to-r from-indigo-50 via-violet-50 to-purple-50 border border-indigo-100 rounded-2xl p-4 flex items-center gap-3">
+              <div className="w-10 h-10 bg-indigo-500 rounded-xl flex items-center justify-center flex-shrink-0">
+                <Globe className="w-5 h-5 text-white" />
+              </div>
+              <div className="flex-1">
+                <h3 className="text-sm font-bold text-indigo-900">Multilingual Procurement Chat</h3>
+                <p className="text-[10px] text-indigo-600 font-medium">Speak or type in your language. ProcureAI localizes procurement communication automatically.</p>
+              </div>
+            </div>
+
+            <Card className="border-slate-100 shadow-sm rounded-2xl overflow-hidden min-h-[500px] flex flex-col">
               <CardHeader className="bg-slate-50/50 border-bottom border-slate-100 flex flex-row items-center justify-between">
                 <CardTitle className="text-sm font-bold flex items-center gap-2">
-                  <Languages className="w-4 h-4 text-primary" /> Supplier Translation Layer
+                  <Languages className="w-4 h-4 text-primary" /> Live Chat with {selectedSupplierForComm.name}
                 </CardTitle>
-                {inquiryData && (
-                  <Badge className="bg-emerald-50 text-emerald-600 border-none text-[8px] font-black uppercase tracking-widest">
-                    Localized for {selectedSupplierForComm.region}
-                  </Badge>
-                )}
+                <Badge className="bg-emerald-50 text-emerald-600 border-none text-[8px] font-black uppercase tracking-widest">
+                  {selectedSupplierForComm.region}
+                </Badge>
               </CardHeader>
-              <CardContent className="p-6 flex-1 flex flex-col">
-                <AnimatePresence mode="wait">
-                  {!inquirySent ? (
-                    <motion.div 
-                      key="preview"
-                      initial={{ opacity: 0 }}
-                      animate={{ opacity: 1 }}
-                      className="flex-1 flex flex-col justify-center items-center text-center space-y-6 py-10"
-                    >
-                      <div className="w-16 h-16 bg-slate-50 rounded-full flex items-center justify-center">
-                        <Mail className="w-8 h-8 text-slate-300" />
+              <CardContent className="p-4 flex-1 flex flex-col">
+                {/* Chat Messages Area */}
+                <div className="flex-1 overflow-y-auto space-y-4 mb-4 max-h-[350px] pr-2">
+                  {chatMessages.length === 0 ? (
+                    <div className="flex flex-col items-center justify-center h-full text-center space-y-3 py-8">
+                      <div className="w-12 h-12 bg-slate-50 rounded-full flex items-center justify-center">
+                        <MessageSquare className="w-6 h-6 text-slate-300" />
                       </div>
-                      <div className="space-y-2">
-                        <h3 className="text-lg font-bold text-slate-900">Ready to Initiate Communication?</h3>
-                        <p className="text-xs text-slate-500 max-w-xs mx-auto">AI will translate your inquiry and send a professional procurement message to the supplier.</p>
+                      <p className="text-xs text-slate-500 font-medium">Start a conversation with the supplier</p>
+                      <p className="text-[10px] text-slate-400">Messages will be automatically translated</p>
+                    </div>
+                  ) : (
+                    chatMessages.map((msg, idx) => (
+                      <div key={idx} className={`flex ${msg.sender === 'buyer' ? 'justify-end' : 'justify-start'}`}>
+                        <div className={`max-w-[85%] ${msg.sender === 'buyer' ? 'bg-blue-500 text-white' : 'bg-slate-100 text-slate-900'} rounded-2xl px-4 py-3 shadow-sm`}>
+                          {/* Language Badge */}
+                          <div className="flex items-center gap-2 mb-2">
+                            <Badge className={`text-[8px] font-black uppercase tracking-wider ${msg.sender === 'buyer' ? 'bg-blue-400 text-white border-none' : 'bg-slate-200 text-slate-600 border-none'}`}>
+                              {msg.source_language.toUpperCase()} → {msg.target_language.toUpperCase()}
+                            </Badge>
+                          </div>
+                          
+                          {/* Original Text */}
+                          <p className="text-xs font-medium leading-relaxed mb-2">
+                            {msg.original_text}
+                          </p>
+                          
+                          {/* Translated Text */}
+                          {msg.translated_text !== msg.original_text && (
+                            <div className={`pt-2 border-t ${msg.sender === 'buyer' ? 'border-blue-400/30' : 'border-slate-200'}`}>
+                              <p className={`text-[10px] font-normal leading-relaxed ${msg.sender === 'buyer' ? 'text-blue-100' : 'text-slate-500'}`}>
+                                {msg.translated_text}
+                              </p>
+                            </div>
+                          )}
+                          
+                          {/* Timestamp */}
+                          <p className={`text-[8px] mt-2 ${msg.sender === 'buyer' ? 'text-blue-200' : 'text-slate-400'}`}>
+                            {new Date(msg.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                          </p>
+                        </div>
                       </div>
-                      <div className="flex gap-3">
-                        <button 
-                          onClick={handleSendInquiry} 
-                          disabled={isSendingInquiry} 
-                          className="relative overflow-hidden w-full h-12 bg-gradient-to-r from-slate-900 to-slate-800 hover:from-slate-850 hover:to-slate-750 text-white rounded-xl font-bold tracking-wide shadow-lg shadow-slate-900/10 hover:shadow-xl active:scale-[0.98] transition-all duration-300 transform hover:-translate-y-0.5 flex items-center justify-center gap-2 cursor-pointer disabled:opacity-50 disabled:pointer-events-none"
+                    ))
+                  )}
+                  <div ref={chatEndRef} />
+                </div>
+
+                {/* Chat Input Area */}
+                <div className="border-t border-slate-100 pt-4 space-y-3">
+                  <div className="flex gap-2">
+                    <div className="flex-1 relative">
+                      <Input
+                        type="text"
+                        placeholder="Type your message..."
+                        value={newMessage}
+                        onChange={(e) => setNewMessage(e.target.value)}
+                        onKeyPress={(e) => e.key === 'Enter' && handleSendChatMessage()}
+                        className="pr-24 h-12 rounded-xl border-slate-200 text-sm"
+                        disabled={isSendingChat}
+                      />
+                      <div className="absolute right-2 top-1/2 -translate-y-1/2 flex items-center gap-1">
+                        <button
+                          onClick={handleVoiceInput}
+                          disabled={isRecording}
+                          className={`p-2 rounded-lg transition-colors ${isRecording ? 'bg-red-100 text-red-600 animate-pulse' : 'bg-slate-100 text-slate-500 hover:bg-slate-200'}`}
+                          title="Voice Input"
                         >
-                          {isSendingInquiry ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : <Zap className="w-4 h-4 mr-2 text-indigo-300 animate-pulse" />}
-                          Initiate Supplier Communication
+                          {isRecording ? <Loader2 className="w-4 h-4 animate-spin" /> : <Mic className="w-4 h-4" />}
                         </button>
                       </div>
-                    </motion.div>
-                  ) : (
-                    <motion.div 
-                      key="results"
-                      initial={{ opacity: 0 }}
-                      animate={{ opacity: 1 }}
-                      className="space-y-6"
+                    </div>
+                    <Button
+                      onClick={handleSendChatMessage}
+                      disabled={isSendingChat || !newMessage.trim()}
+                      className="h-12 px-4 bg-blue-500 hover:bg-blue-600 text-white rounded-xl font-semibold"
                     >
-                      <div className="space-y-3">
-                        <div className="flex items-center justify-between">
-                          <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Translated Inquiry ({inquiryData.translation_details.detected_language})</p>
-                          <Badge variant="outline" className="text-[8px] font-bold text-slate-400">{inquiryData.translation_details.confidence * 100}% Confidence</Badge>
-                        </div>
-                        <div className="p-4 bg-primary/5 border border-primary/10 rounded-xl text-xs font-medium text-slate-700 leading-relaxed whitespace-pre-wrap">
-                          {inquiryData.translation_details.translated_message}
-                        </div>
-                      </div>
-
-                      <div className="pt-6 border-t border-slate-100 space-y-4">
-                        <div className="flex items-center justify-between">
-                          <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Supplier Native Reply</p>
-                          <Badge className="bg-blue-50 text-blue-600 border-none text-[8px] font-black">Received</Badge>
-                        </div>
-                        <div className="p-4 bg-slate-50 border border-slate-100 rounded-xl text-xs font-bold text-slate-900 leading-relaxed">
-                          {inquiryData.supplier_reply_simulation.native_reply}
-                        </div>
-                        <div className="p-4 bg-white border border-slate-100 rounded-xl text-xs font-medium text-slate-600 leading-relaxed italic">
-                          "{inquiryData.supplier_reply_simulation.translated_reply}"
-                        </div>
-                      </div>
-                      
-                      <div className="flex gap-3 pt-4">
-                        <Button variant="outline" className="flex-1 rounded-xl border-slate-200 text-xs font-bold gap-2">
-                          <RefreshCw className="w-3 h-3" /> Regenerate
-                        </Button>
-                        <Button 
-                          onClick={handleDownloadRFQPDF}
-                          variant="outline" 
-                          className="flex-1 rounded-xl border-slate-200 text-xs font-bold gap-2"
-                        >
-                          <Download className="w-3 h-3" /> RFQ PDF
-                        </Button>
-                      </div>
-                    </motion.div>
-                  )}
-                </AnimatePresence>
+                      {isSendingChat ? <Loader2 className="w-4 h-4 animate-spin" /> : <Send className="w-4 h-4" />}
+                    </Button>
+                  </div>
+                  <p className="text-[9px] text-slate-400 text-center">
+                    Press Enter to send • Voice input available • Auto-translation enabled
+                  </p>
+                </div>
               </CardContent>
             </Card>
           </div>

@@ -39,41 +39,6 @@ interface SupplierIntelligenceDashboardProps {
   };
 }
 
-const generateMockSupplier = (base: any, index: number): any => {
-  const suffixes = ["Group", "Co., Ltd.", "Industry", "Manufacturing"];
-  const cities = ["Ningbo", "Shenzhen", "Guangzhou", "Yiwu", "Shanghai"];
-  const names = ["Golden Valley", "Forward Links", "Peak Horizon", "Zenith Source", "Evergreen"];
-  
-  const name = base 
-    ? `${cities[index % cities.length]} ${names[index % names.length]} ${suffixes[index % suffixes.length]}`
-    : `Alibaba Global Partner ${index}`;
-  
-  return {
-    id: base ? `${base.id}-mock-${index}` : `mock-supplier-${index}`,
-    name: name,
-    product_title: base?.product_title || "Premium Sourced Product",
-    product_image: base?.product_image || "",
-    country: base?.country || "China",
-    region: base?.region || "China",
-    moq: base ? Math.round(base.moq * (1.1 + index * 0.1)) : 100,
-    moq_formatted: base?.moq_formatted || "100 pieces",
-    negotiated_price: base ? Math.round(base.negotiated_price * (1.05 + index * 0.08) * 100) / 100 : 10.00,
-    price_formatted: base?.price_formatted || "$10.00",
-    trust_score: Math.max(70, (base?.trust_score || 90) - 5 - index * 5),
-    success_rate: Math.max(75, (base?.success_rate || 95) - 3 - index * 4),
-    lead_time_days: (base?.lead_time_days || 10) + 2 + index * 3,
-    on_chain_verified: false,
-    trade_assurance: true,
-    gold_status: false,
-    verified: true,
-    store_age: base ? String((parseInt(base.store_age) || 1) + 1) : "2",
-    has_deviations: false,
-    deviations: [],
-    production_capacity: base ? Math.round(base.production_capacity * 0.8) : 5000,
-    total_score: Math.max(60, (base?.total_score || 85) - 4 - index * 6)
-  };
-};
-
 const SupplierIntelligenceDashboard: React.FC<SupplierIntelligenceDashboardProps> = ({ 
   data, 
   onSelectSupplier,

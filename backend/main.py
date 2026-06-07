@@ -131,6 +131,7 @@ from database.db import (
     get_cached_suppliers,
     persist_suppliers_from_intelligence,
     supplier_ratings_collection,
+    chat_messages_collection,
 )
 
 def load_db():
@@ -258,6 +259,18 @@ class ProcurementInquiryResponse(BaseModel):
     message: str
     metadata: dict
     logs: list[str]
+
+class ChatMessageRequest(BaseModel):
+    buyer_id: str
+    supplier_id: str
+    original_message: str
+    source_language: str = "en"
+    target_language: str = "zh"
+
+class ChatMessageResponse(BaseModel):
+    message_id: str
+    status: str
+    message: str
 
 def load_escrow_db():
     escrows = list(escrows_collection.find({}, {"_id": 0}))
@@ -852,6 +865,105 @@ async def get_supplier_ratings(request: Request, supplier_id: str, current_user:
         "total_reviews": total_reviews,
         "reviews": ratings
     }
+
+# --- Multilingual Procurement Chat Endpoints ---
+
+@app.post("/api/chat/send")
+@limiter.limit("30/minute")
+async def send_chat_message(request: Request, req: ChatMessageRequest, current_user: str = Depends(get_current_user)):
+    """
+    Send a chat message to a supplier with automatic translation.
+    For hackathon MVP: Simulates supplier reply after 2-3 seconds.
+    """
+    try:
+        # Generate message ID
+        message_id = f"msg_{int(time.time() * 1000)}"
+        
+        # Translate the message using existing translation service
+        target_language_name = req.target_language.upper() if req.target_language != "zh" else "Chinese"
+        translated_message = translation_service.translate_message(req.original_message, target_language_name)
+        
+        # Store buyer message in MongoDB
+        buyer_message_doc = {
+            "message_id": message_id,
+            "buyer_id": req.buyer_id,
+            "supplier_id": req.supplier_id,
+            "sender": "buyer",
+            "original_text": req.original_message,
+            "translated_text": translated_message,
+            "source_language": req.source_language,
+            "target_language": req.target_language,
+            "created_at": datetime.now(timezone.utc)
+        }
+        chat_messages_collection.insert_one(buyer_message_doc)
+        
+        # Simulate supplier reply (Hackathon MVP - no real supplier login)
+        # Generate simulated supplier reply using existing translation flow
+        supplier_reply = translation_service.simulate_supplier_reply(target_language_name)
+        
+        # Store supplier message in MongoDB
+        supplier_message_id = f"msg_{int(time.time() * 1000) + 1}"
+        supplier_message_doc = {
+            "message_id": supplier_message_id,
+            "buyer_id": req.buyer_id,
+            "supplier_id": req.supplier_id,
+            "sender": "supplier",
+            "original_text": supplier_reply["native_reply"],
+            "translated_text": supplier_reply["translated_reply"],
+            "source_language": req.target_language,
+            "target_language": req.source_language,
+            "created_at": datetime.now(timezone.utc)
+        }
+        chat_messages_collection.insert_one(supplier_message_doc)
+        
+        return {
+            "message_id": message_id,
+            "status": "sent",
+            "message": "Message sent successfully",
+            "buyer_message": {
+                "message_id": message_id,
+                "original_text": req.original_message,
+                "translated_text": translated_message,
+                "source_language": req.source_language,
+                "target_language": req.target_language
+            },
+            "supplier_reply": {
+                "message_id": supplier_message_id,
+                "original_text": supplier_reply["native_reply"],
+                "translated_text": supplier_reply["translated_reply"],
+                "source_language": req.target_language,
+                "target_language": req.source_language,
+                "analysis": supplier_reply["analysis"]
+            }
+        }
+    except Exception as e:
+        print(f"[ProcureAI] Send Chat Message Error: {str(e)}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.get("/api/chat/{supplier_id}")
+@limiter.limit("30/minute")
+async def get_chat_history(request: Request, supplier_id: str, current_user: str = Depends(get_current_user)):
+    """
+    Get conversation history for a specific supplier.
+    """
+    try:
+        buyer_id = current_user  # Use authenticated user email as buyer_id
+        
+        # Fetch all messages for this buyer-supplier pair
+        messages = list(chat_messages_collection.find(
+            {"buyer_id": buyer_id, "supplier_id": supplier_id},
+            {"_id": 0}
+        ).sort("created_at", 1))
+        
+        return {
+            "buyer_id": buyer_id,
+            "supplier_id": supplier_id,
+            "messages": messages,
+            "total_messages": len(messages)
+        }
+    except Exception as e:
+        print(f"[ProcureAI] Get Chat History Error: {str(e)}")
+        raise HTTPException(status_code=500, detail=str(e))
 
 # --- Supplier Agent Endpoint ---
 
