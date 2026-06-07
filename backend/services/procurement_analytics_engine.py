@@ -5,7 +5,7 @@ import random
 from typing import Dict, Any, List
 from datetime import datetime
 
-from db import suppliers_collection, escrows_collection
+from database.db import suppliers_collection, escrows_collection
 SEARCH_CACHE_PATH = os.path.join(os.path.dirname(os.path.dirname(__file__)), "alibaba_search_cache.json")
 
 class ProcurementAnalyticsEngine:
@@ -29,8 +29,8 @@ class ProcurementAnalyticsEngine:
             return default
 
     def get_raw_suppliers(self) -> List[Dict[str, Any]]:
-        from db import get_alibaba_suppliers
-        suppliers = get_alibaba_suppliers()
+        from database.db import get_cached_suppliers
+        suppliers = get_cached_suppliers()
         
         cached_search = self._load_json(SEARCH_CACHE_PATH, [])
         if isinstance(cached_search, list):

@@ -9,7 +9,7 @@ load_dotenv(env_path)
 # Ensure we can import from the current directory (for escrow_service and escrow_client)
 sys.path.append(os.path.join(os.getcwd(), "backend"))
 
-from escrow_service import deploy_escrow
+from blockchain.escrow_service import deploy_escrow
 
 def test():
     print("🚀 Starting Test Deployment on Algorand TestNet...")

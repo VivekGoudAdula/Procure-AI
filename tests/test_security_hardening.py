@@ -1,3 +1,4 @@
+import os
 import pytest
 from fastapi.testclient import TestClient
 from main import app, get_current_user, create_access_token, load_db
@@ -143,3 +144,97 @@ def test_file_upload_validation():
     finally:
         # Clean up mock escrow
         escrows_collection.delete_many({"transaction_id": escrow_id})
+
+def test_env_variables_not_exposed():
+    """
+    Verifies that system environment variables containing secrets are not exposed in any public metadata endpoints.
+    """
+    endpoints = ["/health", "/api/x402/status"]
+    secrets = ["GROQ_API_KEY", "JWT_SECRET_KEY", "SMTP_PASSWORD"]
+    
+    for endpoint in endpoints:
+        response = client.get(endpoint)
+        if response.status_code == 200:
+            content = response.text
+            for secret in secrets:
+                secret_val = os.getenv(secret)
+                if secret_val and len(secret_val) > 4:
+                    assert secret_val not in content
+
+def test_secret_values_not_returned():
+    """
+    Verifies that password hashes and database internal fields are not exposed in responses.
+    """
+    # 1. Sign up user
+    payload = {"email": "secrets_test@example.com", "password": "SuperSecretPassword!"}
+    client.post("/api/signup", json=payload)
+    
+    # Login and check response
+    response = client.post("/api/login", json=payload)
+    assert response.status_code == 200
+    data = response.json()
+    assert "password" not in data
+    assert "_id" not in data
+    
+    # Get suppliers list (needs current user mock)
+    response_suppliers = client.get("/api/suppliers")
+    assert response_suppliers.status_code == 200
+    suppliers = response_suppliers.json()
+    for s in suppliers:
+        assert "password" not in s
+        assert "_id" not in s
+        assert "private_key" not in s
+
+def test_cors_headers():
+    """
+    Verifies that appropriate CORS headers are present on API responses.
+    """
+    response = client.options(
+        "/api/suppliers",
+        headers={
+            "Origin": "http://localhost:3000",
+            "Access-Control-Request-Method": "GET",
+            "Access-Control-Request-Headers": "Authorization"
+        }
+    )
+    assert response.status_code == 200
+    assert "access-control-allow-origin" in response.headers
+    
+    # Check that x402 headers are exposed in standard responses
+    response_get = client.get("/api/suppliers", headers={"Origin": "http://localhost:3000"})
+    assert "access-control-expose-headers" in response_get.headers
+    expose = response_get.headers["access-control-expose-headers"]
+    assert "PAYMENT-REQUIRED" in expose
+    assert "PAYMENT-RESPONSE" in expose
+
+def test_password_hashing():
+    """
+    Verifies that password hashing is correctly performed using bcrypt.
+    """
+    db = load_db()
+    for user in db.get("users", []):
+        pw_hash = user.get("password", "")
+        assert pw_hash.startswith("$2b$") or pw_hash.startswith("$2a$")
+
+def test_jwt_signature_validation():
+    """
+    Verifies that tampering with a JWT token signature results in a 401.
+    """
+    token = create_access_token(data={"sub": "security_test@example.com"})
+    # Tamper with the signature part of the token (third segment)
+    parts = token.split(".")
+    if len(parts) == 3:
+        tampered_token = f"{parts[0]}.{parts[1]}.tamperedsignaturehere"
+        
+        old_override = app.dependency_overrides.get(get_current_user)
+        if get_current_user in app.dependency_overrides:
+            del app.dependency_overrides[get_current_user]
+            
+        try:
+            response = client.get("/api/suppliers", headers={"Authorization": f"Bearer {tampered_token}"})
+            assert response.status_code == 401
+            assert "Could not validate credentials" in response.json()["detail"]
+        finally:
+            if old_override:
+                app.dependency_overrides[get_current_user] = old_override
+

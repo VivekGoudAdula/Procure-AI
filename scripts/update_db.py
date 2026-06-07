@@ -6,7 +6,7 @@ backend_path = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "ba
 if backend_path not in sys.path:
     sys.path.insert(0, backend_path)
 
-from db import suppliers_collection
+from database.db import suppliers_collection
 import random
 
 def update_db():

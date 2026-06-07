@@ -1,0 +1,14 @@
+[run]
+source = backend
+omit =
+    backend/escrow_client.py
+    backend/escrow.py
+    backend/smart_contract.py
+    */tests/*
+    */__pycache__/*
+
+[report]
+precision = 0
+show_missing = True
+skip_covered = False
+fail_under = 90

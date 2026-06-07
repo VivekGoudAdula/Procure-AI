@@ -18,9 +18,9 @@ from dotenv import load_dotenv, find_dotenv
 
 # Load .env file
 load_dotenv(find_dotenv())
-from ai_agent import select_best_supplier, run_agent_competition
-from blockchain import create_transaction, simulate_escrow
-from escrow_service import deploy_escrow
+from ai.ai_agent import select_best_supplier, run_agent_competition
+from blockchain.blockchain import create_transaction, simulate_escrow
+from blockchain.escrow_service import deploy_escrow
 from services.alibaba_procurement_service import AlibabaProcurementService
 from services.multilingual_negotiation_service import MultilingualNegotiationService
 from services.procurement_message_engine import ProcurementMessageEngine
@@ -125,11 +125,16 @@ def get_current_user(credentials: HTTPAuthorizationCredentials = Depends(securit
             headers={"WWW-Authenticate": "Bearer"},
         )
 
-from db import users_collection, escrows_collection, get_alibaba_suppliers
+from database.db import (
+    users_collection,
+    escrows_collection,
+    get_cached_suppliers,
+    persist_suppliers_from_intelligence,
+)
 
 def load_db():
     users = list(users_collection.find({}, {"_id": 0}))
-    suppliers = get_alibaba_suppliers()
+    suppliers = get_cached_suppliers()
     return {"users": users, "suppliers": suppliers}
 
 def save_db(data):
@@ -357,6 +362,7 @@ async def get_settlements_ledger(current_user: str = Depends(get_current_user)):
 async def get_procurement_intelligence(req: ProcurementIntelligenceRequest, current_user: str = Depends(get_current_user)):
     try:
         result = procurement_engine.run_intelligence(req.dict())
+        persist_suppliers_from_intelligence(result, req.product_name)
         return result
     except Exception as e:
         print(f"[ProcureAI] Error: {str(e)}")
@@ -365,8 +371,7 @@ async def get_procurement_intelligence(req: ProcurementIntelligenceRequest, curr
 @app.post("/api/login")
 @limiter.limit("5/minute")
 async def login(request: Request, user: User):
-    db = load_db()
-    users = db.get("users", [])
+    users = list(users_collection.find({}, {"_id": 0}))
     
     # Locate the user and verify their password
     found_user = next((u for u in users if u["email"] == user.email), None)
@@ -539,10 +544,11 @@ async def confirm_delivery(request: Request, req: ConfirmDeliveryRequest, curren
     if not record:
         raise HTTPException(status_code=404, detail="Escrow not found")
 
-    if record.get("escrow_status") != "verified":
-        print(f"[PROCURE-AI] Escrow status is '{record.get('escrow_status')}'. Auto-verifying for demo resilience.")
-        record["escrow_status"] = "verified"
-        record["verified"] = True
+    if record.get("escrow_status") == "released":
+        raise HTTPException(status_code=400, detail="Escrow already released")
+
+    if not record.get("verified"):
+        raise HTTPException(status_code=400, detail="Cannot release escrow without verification")
 
     record["escrow_status"] = "released"
     
@@ -555,7 +561,7 @@ async def confirm_delivery(request: Request, req: ConfirmDeliveryRequest, curren
     buyer_address = record.get("sender_address")
     supplier_address = record.get("receiver_address")
     if app_id and buyer_address:
-        from escrow_service import confirm_delivery_on_chain
+        from blockchain.escrow_service import confirm_delivery_on_chain
         try:
             settlement_res = confirm_delivery_on_chain(int(app_id), buyer_address, supplier_address)
             if "error" in settlement_res:

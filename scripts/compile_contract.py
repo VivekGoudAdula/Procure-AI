@@ -7,7 +7,7 @@ if backend_path not in sys.path:
     sys.path.insert(0, backend_path)
 
 from algopy import compile_contract
-from escrow import EscrowContract
+from blockchain.escrow import EscrowContract
 
 def compile():
     print("Compiling EscrowContract...")

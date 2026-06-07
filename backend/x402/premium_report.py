@@ -6,7 +6,7 @@ import os
 import json
 import logging
 from typing import Dict, Any
-from db import get_alibaba_suppliers
+from database.db import get_cached_suppliers
 
 logger = logging.getLogger(__name__)
 
@@ -25,7 +25,7 @@ def generate_premium_report(supplier_id: str) -> Dict[str, Any]:
         A dictionary containing the premium report fields.
     """
     # --- Resolve supplier data ---
-    all_suppliers = get_alibaba_suppliers()
+    all_suppliers = get_cached_suppliers()
     supplier = next((s for s in all_suppliers if str(s["id"]) == str(supplier_id)), None)
 
     if not supplier:

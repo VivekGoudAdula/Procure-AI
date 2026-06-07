@@ -24,7 +24,7 @@ import msgpack
 from algosdk import encoding, transaction
 from algosdk.v2client import algod as algod_client_module
 
-from blockchain import get_algod_client
+from blockchain.blockchain import get_algod_client
 from x402.config import (
     X402_AVM_ADDRESS,
     X402_ASSET,
@@ -142,7 +142,22 @@ def get_suggested_params() -> dict:
 # Payment Proof Verification (v2 flow)
 # ─────────────────────────────────────────────────────────────────────────────
 
+# Global registry of used transaction IDs for replay attack protection
+USED_TX_IDS = set()
+
 async def verify_payment_proof(
+    payment_proof_b64: str,
+    resource_path: str,
+) -> Tuple[bool, Optional[str]]:
+    success, tx_id = await _verify_payment_proof_internal(payment_proof_b64, resource_path)
+    if success and tx_id:
+        if tx_id in USED_TX_IDS:
+            logger.error(f"[x402] Replay attack detected. Transaction {tx_id} already used.")
+            return False, None
+        USED_TX_IDS.add(tx_id)
+    return success, tx_id
+
+async def _verify_payment_proof_internal(
     payment_proof_b64: str,
     resource_path: str,
 ) -> Tuple[bool, Optional[str]]:

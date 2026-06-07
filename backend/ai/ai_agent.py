@@ -16,41 +16,19 @@ if BASE_URL == "MY_APP_URL":
     BASE_URL = "http://localhost:8000"
 
 import hashlib
-from services.alibaba_procurement_service import AlibabaProcurementService
-
 
 
 def get_alibaba_suppliers(product_name: str, quantity: int = 1, budget: float = 1000.0):
-    service = AlibabaProcurementService()
-    intel = service.run_intelligence({"product_name": product_name, "quantity": quantity})
-    raw_suppliers = intel.get("suppliers", [])
-    
-    all_suppliers = []
-    for s in raw_suppliers:
-        s_id = s.get("id", str(random.randint(100000, 999999)))
-        mapped = {
-            "id": s_id,
-            "name": s["name"],
-            "category": s.get("category", "General"),
-            "product": s.get("product_title", product_name),
-            "reliability": s.get("trust_score", 85) / 100.0,
-            "address": "2RIRIX5XK6GWK7LOXDAYIDTN4IYDVNRDJFXR4TJCLYIM72A3EF2UQPROQY",
-            "endpoint": f"/supplier/{s_id}/respond",
-            "base_price": s.get("negotiated_price", 100.0),
-            "reliability_score": s.get("trust_score", 85),
-            "rating": round((s.get("trust_score", 85) / 20), 1),
-            "delivery_days": s.get("lead_time_days", 5),
-            "success_rate": s.get("success_rate", 95),
-            "total_deals": 10,
-            "successful_deals": 9,
-            "failed_deals": 1,
-            "on_time_deliveries": 8,
-            "late_deliveries": 2,
-            "reputation_hash": hashlib.sha256(f"{s_id}-10-95-80".encode()).hexdigest()
-        }
-        all_suppliers.append(mapped)
+    """Use suppliers cached from an explicit sourcing run; never call Alibaba live here."""
+    from db import get_cached_suppliers
 
-    # Fallback to realistic mock Alibaba suppliers if external API call returns nothing
+    cached = get_cached_suppliers(product_name)
+    if cached:
+        return cached
+
+    all_suppliers = []
+
+    # Fallback to realistic mock suppliers when nothing has been sourced yet
     if not all_suppliers:
         mock_companies = [
             {"name": "Shenzhen Industrial Supply Ltd", "region": "China", "price_mult": 0.85},

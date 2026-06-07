@@ -3,8 +3,8 @@ import logging
 from algosdk import account, encoding
 from algosdk.v2client import algod
 import algokit_utils
-import escrow_client
-from escrow_client import EscrowContractClient, CreateArgs, FundArgs
+from blockchain import escrow_client
+from blockchain.escrow_client import EscrowContractClient, CreateArgs, FundArgs
 
 logger = logging.getLogger(__name__)
 
