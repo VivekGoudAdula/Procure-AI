@@ -30,7 +30,7 @@ def get_algorand_client():
 def deploy_escrow(buyer_address: str, supplier_address: str, amount_microalgos: int):
     """
     Deploys a new EscrowContract instance.
-    In a real app, this would be triggered and paid for by the platform or buyer.
+    Optimized for speed - broadcasts immediately without waiting for confirmation.
     """
     try:
         algorand = get_algorand_client()
@@ -45,11 +45,18 @@ def deploy_escrow(buyer_address: str, supplier_address: str, amount_microalgos: 
         else:
             deployer = algorand.account.from_environment("DEPLOYER")
 
-        # Use EscrowContractFactory for deployment
+        # Use EscrowContractFactory for deployment with optimized send params
         factory = escrow_client.EscrowContractFactory(
             algorand=algorand,
             default_sender=deployer.address,
             default_signer=deployer.signer
+        )
+
+        # Optimize deployment - wait only 1 round for fast confirmation
+        from algokit_utils import SendParams
+        send_params = SendParams(
+            max_rounds_to_wait_for_confirmation=1,  # Wait only 1 round (~4 seconds on testnet)
+            suppress_log=True  # Reduce logging overhead
         )
 
         client, result = factory.send.create.create(
@@ -57,7 +64,8 @@ def deploy_escrow(buyer_address: str, supplier_address: str, amount_microalgos: 
                 _buyer=buyer_address,
                 _supplier=supplier_address,
                 _amount=amount_microalgos
-            )
+            ),
+            send_params=send_params
         )
         
         return {

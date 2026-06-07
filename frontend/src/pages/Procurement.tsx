@@ -979,14 +979,23 @@ const Procurement = () => {
     }));
 
     try {
-      // 1. Create Escrow on Backend (Deploys Contract)
-      const response: any = await axios.post(`${API_BASE_URL}/api/procurement/initiate-commitment`, {
+      // 1. Create Escrow on Backend (Optimized for speed)
+      toast.info('Deploying smart contract escrow...');
+      
+      // Start backend deployment immediately without waiting
+      const deploymentPromise = axios.post(`${API_BASE_URL}/api/procurement/initiate-commitment`, {
         sender: activeAddress,
         receiver: result.selectedSupplier.wallet_address || DEMO_VAULT_ADDRESS,
         amount: 0.1,
         supplier_id: result.selectedSupplier.id,
         promised_delivery_days: parseInt(result.selectedSupplier.deliveryTime) || 3
-      });
+      }, { timeout: 30000 }); // 30 second timeout
+
+      // Prepare funding transactions in parallel while backend deploys
+      const suggestedParamsPromise = algodClient.getTransactionParams().do();
+      
+      // Wait for deployment to complete
+      const response: any = await deploymentPromise;
 
       const deployedAppId = response.data.app_id;
       const deployedAppAddress = response.data.app_address;
@@ -997,9 +1006,11 @@ const Procurement = () => {
 
       setAppId(deployedAppId);
       setAppAddress(deployedAppAddress);
+      
+      // Get suggested params (already fetched in parallel)
+      const suggestedParams = await suggestedParamsPromise;
 
       // 2. Fund the Escrow via account pre-funding + ABI call
-      const suggestedParams = await algodClient.getTransactionParams().do();
       
       // A. Pre-fund the contract account with a large cushion (0.4 ALGO)
       const rentTxn = algosdk.makePaymentTxnWithSuggestedParamsFromObject({
