@@ -847,7 +847,6 @@ const Procurement = () => {
       const txData = JSON.parse(existingTx);
       const timeDiff = Date.now() - txData.timestamp;
       if (timeDiff < 30000) { // 30 seconds
-        toast.error('Transaction already in progress. Please wait.');
         return;
       }
     }
@@ -963,7 +962,6 @@ const Procurement = () => {
       const txData = JSON.parse(existingTx);
       const timeDiff = Date.now() - txData.timestamp;
       if (timeDiff < 30000) { // 30 seconds
-        toast.error('Transaction already in progress. Please wait.');
         return;
       }
     }
