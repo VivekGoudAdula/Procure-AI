@@ -291,9 +291,17 @@ Smart contracts on Algorand for secure payments:
 frontend/       React frontend
 backend/        FastAPI backend
 smartcontract/  Algorand contracts
+├── smart_contracts/
+│   ├── escrow/
+│   │   └── contract.py
+│   ├── artifacts/
+│   │   └── escrow/
+│   └── __main__.py
 tests/          Test suite
 docs/           Documentation
 ```
+
+**Note:** ProcureAI uses a production escrow contract on Algorand for procurement commitment and settlement workflows.
 
 ---
 
