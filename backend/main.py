@@ -55,7 +55,7 @@ procurement_analytics_engine = ProcurementAnalyticsEngine()
 
 # CORS setup for frontend connection
 allowed_origins_env = os.getenv("ALLOWED_ORIGINS", "")
-allowed_origins = [origin.strip() for origin in allowed_origins_env.split(",") if origin.strip()]
+allowed_origins = [origin.strip().rstrip("/") for origin in allowed_origins_env.split(",") if origin.strip()]
 if not allowed_origins:
     # Safe fallbacks for local development
     allowed_origins = ["http://localhost:3000", "http://localhost:5173"]
@@ -63,7 +63,7 @@ if not allowed_origins:
 app.add_middleware(
     CORSMiddleware,
     allow_origins=allowed_origins,
-    allow_credentials=False,
+    allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*", "PAYMENT-SIGNATURE", "X-PAYMENT"],
     expose_headers=["PAYMENT-REQUIRED", "PAYMENT-RESPONSE"],

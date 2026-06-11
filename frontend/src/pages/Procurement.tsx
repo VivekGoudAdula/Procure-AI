@@ -1694,21 +1694,40 @@ const Procurement = () => {
                       </p>
                     </div>
 
-                    {/* Single CTA: unlock the report first, commit comes after */}
-                    <button
-                      onClick={() => {
-                        // Persist selected supplier so the commit flow survives navigation
-                        const currentResult = sessionStorage.getItem('procureai_result');
-                        if (!currentResult && result) {
-                          sessionStorage.setItem('procureai_result', JSON.stringify(result));
-                        }
-                        navigate(`/premium-report?supplier_id=${result!.selectedSupplier.id}`);
-                      }}
-                      className="w-full h-14 bg-gradient-to-r from-indigo-600 via-violet-600 to-purple-600 hover:from-indigo-500 hover:via-violet-500 hover:to-purple-500 text-xs font-black uppercase tracking-wider text-white rounded-xl shadow-lg shadow-indigo-500/20 hover:shadow-xl hover:shadow-indigo-500/30 transition-all duration-300 transform hover:-translate-y-0.5 active:scale-[0.98] flex items-center justify-center gap-2 cursor-pointer"
-                    >
-                      <Sparkles className="w-4 h-4" />
-                      Initiate Session
-                    </button>
+                    {/* Two buttons: Unlock Premium Report and Commit to Procurement */}
+                    <div className="space-y-3">
+                      <button
+                        onClick={() => {
+                          // Persist selected supplier so the commit flow survives navigation
+                          const currentResult = sessionStorage.getItem('procureai_result');
+                          if (!currentResult && result) {
+                            sessionStorage.setItem('procureai_result', JSON.stringify(result));
+                          }
+                          navigate(`/premium-report?supplier_id=${result!.selectedSupplier.id}`);
+                        }}
+                        className="w-full h-12 bg-gradient-to-r from-indigo-600 via-violet-600 to-purple-600 hover:from-indigo-500 hover:via-violet-500 hover:to-purple-500 text-xs font-black uppercase tracking-wider text-white rounded-xl shadow-lg shadow-indigo-500/20 hover:shadow-xl hover:shadow-indigo-500/30 transition-all duration-300 transform hover:-translate-y-0.5 active:scale-[0.98] flex items-center justify-center gap-2 cursor-pointer"
+                      >
+                        <Sparkles className="w-4 h-4" />
+                        Unlock Premium Report
+                      </button>
+                      <button
+                        onClick={() => handleExecuteDealFromSelection(result!.selectedSupplier)}
+                        disabled={isExecuting}
+                        className="w-full h-12 bg-gradient-to-r from-emerald-600 via-teal-600 to-cyan-600 hover:from-emerald-500 hover:via-teal-500 hover:to-cyan-500 text-xs font-black uppercase tracking-wider text-white rounded-xl shadow-lg shadow-emerald-500/20 hover:shadow-xl hover:shadow-emerald-500/30 transition-all duration-300 transform hover:-translate-y-0.5 active:scale-[0.98] flex items-center justify-center gap-2 cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed disabled:transform-none"
+                      >
+                        {isExecuting ? (
+                          <>
+                            <Loader2 className="w-4 h-4 animate-spin" />
+                            Processing...
+                          </>
+                        ) : (
+                          <>
+                            <Shield className="w-4 h-4" />
+                            Commit to Procurement
+                          </>
+                        )}
+                      </button>
+                    </div>
                   </div>
                 ) : (
                   <div className="space-y-4">
@@ -1736,19 +1755,39 @@ const Procurement = () => {
                       </div>
                     </div>
 
-                    <button
-                      onClick={() => {
-                        const currentResult = sessionStorage.getItem('procureai_result');
-                        if (!currentResult && result) {
-                          sessionStorage.setItem('procureai_result', JSON.stringify(result));
-                        }
-                        navigate(`/premium-report?supplier_id=${result!.selectedSupplier.id}`);
-                      }}
-                      className="w-full h-14 bg-gradient-to-r from-indigo-600 via-violet-600 to-purple-600 hover:from-indigo-500 hover:via-violet-500 hover:to-purple-500 text-xs font-black uppercase tracking-wider text-white rounded-xl shadow-lg shadow-indigo-500/20 hover:shadow-xl hover:shadow-indigo-500/30 flex items-center justify-center gap-2 cursor-pointer"
-                    >
-                      <Sparkles className="w-4 h-4" />
-                      Initiate Session
-                    </button>
+                    {/* Two buttons: Unlock Premium Report and Commit to Procurement */}
+                    <div className="space-y-3">
+                      <button
+                        onClick={() => {
+                          const currentResult = sessionStorage.getItem('procureai_result');
+                          if (!currentResult && result) {
+                            sessionStorage.setItem('procureai_result', JSON.stringify(result));
+                          }
+                          navigate(`/premium-report?supplier_id=${result!.selectedSupplier.id}`);
+                        }}
+                        className="w-full h-12 bg-gradient-to-r from-indigo-600 via-violet-600 to-purple-600 hover:from-indigo-500 hover:via-violet-500 hover:to-purple-500 text-xs font-black uppercase tracking-wider text-white rounded-xl shadow-lg shadow-indigo-500/20 hover:shadow-xl hover:shadow-indigo-500/30 transition-all duration-300 transform hover:-translate-y-0.5 active:scale-[0.98] flex items-center justify-center gap-2 cursor-pointer"
+                      >
+                        <Sparkles className="w-4 h-4" />
+                        Unlock Premium Report
+                      </button>
+                      <button
+                        onClick={() => handleExecuteDealFromSelection(result!.selectedSupplier)}
+                        disabled={isExecuting}
+                        className="w-full h-12 bg-gradient-to-r from-emerald-600 via-teal-600 to-cyan-600 hover:from-emerald-500 hover:via-teal-500 hover:to-cyan-500 text-xs font-black uppercase tracking-wider text-white rounded-xl shadow-lg shadow-emerald-500/20 hover:shadow-xl hover:shadow-emerald-500/30 transition-all duration-300 transform hover:-translate-y-0.5 active:scale-[0.98] flex items-center justify-center gap-2 cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed disabled:transform-none"
+                      >
+                        {isExecuting ? (
+                          <>
+                            <Loader2 className="w-4 h-4 animate-spin" />
+                            Processing...
+                          </>
+                        ) : (
+                          <>
+                            <Shield className="w-4 h-4" />
+                            Commit to Procurement
+                          </>
+                        )}
+                      </button>
+                    </div>
                   </div>
                 )}
               </CardContent>
